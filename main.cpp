@@ -682,9 +682,18 @@ int on_raw_recv()
 
 	size = recvfrom(raw_recv_fd, buf, buf_len, 0 ,&saddr , &saddr_size);
 
+	if(buf[13]!=8||buf[14]!=0)
+	{
+		printf("not an ipv4 packet!\n");
+		fflush(stdout);
+		return 0;
+	}
+
 	char *ip_data=buf+14;
 
 	struct iphdr *iph = (struct iphdr *) (ip_data);
+
+
 
 
     if (!(iph->ihl > 0 && iph->ihl < (MTU)/4)) {
