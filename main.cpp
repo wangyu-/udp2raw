@@ -822,7 +822,7 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				ev.events = EPOLLIN;
 				ev.data.fd = udp_fd;
 				int ret = epoll_ctl(epollfd, EPOLL_CTL_DEL, udp_fd, &ev);
-				close(udp_fd);
+				//close(udp_fd);
 				udp_fd=-1;
 			}
 			received_session_id=session_id;
@@ -916,7 +916,7 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 					ev.events = EPOLLIN;
 					ev.data.fd = old_fd;
 					ret = epoll_ctl(epollfd, EPOLL_CTL_DEL, old_fd, &ev);
-					close(old_fd);
+					//close(old_fd);
 				}
 
 			}
@@ -926,14 +926,14 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				received_session_id=tmp_received_session_id;
 				printf("created new udp_fd");
 			}
-
 			printf("received a data from fake tcp,len:%d\n",data_len);
 			int ret=send(udp_fd,data+1+sizeof(session_id)*2,data_len -(1+sizeof(session_id)*2),0);
 			printf("%d byte sent\n",ret);
 		}
 	}
 }
-
+char raw_recv_buf[buf_len];
+char raw_recv_buf2[buf_len];
 
 int on_raw_recv()
 {
@@ -981,6 +981,47 @@ int on_raw_recv()
     }
 
 
+    /////ip
+    uint32_t ip_chk=csum ((unsigned short *) ip_data, iphdrlen);
+
+    int psize = sizeof(struct pseudo_header) + ip_len-iphdrlen;
+    /////ip end
+
+
+    ///tcp
+    struct pseudo_header psh;
+
+    psh.source_address = iph->saddr;
+    psh.dest_address = iph->daddr;
+    psh.placeholder = 0;
+    psh.protocol = IPPROTO_TCP;
+    psh.tcp_length = htons(ip_len-iphdrlen);
+
+    memcpy(raw_recv_buf2 , (char*) &psh , sizeof (struct pseudo_header));
+    memcpy(raw_recv_buf2 + sizeof(struct pseudo_header) , ip_data+ iphdrlen , ip_len-iphdrlen);
+
+    uint16_t tcp_chk = csum( (unsigned short*) raw_recv_buf2, psize);
+
+
+   if(ip_chk!=0)
+    {
+    	printf("ip header error %d\n",ip_chk);
+    	return 0;
+    }
+    if(tcp_chk!=0)
+    {
+    	printf("tcp_chk:%x\n",tcp_chk);
+    	printf("tcp header error\n");
+    	return 0;
+
+    }
+    ////tcp end
+
+
+
+
+
+   // char pseudo_tcp_buffer[MTU];
 
     int data_len = ip_len-tcphdrlen-iphdrlen;
 
@@ -1237,7 +1278,6 @@ int server()
 		{
 			if (events[n].data.fd == udp_fd)
 			{
-
 				int recv_len=recv(udp_fd,buf,buf_len,0);
 				printf("received a packet from udp_fd,len:%d\n",recv_len);
 				perror("wtf?");
