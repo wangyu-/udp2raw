@@ -48,6 +48,13 @@ int epollfd ;
 uint32_t session_id=0;
 uint32_t received_session_id=0;
 
+const int handshake_timeout=1000;
+const int heartbeat_timeout=10000;
+const int udp_timeout=2000;
+
+//const uint16_t tcp_window=50000;
+
+
 const int buf_len = 20480;
 
 const int server_mode=2;
@@ -57,6 +64,13 @@ const int RETRY_TIME=3;
 
 const int debug_mode=0;
 int bind_fd;
+
+const int seq_mode=2;  //0  increase /1 dont increase   //increase randomly,about every 10 packet
+
+const uint64_t epoll_timer_fd_sn=1;
+const uint64_t epoll_raw_recv_fd_sn=2;
+uint64_t epoll_udp_fd_sn=256;
+
 
 void handler(int num) {
 	int status;
@@ -360,7 +374,9 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
     tcph->ack=info.ack;
 
     tcph->urg=0;
-    tcph->window = htons((uint16_t)129600);
+    tcph->window = htons((uint16_t)(40000+random()%20000));
+
+
     tcph->check = 0; //leave checksum 0 now, filled later by pseudo header
     tcph->urg_ptr = 0;
 
@@ -387,7 +403,20 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
      int ret = sendto(raw_send_fd, raw_send_buf, iph->tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
      if(g_packet_info.syn==0&&g_packet_info.ack==1&&payloadlen!=0)
      {
-    	 g_packet_info.seq+=payloadlen;
+    	 if(seq_mode==0)
+    	 {
+
+    		 g_packet_info.seq+=payloadlen;
+    	 }
+    	 else if(seq_mode==1)
+    	 {
+
+    	 }
+    	 else if(seq_mode==3)
+    	 {
+    		 if(random()% 20==5 )
+    			 g_packet_info.seq+=payloadlen;
+    	 }
      }
      if(debug_mode) printf("<ret:%d>\n",ret);
 	 if(ret<0)
@@ -514,7 +543,7 @@ int fake_tcp_keep_connection_client() //for client
 		g_packet_info.ack_seq=get_true_random_number();
 		send_sync(/*sync*/);//send sync
 	}
-	if(client_current_state==client_syn_sent  &&get_current_time()-last_state_time>1000ll)
+	if(client_current_state==client_syn_sent  &&get_current_time()-last_state_time>handshake_timeout)
 	{
 		if(retry_counter==0)
 		{
@@ -530,7 +559,7 @@ int fake_tcp_keep_connection_client() //for client
 			last_state_time=get_current_time();
 		}
 	}
-	if(client_current_state==client_ack_sent &&get_current_time()-last_state_time>1000)
+	if(client_current_state==client_ack_sent &&get_current_time()-last_state_time>handshake_timeout)
 	{
 		printf("!!!!!\n");
 		fflush(stdout);
@@ -553,7 +582,7 @@ int fake_tcp_keep_connection_client() //for client
 	if(client_current_state==client_ready)
 	{
 		if(debug_mode)printf("time %lld %lld\n",get_current_time(),last_state_time);
-		if(get_current_time()-last_hb_recv_time>5*1000ll)
+		if(get_current_time()-last_hb_recv_time>heartbeat_timeout)
 		{
 			client_current_state=client_nothing;
 			printf("state back to nothing\n");
@@ -586,7 +615,7 @@ int fake_tcp_keep_connection_server()
 	{
 		return 0;
 	}
-	if(server_current_state==server_syn_ack_sent &&get_current_time()-last_state_time>1000ll )
+	if(server_current_state==server_syn_ack_sent &&get_current_time()-last_state_time>handshake_timeout )
 	{
 		if(retry_counter==0)
 		{
@@ -605,7 +634,9 @@ int fake_tcp_keep_connection_server()
 	}
 	if(server_current_state==server_heartbeat_sent||server_current_state==server_ready)
 	{
-		if(get_current_time()-last_hb_recv_time>5*1000ll)
+		if( (server_current_state==server_heartbeat_sent&&get_current_time()-last_hb_recv_time>handshake_timeout )
+		||  ( server_current_state==server_ready&&get_current_time()-last_hb_recv_time>heartbeat_timeout )
+		)
 		{
 			printf("%lld %lld",get_current_time(),last_state_time);
 			server_current_state=server_nothing;
@@ -654,7 +685,7 @@ int set_timer(int epollfd,int &timer_fd)
 
 
 	ev.events = EPOLLIN;
-	ev.data.fd = timer_fd;
+	ev.data.u64 = epoll_timer_fd_sn;
 
 	epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
@@ -746,7 +777,7 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				printf("client session id mismatch%x %x,ignore\n",tmp_session_id,session_id);
 				return 0;
 			}
-
+			last_hb_recv_time=get_current_time();
 			int ret=sendto(udp_fd,data+1+sizeof(session_id)*2,data_len -(1+sizeof(session_id)*2),0,(struct sockaddr *)&udp_old_addr_in,sizeof(udp_old_addr_in));
 			if(ret<0)perror("ret<0");
 			printf("%d byte sent\n",ret);
@@ -757,6 +788,7 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 #include <set>
 using namespace std;
 set<uint32_t> died_session_id;
+
 
 
 int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
@@ -819,10 +851,8 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 
 			if(udp_fd!=-1)
 			{
-				ev.events = EPOLLIN;
-				ev.data.fd = udp_fd;
-				int ret = epoll_ctl(epollfd, EPOLL_CTL_DEL, udp_fd, &ev);
-				//close(udp_fd);
+				int ret = epoll_ctl(epollfd, EPOLL_CTL_DEL, udp_fd, 0);
+				close(udp_fd);
 				udp_fd=-1;
 			}
 			received_session_id=session_id;
@@ -902,7 +932,8 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				struct epoll_event ev;
 
 				ev.events = EPOLLIN;
-				ev.data.fd = udp_fd;
+				epoll_udp_fd_sn+=256;
+				ev.data.u64 = epoll_udp_fd_sn;
 
 				ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
 
@@ -913,10 +944,8 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 
 				if(old_fd!=-1)
 				{
-					ev.events = EPOLLIN;
-					ev.data.fd = old_fd;
-					ret = epoll_ctl(epollfd, EPOLL_CTL_DEL, old_fd, &ev);
-					//close(old_fd);
+					epoll_ctl(epollfd, EPOLL_CTL_DEL, old_fd, 0);
+					close(old_fd);
 				}
 
 			}
@@ -927,6 +956,7 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				printf("created new udp_fd");
 			}
 			printf("received a data from fake tcp,len:%d\n",data_len);
+			last_hb_recv_time=get_current_time();
 			int ret=send(udp_fd,data+1+sizeof(session_id)*2,data_len -(1+sizeof(session_id)*2),0);
 			printf("%d byte sent\n",ret);
 		}
@@ -1034,7 +1064,8 @@ int on_raw_recv()
 
     if(data_len>0&&tcph->syn==0&&tcph->ack==1)
     {
-    	g_packet_info.ack_seq=ntohl(tcph->seq)+(uint32_t)data_len;
+    	//if(seq_increse)
+    		g_packet_info.ack_seq=ntohl(tcph->seq)+(uint32_t)data_len;
     }
 
 
@@ -1108,14 +1139,14 @@ int client()
 	}
 
 	ev.events = EPOLLIN;
-	ev.data.fd = udp_fd;
+	ev.data.u64 = epoll_udp_fd_sn;
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
 	if (ret!=0) {
 		printf("add  udp_listen_fd error\n");
 		exit(-1);
 	}
 	ev.events = EPOLLIN;
-	ev.data.fd = raw_recv_fd;
+	ev.data.u64 = epoll_raw_recv_fd_sn;
 
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
@@ -1141,7 +1172,7 @@ int client()
 		}
 		int n;
 		for (n = 0; n < nfds; ++n) {
-			if (events[n].data.fd == raw_recv_fd)
+			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
 			{
 				on_raw_recv();
 				/*if(is_sync_ack)
@@ -1157,7 +1188,7 @@ int client()
 					sendto();
 				}*/
 			}
-			if(events[n].data.fd ==timer_fd)
+			if(events[n].data.u64 ==epoll_timer_fd_sn)
 			{
 				//printf("timer!\n");
 				//fflush(stdout);
@@ -1165,7 +1196,7 @@ int client()
 				read(timer_fd, &value, 8);
 				fake_tcp_keep_connection_client();
 			}
-			if (events[n].data.fd == udp_fd)
+			if (events[n].data.u64 == epoll_udp_fd_sn)
 			{
 
 				socklen_t recv_len;
@@ -1187,7 +1218,7 @@ int client()
 				else if(udp_new_addr_in.sin_addr.s_addr!=udp_old_addr_in.sin_addr.s_addr
 						||udp_new_addr_in.sin_port!=udp_old_addr_in.sin_port)
 				{
-					if(get_current_time()- last_udp_recv_time <3*1000)
+					if(get_current_time()- last_udp_recv_time <udp_timeout)
 					{
 						printf("new <ip,port> connected in,ignored,bc last connection is still active\n");
 						continue;
@@ -1256,7 +1287,9 @@ int server()
 	}
 
 	ev.events = EPOLLIN;
-	ev.data.fd = raw_recv_fd;
+	ev.data.u64 = epoll_raw_recv_fd_sn;
+
+
 
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
@@ -1276,7 +1309,7 @@ int server()
 		const int MTU=1440;
 		for (n = 0; n < nfds; ++n)
 		{
-			if (events[n].data.fd == udp_fd)
+			if (events[n].data.u64 == epoll_udp_fd_sn)
 			{
 				int recv_len=recv(udp_fd,buf,buf_len,0);
 				printf("received a packet from udp_fd,len:%d\n",recv_len);
@@ -1290,13 +1323,13 @@ int server()
 				send_data(g_packet_info,buf,recv_len,received_session_id,session_id);
 			}
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
-			if (events[n].data.fd == timer_fd)
+			if (events[n].data.u64 == epoll_timer_fd_sn)
 			{
 				uint64_t value;
 				read(timer_fd, &value, 8);
 				fake_tcp_keep_connection_server();
 			}
-			if (events[n].data.fd == raw_recv_fd)
+			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
 			{
 				on_raw_recv();
 			}
