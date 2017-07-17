@@ -552,7 +552,7 @@ int try_to_list_and_bind(int port)
      bzero(&temp_bind_addr, sizeof(temp_bind_addr));
 
      temp_bind_addr.sin_family = AF_INET;
-     temp_bind_addr.sin_port = htons(local_port);
+     temp_bind_addr.sin_port = htons(port);
      temp_bind_addr.sin_addr.s_addr = inet_addr(local_address);
 
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
@@ -598,7 +598,9 @@ int fake_tcp_keep_connection_client() //for client
 
 		g_packet_info.src_port=client_bind_to_a_new_port();
 		printf("using port %d\n",g_packet_info.src_port);
+
 		g_packet_info.src_ip=inet_addr(source_address);
+
 		init_filter(g_packet_info.src_port);
 
 		g_packet_info.seq=get_true_random_number();
@@ -834,13 +836,20 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		else if(data_len>=sizeof(session_id)*2+1&&data[0]=='d')
 		{
 			printf("received a data from fake tcp,len:%d\n",data_len);
-			uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[1]));
+			uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[1+sizeof(session_id)]));
 
 			if(tmp_session_id!=session_id)
 			{
 				printf("client session id mismatch%x %x,ignore\n",tmp_session_id,session_id);
 				return 0;
 			}
+			uint32_t tmp_recved_session_id=ntohl(* ((uint32_t *)&data[1]));
+			if(tmp_recved_session_id!=received_session_id)
+			{
+				printf("server session id mismatch%x %x,ignore\n",tmp_recved_session_id,session_id);
+				return 0;
+			}
+
 			last_hb_recv_time=get_current_time();
 			int ret=sendto(udp_fd,data+1+sizeof(session_id)*2,data_len -(1+sizeof(session_id)*2),0,(struct sockaddr *)&udp_old_addr_in,sizeof(udp_old_addr_in));
 			if(ret<0)perror("ret<0");
@@ -851,7 +860,6 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 }
 #include <set>
 using namespace std;
-set<uint32_t> died_session_id;
 
 
 
@@ -969,14 +977,39 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				printf("server session id mismatch,ignore\n");
 				return 0;
 			}
-			if(tmp_received_session_id!=received_session_id)
+
+			if(tmp_received_session_id!=received_session_id)  //magic to find out which one is actually larger
+				//consider 0xffffffff+1= 0x0 ,in this case 0x0 is "actually" larger
+
 			{
-				if(died_session_id.find(tmp_received_session_id)!=died_session_id.end())
+				uint32_t smaller,bigger;
+				smaller=min(received_session_id,tmp_received_session_id);//smaller in normal sense
+				bigger=max(received_session_id,tmp_received_session_id);
+				uint32_t distance=min(bigger-smaller,smaller+(0xffffffff-bigger+1));
+
+				if(distance==bigger-smaller)
 				{
-					printf("packet from an old died session id\n");
-					return 0;
+					if(bigger==received_session_id) //received_session_id is acutally bigger
+					{
+						printf("old_session_id ,ingored1\n");
+						return 0;
+					}
 				}
-				died_session_id.insert(received_session_id);
+				else
+				{
+					if(smaller==received_session_id) //received_session_id is acutally bigger
+					{
+						printf("old_session_id ,ingored2\n");
+						return 0;
+					}
+				}
+			}
+
+
+			if(tmp_received_session_id < received_session_id)
+			{
+				printf("received a packet from an old session,ignored\n");
+				return 0;
 			}
 			if(udp_fd==-1||tmp_received_session_id!=received_session_id)// this is first send or client changed session
 			{
@@ -1313,7 +1346,7 @@ int client()
 					{
 						printf("new <ip,port> connected in,accpeted\n");
 						memcpy(&udp_old_addr_in,&udp_new_addr_in,sizeof(udp_new_addr_in));
-						session_id=get_true_random_number();
+						session_id=session_id+1;
 					}
 				}
 
@@ -1406,7 +1439,7 @@ int server()
 					continue;
 					//return 0;
 				}
-				send_data(g_packet_info,buf,recv_len,received_session_id,session_id);
+				send_data(g_packet_info,buf,recv_len,session_id,received_session_id);
 			}
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
 			if (events[n].data.u64 == epoll_timer_fd_sn)
