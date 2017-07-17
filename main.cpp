@@ -52,6 +52,8 @@ const int handshake_timeout=1000;
 const int heartbeat_timeout=10000;
 const int udp_timeout=2000;
 
+const int timer_interval=400;
+
 //const uint16_t tcp_window=50000;
 
 
@@ -65,7 +67,7 @@ const int RETRY_TIME=3;
 const int debug_mode=0;
 int bind_fd;
 
-const int seq_mode=2;  //0  increase /1 dont increase   //increase randomly,about every 10 packet
+const int seq_mode=2;  //0  dont  increase /1 increase   //increase randomly,about every 10 packet
 
 const uint64_t epoll_timer_fd_sn=1;
 const uint64_t epoll_raw_recv_fd_sn=2;
@@ -285,6 +287,8 @@ struct packet_info_t
 	bool syn,ack,psh;
 	uint32_t seq,ack_seq;
 
+	uint32_t ts,ts_ack;
+
 
 }g_packet_info;
 
@@ -320,7 +324,7 @@ unsigned short csum(unsigned short *ptr,int nbytes) {
 
     return(answer);
 }
-
+uint16_t ip_id=1;
 int send_raw(packet_info_t &info,char * payload,int payloadlen)
 {
 	if(prog_mode==client_mode&& payloadlen!=9  ||prog_mode==server_mode&& payloadlen!=5)
@@ -333,13 +337,9 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
 
     //TCP header
     struct tcphdr *tcph = (struct tcphdr *) (raw_send_buf + sizeof (struct ip));
+
     struct sockaddr_in sin;
     struct pseudo_header psh;
-
-    //Data part
-    data = raw_send_buf + sizeof(struct iphdr) + sizeof(struct tcphdr);
-
-    memcpy(data , payload, payloadlen);
 
     //some address resolution
     sin.sin_family = AF_INET;
@@ -350,10 +350,10 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
     iph->ihl = 5;
     iph->version = 4;
     iph->tos = 0;
-    iph->tot_len = sizeof (struct iphdr) + sizeof (struct tcphdr) + payloadlen;
-    iph->id = htonl (54321); //Id of this packet
-    iph->frag_off = 0;
-    iph->ttl = 255;
+
+    iph->id = htonl (ip_id++); //Id of this packet
+    iph->frag_off = htons(0x4000); //DF set,others are zero
+    iph->ttl = 64;
     iph->protocol = IPPROTO_TCP;
     iph->check = 0; //Set to 0 before calculating checksum
     iph->saddr = info.src_ip;    //Spoof the source ip address
@@ -366,30 +366,91 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
     tcph->seq =htonl(info.seq);
     tcph->ack_seq = htonl(info.ack_seq);
 
-    tcph->doff = 5;  //tcp header size
     tcph->fin=0;
     tcph->syn=info.syn;
     tcph->rst=0;
     tcph->psh=info.psh;
     tcph->ack=info.ack;
 
+    if(tcph->syn==1)
+    {
+    	tcph->doff = 10;  //tcp header size
+    	int i=sizeof (struct iphdr)+20;
+    	raw_send_buf[i++]=0x02;//mss
+    	raw_send_buf[i++]=0x04;
+    	raw_send_buf[i++]=0x05;
+    	raw_send_buf[i++]=0xb4;
+
+    	//raw_send_buf[i++]=0x01;
+    	//raw_send_buf[i++]=0x01;
+    	raw_send_buf[i++]=0x04; //sack ok
+    	raw_send_buf[i++]=0x02; //sack ok
+
+
+    	raw_send_buf[i++]=0x08;   //i=6;
+    	raw_send_buf[i++]=0x0a;
+
+    	*(uint32_t*)(& raw_send_buf[i])=htonl((uint32_t)get_current_time());
+
+    	i+=4;
+
+    	*(uint32_t*)(& raw_send_buf[i])=htonl(info.ts_ack);
+    	i+=4;
+
+    	raw_send_buf[i++]=0x01;
+    	raw_send_buf[i++]=0x03;
+    	raw_send_buf[i++]=0x03;
+    	raw_send_buf[i++]=0x05;
+    }
+    else
+    {
+    	tcph->doff=8;
+    	int i=sizeof (struct iphdr)+20;
+
+    	raw_send_buf[i++]=0x01;
+    	raw_send_buf[i++]=0x01;
+
+    	raw_send_buf[i++]=0x08;   //i=0;
+    	raw_send_buf[i++]=0x0a;
+
+    	*(uint32_t*)(& raw_send_buf[i])=htonl((uint32_t)get_current_time());
+
+    	i+=4;
+
+    	*(uint32_t*)(& raw_send_buf[i])=htonl(info.ts_ack);
+    	i+=4;
+
+
+    }
+
+
+
     tcph->urg=0;
-    tcph->window = htons((uint16_t)(40000+random()%20000));
+    //tcph->window = htons((uint16_t)(1024));
+    tcph->window = htons((uint16_t)(10240+random()%100));
 
 
     tcph->check = 0; //leave checksum 0 now, filled later by pseudo header
     tcph->urg_ptr = 0;
 
+
+    //Data part
+    data = raw_send_buf + sizeof(struct iphdr) + tcph->doff*4;
+
+    iph->tot_len = sizeof (struct iphdr) + tcph->doff*4 + payloadlen;
+
+    memcpy(data , payload, payloadlen);
+
     psh.source_address = info.src_ip;
     psh.dest_address = sin.sin_addr.s_addr;
     psh.placeholder = 0;
     psh.protocol = IPPROTO_TCP;
-    psh.tcp_length = htons(sizeof(struct tcphdr) + payloadlen );
+    psh.tcp_length = htons(tcph->doff*4 + payloadlen );
 
-    int psize = sizeof(struct pseudo_header) + sizeof(struct tcphdr) + payloadlen;
+    int psize = sizeof(struct pseudo_header) + tcph->doff*4 + payloadlen;
 
      memcpy(raw_send_buf2 , (char*) &psh , sizeof (struct pseudo_header));
-     memcpy(raw_send_buf2 + sizeof(struct pseudo_header) , tcph , sizeof(struct tcphdr) + payloadlen);
+     memcpy(raw_send_buf2 + sizeof(struct pseudo_header) , tcph , tcph->doff*4 + payloadlen);
 
      tcph->check = csum( (unsigned short*) raw_send_buf2, psize);
 
@@ -401,18 +462,19 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
      printf("sent seq  ack_seq len<%u %u %d>\n",g_packet_info.seq,g_packet_info.ack_seq,payloadlen);
 
      int ret = sendto(raw_send_fd, raw_send_buf, iph->tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
+
      if(g_packet_info.syn==0&&g_packet_info.ack==1&&payloadlen!=0)
      {
     	 if(seq_mode==0)
     	 {
 
-    		 g_packet_info.seq+=payloadlen;
+
     	 }
     	 else if(seq_mode==1)
     	 {
-
+    		 g_packet_info.seq+=payloadlen;
     	 }
-    	 else if(seq_mode==3)
+    	 else if(seq_mode==2)
     	 {
     		 if(random()% 20==5 )
     			 g_packet_info.seq+=payloadlen;
@@ -540,7 +602,9 @@ int fake_tcp_keep_connection_client() //for client
 		init_filter(g_packet_info.src_port);
 
 		g_packet_info.seq=get_true_random_number();
-		g_packet_info.ack_seq=get_true_random_number();
+		g_packet_info.ack_seq=0;//get_true_random_number();
+
+		g_packet_info.ts_ack=0;
 		send_sync(/*sync*/);//send sync
 	}
 	if(client_current_state==client_syn_sent  &&get_current_time()-last_state_time>handshake_timeout)
@@ -679,8 +743,8 @@ int set_timer(int epollfd,int &timer_fd)
 		printf("timer_fd create error");
 		exit(1);
 	}
-	its.it_interval.tv_sec=1;
-	its.it_value.tv_sec=1;
+	its.it_interval.tv_nsec=timer_interval*1000ll*1000ll;
+	its.it_value.tv_nsec=1; //imidiately
 	timerfd_settime(timer_fd,0,&its,0);
 
 
@@ -804,7 +868,11 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		g_packet_info.psh=0;
 		g_packet_info.syn=1;
 		g_packet_info.ack=1;
-		g_packet_info.seq;//dont need to set
+
+
+		g_packet_info.seq=get_true_random_number();//not necessary to set
+
+
 		printf("sent syn ack\n");
 		fflush(stdout);
 		send_raw(g_packet_info,0,0);
@@ -983,9 +1051,9 @@ int on_raw_recv()
 		return 0;
 	}
 
-	char *ip_data=buf+14;
+	char *ip_begin=buf+14;
 
-	struct iphdr *iph = (struct iphdr *) (ip_data);
+	struct iphdr *iph = (struct iphdr *) (ip_begin);
 
 
     if (!(iph->ihl > 0 && iph->ihl <=60)) {
@@ -1002,7 +1070,7 @@ int on_raw_recv()
 	int ip_len=ntohs(iph->tot_len);
 
     unsigned short iphdrlen =iph->ihl*4;
-    struct tcphdr *tcph=(struct tcphdr*)(ip_data+ iphdrlen);
+    struct tcphdr *tcph=(struct tcphdr*)(ip_begin+ iphdrlen);
     unsigned short tcphdrlen = tcph->doff*4;
 
     if (!(tcph->doff > 0 && tcph->doff <=60)) {
@@ -1012,7 +1080,7 @@ int on_raw_recv()
 
 
     /////ip
-    uint32_t ip_chk=csum ((unsigned short *) ip_data, iphdrlen);
+    uint32_t ip_chk=csum ((unsigned short *) ip_begin, iphdrlen);
 
     int psize = sizeof(struct pseudo_header) + ip_len-iphdrlen;
     /////ip end
@@ -1028,7 +1096,7 @@ int on_raw_recv()
     psh.tcp_length = htons(ip_len-iphdrlen);
 
     memcpy(raw_recv_buf2 , (char*) &psh , sizeof (struct pseudo_header));
-    memcpy(raw_recv_buf2 + sizeof(struct pseudo_header) , ip_data+ iphdrlen , ip_len-iphdrlen);
+    memcpy(raw_recv_buf2 + sizeof(struct pseudo_header) , ip_begin+ iphdrlen , ip_len-iphdrlen);
 
     uint16_t tcp_chk = csum( (unsigned short*) raw_recv_buf2, psize);
 
@@ -1045,6 +1113,24 @@ int on_raw_recv()
     	return 0;
 
     }
+    char *tcp_begin=raw_recv_buf2+sizeof(struct pseudo_header);  //data
+
+    char *tcp_option=raw_recv_buf2+sizeof(struct pseudo_header)+sizeof(tcphdr);
+
+    if(tcph->doff==10)
+    {
+    	if(tcp_option[6]==0x08 &&tcp_option[7]==0x0a)
+    	{
+    		g_packet_info.ts_ack= ntohl(*(uint32_t*)(&tcp_option[8]));
+    	}
+    }
+    if(tcph->doff==8)
+    {
+    	if(tcp_option[3]==0x08 &&tcp_option[4]==0x0a)
+    	{
+    		g_packet_info.ts_ack= ntohl(*(uint32_t*)(&tcp_option[0]));
+    	}
+    }
     ////tcp end
 
 
@@ -1055,7 +1141,7 @@ int on_raw_recv()
 
     int data_len = ip_len-tcphdrlen-iphdrlen;
 
-    char *data=ip_data+tcphdrlen+iphdrlen;
+    char *data=ip_begin+tcphdrlen+iphdrlen;
 
     if(prog_mode==client_mode&& data_len!=5  ||prog_mode==server_mode&& data_len!=9)
     {
