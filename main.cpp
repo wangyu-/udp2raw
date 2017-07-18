@@ -39,6 +39,8 @@
 
 #include <sys/timerfd.h>
 #include <set>
+#include <encryption.h>
+#include <inttypes.h>
 
 using namespace std;
 
@@ -58,7 +60,7 @@ const int timer_interval=400;
 //const uint16_t tcp_window=50000;
 
 
-const int buf_len = 20480;
+const int buf_len = 65535+100;
 
 const int server_mode=2;
 const int client_mode=1;
@@ -95,7 +97,9 @@ char raw_send_buf[buf_len];
 char raw_send_buf2[buf_len];
 char raw_recv_buf[buf_len];
 char raw_recv_buf2[buf_len];
-
+char raw_recv_buf3[buf_len];
+char replay_buf[buf_len];
+char send_data_buf[buf_len];  //buf for send data and send hb
 
 struct sock_filter code[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
@@ -128,6 +132,74 @@ uint16_t ip_id=1;
 //const int MTU=1440;
 
 struct sockaddr_in udp_old_addr_in;
+
+uint64_t seq=0;
+uint8_t key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
+
+
+
+int pre_send(char * data, int &data_len)
+{
+	//return 0;
+	if(data_len<0) return -3;
+
+	seq++;
+	uint32_t seq_high= htonl(seq>>32u);
+
+	uint32_t seq_low= htonl((seq<<32u)>>32u);
+
+	memcpy(replay_buf,&seq_high,sizeof(uint32_t));
+	memcpy(replay_buf+sizeof(uint32_t),&seq_low,sizeof(uint32_t));
+
+	memcpy(replay_buf+sizeof(uint32_t)*2,data,data_len);
+
+	data_len+=sizeof(uint32_t)*2;
+
+	//memcpy(data,replay_buf,data_len);
+
+	if(my_encrypt((unsigned char*)replay_buf,(unsigned char*)data,data_len,key) <0)
+	{
+		printf("encrypt fail\n");
+		return -1;
+	}
+	return 0;
+}
+
+int pre_recv(char * data, int &data_len)
+{
+	//return 0;
+	if(data_len<0) return -1;
+	//if(data_len<8+16) return -3;
+
+	if(my_decrypt((uint8_t*)data,(uint8_t*)replay_buf,data_len,key) <0)
+	{
+		printf("decrypt fail\n");
+		return -1;
+	}
+
+	data_len-=sizeof(uint32_t)*2;
+	if(data_len<0)
+	{
+		printf("data_len<=0\n");
+		return -2;
+	}
+
+	uint64_t seq_high= ntohl(*((uint32_t*)(replay_buf) ) );
+	uint32_t seq_low= ntohl(*((uint32_t*)(replay_buf+sizeof(uint32_t)) ) );
+
+
+	uint64_t recv_seq =(seq_high<<32u )+seq_low;
+
+	printf("<<<<<%ld,%d,%ld>>>>\n",seq_high,seq_low,recv_seq);
+
+
+	memcpy(data,replay_buf+sizeof(uint32_t)*2,data_len);
+
+
+	return 0;
+}
+
+
 
 void handler(int num) {
 	int status;
@@ -522,7 +594,9 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
      }
      return 0;
 }
-char send_data_buf[buf_len];
+
+
+
 int send_data(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2 )
 {
 	int new_len=1+sizeof(session_id)*2+len;
@@ -535,9 +609,37 @@ int send_data(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2 )
 	memcpy(send_data_buf+1+sizeof(session_id),&tmp,sizeof(session_id));
 
 	memcpy(send_data_buf+1+sizeof(session_id)*2,data,len);
+
+	if(pre_send(send_data_buf,new_len)<0)
+	{
+		return -1;
+	}
 	send_raw(info,send_data_buf,new_len);
 	return 0;
 }
+
+int send_hb(packet_info_t &info,uint32_t id1,uint32_t id2 )
+{
+	int new_len=1+sizeof(session_id)*2;
+	send_data_buf[0]='h';
+
+	uint32_t tmp;
+	tmp=htonl(id1);
+	memcpy(send_data_buf+1,&tmp,sizeof(session_id));
+
+	tmp=htonl(id2);
+	memcpy(send_data_buf+1+sizeof(session_id),&tmp,sizeof(session_id));
+
+	if(pre_send(send_data_buf,new_len)<0)
+	{
+		return -1;
+	}
+
+	send_raw(info,send_data_buf,new_len);
+
+	return 0;
+}
+
 int send_sync()
 {
 	//g_packet_info.seq=3;
@@ -677,6 +779,7 @@ int fake_tcp_keep_connection_client() //for client
 
 		if(debug_mode)printf("heartbeat sent <%x,%x>\n",oppsite_session_id,session_id);
 
+		/*
 		buf[0]='h';
 		uint32_t tmp;
 		tmp=htonl(oppsite_session_id);
@@ -685,7 +788,8 @@ int fake_tcp_keep_connection_client() //for client
 		tmp=htonl(session_id);
 		memcpy(buf+1,&tmp,sizeof(session_id));
 
-		send_raw(g_packet_info,buf,sizeof(session_id)*2+1);
+		send_raw(g_packet_info,buf,sizeof(session_id)*2+1);*/
+		send_hb(g_packet_info,session_id,oppsite_session_id);
 		//last_time=get_current_time();
 	}
 
@@ -738,15 +842,19 @@ int fake_tcp_keep_connection_server()
 		g_packet_info.ack=1;
 		//g_packet_info.psh=1;
 
+		/*
 		buf[0]='h';
 		uint32_t tmp;
 
 		tmp=htonl(session_id);
 
+
 		memcpy(buf+1,&tmp,sizeof(session_id));
 		memset(buf+1+sizeof(session_id),0,sizeof(session_id));
 
 		send_raw(g_packet_info,buf,sizeof(session_id)*2+1);
+		*/
+		send_hb(g_packet_info,session_id,0);
 
 		//last_time=get_current_time();
 		if(debug_mode) printf("heart beat sent<%x>\n",session_id);
@@ -835,6 +943,8 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		printf("changed state to client_ready\n");
 
 
+		send_hb(g_packet_info,session_id,oppsite_session_id);
+		/*
 		buf[0]='h';
 
 		uint32_t tmp;
@@ -846,7 +956,7 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		tmp=htonl(oppsite_session_id);
 		memcpy(buf+1+sizeof(session_id),&tmp,sizeof(session_id));
 
-		send_raw(g_packet_info,buf,sizeof(session_id)*2+1);
+		send_raw(g_packet_info,buf,sizeof(session_id)*2+1);*/
 		//send_raw(g_packet_info,"hb",strlen("hb"));
 	}
 	if(client_current_state==client_ready )
@@ -1192,6 +1302,11 @@ int on_raw_recv()
     		g_packet_info.ts_ack= ntohl(*(uint32_t*)(&tcp_option[0]));
     	}
     }
+
+    if(tcph->rst==1)
+    {
+    	printf("%%%%%%%%%%rst==1%%%%%%%%%%%%%\n");
+    }
     ////tcp end
 
 
@@ -1236,13 +1351,20 @@ int on_raw_recv()
 		//fflush(stdout);
     }
 
+    int new_len=data_len;
+    memcpy(raw_recv_buf3,data,new_len);
+    if(data_len!=0)
+    {
+    	if(pre_recv(raw_recv_buf3,new_len)<0)
+    		return -1;
+    }
 	if(prog_mode==server_mode)
 	{
-		server_raw_recv(iph,tcph,data,data_len);
+		server_raw_recv(iph,tcph,raw_recv_buf3,new_len);
 	}
 	else
 	{
-		client_raw_recv(iph,tcph,data,data_len);
+		client_raw_recv(iph,tcph,raw_recv_buf3,new_len);
 	}
 	return 0;
 }
