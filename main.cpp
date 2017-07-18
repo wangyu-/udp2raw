@@ -38,6 +38,7 @@
 #include <time.h>
 
 #include <sys/timerfd.h>
+#include <set>
 
 using namespace std;
 
@@ -46,7 +47,7 @@ int local_port = -1, remote_port = -1;
 int epollfd ;
 
 uint32_t session_id=0;
-uint32_t received_session_id=0;
+uint32_t oppsite_session_id=0;
 
 const int handshake_timeout=1000;
 const int heartbeat_timeout=10000;
@@ -74,6 +75,60 @@ const uint64_t epoll_raw_recv_fd_sn=2;
 uint64_t epoll_udp_fd_sn=256;
 
 
+const int server_nothing=0;
+const int server_syn_ack_sent=1;
+const int server_heartbeat_sent=2;
+const int server_ready=3;
+int server_current_state=server_nothing;
+long long last_hb_recv_time;
+long long last_udp_recv_time=0;
+
+
+int udp_fd=-1;
+int raw_recv_fd;
+int raw_send_fd;
+
+
+char buf[buf_len];
+char buf2[buf_len];
+char raw_send_buf[buf_len];
+char raw_send_buf2[buf_len];
+char raw_recv_buf[buf_len];
+char raw_recv_buf2[buf_len];
+
+
+struct sock_filter code[] = {
+		{ 0x28, 0, 0, 0x0000000c },//0
+		{ 0x15, 0, 10, 0x00000800 },//1
+		{ 0x30, 0, 0, 0x00000017 },//2
+		{ 0x15, 0, 8, 0x00000006 },//3
+		{ 0x28, 0, 0, 0x00000014 },//4
+		{ 0x45, 6, 0, 0x00001fff },//5
+		{ 0xb1, 0, 0, 0x0000000e },//6
+		{ 0x48, 0, 0, 0x0000000e },//7
+		{ 0x15, 2, 0, 0x0000ef32 },//8
+		{ 0x48, 0, 0, 0x00000010 },//9
+		{ 0x15, 0, 1, 0x0000ef32 },//10
+		{ 0x6, 0, 0, 0x0000ffff },//11
+		{ 0x6, 0, 0, 0x00000000 },//12
+};
+sock_fprog bpf;
+
+
+const int client_nothing=0;
+const int client_syn_sent=1;
+const int client_ack_sent=2;
+const int client_ready=3;
+int client_current_state=client_nothing;
+int retry_counter;
+
+long long last_state_time;
+
+uint16_t ip_id=1;
+//const int MTU=1440;
+
+struct sockaddr_in udp_old_addr_in;
+
 void handler(int num) {
 	int status;
 	int pid;
@@ -100,9 +155,6 @@ void setnonblocking(int sock) {
 
 }
 
-int udp_fd=-1;
-int raw_recv_fd;
-int raw_send_fd;
 int init_raw_socket()
 {
 	raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);
@@ -131,26 +183,7 @@ int init_raw_socket()
     }
 	return 0;
 }
-char buf[buf_len];
-char buf2[buf_len];
-char raw_send_buf[buf_len];
-char raw_send_buf2[buf_len];
-struct sock_filter code[] = {
-		{ 0x28, 0, 0, 0x0000000c },//0
-		{ 0x15, 0, 10, 0x00000800 },//1
-		{ 0x30, 0, 0, 0x00000017 },//2
-		{ 0x15, 0, 8, 0x00000006 },//3
-		{ 0x28, 0, 0, 0x00000014 },//4
-		{ 0x45, 6, 0, 0x00001fff },//5
-		{ 0xb1, 0, 0, 0x0000000e },//6
-		{ 0x48, 0, 0, 0x0000000e },//7
-		{ 0x15, 2, 0, 0x0000ef32 },//8
-		{ 0x48, 0, 0, 0x00000010 },//9
-		{ 0x15, 0, 1, 0x0000ef32 },//10
-		{ 0x6, 0, 0, 0x0000ffff },//11
-		{ 0x6, 0, 0, 0x00000000 },//12
-};
-sock_fprog bpf;
+
 long long get_current_time()
 {
 	timespec tmp_time;
@@ -324,7 +357,7 @@ unsigned short csum(unsigned short *ptr,int nbytes) {
 
     return(answer);
 }
-uint16_t ip_id=1;
+
 int send_raw(packet_info_t &info,char * payload,int payloadlen)
 {
 	if(prog_mode==client_mode&& payloadlen!=9  ||prog_mode==server_mode&& payloadlen!=5)
@@ -515,15 +548,6 @@ int send_sync()
 	send_raw(g_packet_info,0,0);
 	return 0;
 }
-const int client_nothing=0;
-const int client_syn_sent=1;
-const int client_ack_sent=2;
-const int client_ready=3;
-int client_current_state=client_nothing;
-int retry_counter;
-
-long long last_state_time;
-
 
 uint32_t get_true_random_number()
 {
@@ -532,13 +556,7 @@ uint32_t get_true_random_number()
 	read(fd,&ret,sizeof(ret));
 	return htonl(ret);
 }
-const int server_nothing=0;
-const int server_syn_ack_sent=1;
-const int server_heartbeat_sent=2;
-const int server_ready=3;
-int server_current_state=server_nothing;
-long long last_hb_recv_time;
-long long last_udp_recv_time=0;
+
 int try_to_list_and_bind(int port)
 {
 	 int old_bind_fd=bind_fd;
@@ -657,11 +675,11 @@ int fake_tcp_keep_connection_client() //for client
 		g_packet_info.syn=0;
 		g_packet_info.ack=1;
 
-		if(debug_mode)printf("heartbeat sent <%x,%x>\n",received_session_id,session_id);
+		if(debug_mode)printf("heartbeat sent <%x,%x>\n",oppsite_session_id,session_id);
 
 		buf[0]='h';
 		uint32_t tmp;
-		tmp=htonl(received_session_id);
+		tmp=htonl(oppsite_session_id);
 		memcpy(buf+1+sizeof(session_id),&tmp,sizeof(session_id));
 
 		tmp=htonl(session_id);
@@ -706,6 +724,12 @@ int fake_tcp_keep_connection_server()
 		{
 			printf("%lld %lld",get_current_time(),last_state_time);
 			server_current_state=server_nothing;
+
+			if(server_current_state==server_ready)
+			{
+				printf("changed session id\n");
+				session_id=get_true_random_number();
+			}
 			printf("state back to nothing\n");
 			printf("changed state to server_nothing111\n");
 			return 0;
@@ -718,9 +742,11 @@ int fake_tcp_keep_connection_server()
 		uint32_t tmp;
 
 		tmp=htonl(session_id);
-		memcpy(buf+1,&tmp,sizeof(session_id));
 
-		send_raw(g_packet_info,buf,sizeof(session_id)+1);
+		memcpy(buf+1,&tmp,sizeof(session_id));
+		memset(buf+1+sizeof(session_id),0,sizeof(session_id));
+
+		send_raw(g_packet_info,buf,sizeof(session_id)*2+1);
 
 		//last_time=get_current_time();
 		if(debug_mode) printf("heart beat sent<%x>\n",session_id);
@@ -728,9 +754,6 @@ int fake_tcp_keep_connection_server()
 	}
 
 }
-struct sockaddr_in udp_old_addr_in;
-
-
 
 int set_timer(int epollfd,int &timer_fd)
 {
@@ -760,7 +783,6 @@ int set_timer(int epollfd,int &timer_fd)
 	}
 }
 
-const int MTU=1440;
 int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 {
 
@@ -780,7 +802,8 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		g_packet_info.seq+=1;
 
 		printf("sent ack back\n");
-		fflush(stdout);
+
+
 		send_raw(g_packet_info,0,0);
 		client_current_state=client_ack_sent;
 		printf("changed state to client_ack_sent\n");
@@ -789,14 +812,12 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 	}
 	if(client_current_state==client_ack_sent )
 	{
-		//printf(" i m here\n");
-		//fflush(stdout);
 		if( tcph->syn==1||tcph->ack!=1 ||data_len==0)
 		{
-			printf("unexpected syn ack");
+			printf("unexpected syn ack or other zero lenght packet\n");
 			return 0;
 		}
-		if(data_len!=sizeof(session_id)+1||data[0]!='h')
+		if(data_len!=sizeof(session_id)*2+1||data[0]!='h')
 		{
 			return 0;
 		}
@@ -806,12 +827,26 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 			return 0;
 		}
 
-		received_session_id=  ntohl(* ((uint32_t *)&data[1]));
+		oppsite_session_id=  ntohl(* ((uint32_t *)&data[1]));
 
-		printf("====first hb received %x\n==",received_session_id);
+		printf("====first hb received %x\n==",oppsite_session_id);
 
 		client_current_state=client_ready;
 		printf("changed state to client_ready\n");
+
+
+		buf[0]='h';
+
+		uint32_t tmp;
+
+		tmp=htonl(session_id);
+		memcpy(buf+1,&tmp,sizeof(session_id));
+
+
+		tmp=htonl(oppsite_session_id);
+		memcpy(buf+1+sizeof(session_id),&tmp,sizeof(session_id));
+
+		send_raw(g_packet_info,buf,sizeof(session_id)*2+1);
 		//send_raw(g_packet_info,"hb",strlen("hb"));
 	}
 	if(client_current_state==client_ready )
@@ -827,7 +862,7 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 			return 0;
 		}
 
-		if(data_len==sizeof(session_id)+1&&data[0]=='h')
+		if(data_len==sizeof(session_id)*2+1&&data[0]=='h')
 		{
 			if(debug_mode)printf("heart beat received\n");
 			last_hb_recv_time=get_current_time();
@@ -843,10 +878,11 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				printf("client session id mismatch%x %x,ignore\n",tmp_session_id,session_id);
 				return 0;
 			}
-			uint32_t tmp_recved_session_id=ntohl(* ((uint32_t *)&data[1]));
-			if(tmp_recved_session_id!=received_session_id)
+
+			uint32_t tmp_oppsite_session_id=ntohl(* ((uint32_t *)&data[1]));
+			if(tmp_oppsite_session_id!=oppsite_session_id)
 			{
-				printf("server session id mismatch%x %x,ignore\n",tmp_recved_session_id,session_id);
+				printf("server session id mismatch%x %x,ignore\n",tmp_oppsite_session_id,session_id);
 				return 0;
 			}
 
@@ -858,11 +894,6 @@ int client_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		return 0;
 	}
 }
-#include <set>
-using namespace std;
-
-
-
 int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 {
 	if(server_current_state==server_nothing)
@@ -892,6 +923,11 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 	else if(server_current_state==server_syn_ack_sent)
 	{
 		if(!( tcph->syn==0&&tcph->ack==1 &&data_len==0)) return 0;
+		if(iph->saddr!=g_packet_info.dst_ip||ntohs(tcph->source)!=g_packet_info.dst_port)
+		{
+			printf("unexpected adress\n");
+			return 0;
+		}
 
 		server_current_state=server_heartbeat_sent;
 		g_packet_info.syn=0;
@@ -902,8 +938,8 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		printf("changed state to server_heartbeat_sent\n");
 
 		last_hb_recv_time=get_current_time(); //this ack is counted as hearbeat
+
 		last_state_time=get_current_time();
-		session_id=get_true_random_number();
 
 	}
 	else if(server_current_state==server_heartbeat_sent)//heart beat received
@@ -919,8 +955,8 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 			return 0;
 		}
 
-		int tmp_received_session_id=  ntohl(* ((uint32_t *)&data[1+sizeof(session_id)]));
-		if(tmp_received_session_id!=received_session_id)
+		int tmp_oppsite_session_id=  ntohl(* ((uint32_t *)&data[1]));
+		if(tmp_oppsite_session_id!=oppsite_session_id)
 		{
 			struct epoll_event ev;
 
@@ -931,14 +967,14 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				close(udp_fd);
 				udp_fd=-1;
 			}
-			received_session_id=session_id;
+			oppsite_session_id=tmp_oppsite_session_id;
 		}
 
-		uint32_t tmp= ntohl(* ((uint32_t *)&data[1+sizeof(session_id)]));
+		uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[1+sizeof(session_id)]));
 
-		printf("received hb %x %x\n",received_session_id,tmp);
+		printf("received hb %x %x\n",oppsite_session_id,tmp_session_id);
 
-		if(received_session_id!=session_id)
+		if(tmp_session_id!=session_id)
 		{
 			printf("auth fail!!\n");
 			return 0;
@@ -964,12 +1000,12 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		if(data[0]=='h'&&data_len==sizeof(session_id)*2+1)
 		{
 			uint32_t tmp= ntohl(* ((uint32_t *)&data[1+sizeof(uint32_t)]));
-			if(debug_mode)printf("received hb <%x,%x>\n",received_session_id,tmp);
+			if(debug_mode)printf("received hb <%x,%x>\n",oppsite_session_id,tmp);
 			last_hb_recv_time=get_current_time();
 		}
 		else if(data[0]=='d'&&data_len>=sizeof(session_id)*2+1)
 		{
-			uint32_t tmp_received_session_id=ntohl(* ((uint32_t *)&data[1]));
+			uint32_t tmp_oppsite_session_id=ntohl(* ((uint32_t *)&data[1]));
 			uint32_t tmp_session_id=ntohl(* ((uint32_t *)&data[1+sizeof(session_id)]));
 
 			if(tmp_session_id!=session_id)
@@ -978,18 +1014,18 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				return 0;
 			}
 
-			if(tmp_received_session_id!=received_session_id)  //magic to find out which one is actually larger
+			if(tmp_oppsite_session_id!=oppsite_session_id)  //magic to find out which one is actually larger
 				//consider 0xffffffff+1= 0x0 ,in this case 0x0 is "actually" larger
 
 			{
 				uint32_t smaller,bigger;
-				smaller=min(received_session_id,tmp_received_session_id);//smaller in normal sense
-				bigger=max(received_session_id,tmp_received_session_id);
+				smaller=min(oppsite_session_id,tmp_oppsite_session_id);//smaller in normal sense
+				bigger=max(oppsite_session_id,tmp_oppsite_session_id);
 				uint32_t distance=min(bigger-smaller,smaller+(0xffffffff-bigger+1));
 
 				if(distance==bigger-smaller)
 				{
-					if(bigger==received_session_id) //received_session_id is acutally bigger
+					if(bigger==oppsite_session_id) //received_session_id is acutally bigger
 					{
 						printf("old_session_id ,ingored1\n");
 						return 0;
@@ -997,7 +1033,7 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				}
 				else
 				{
-					if(smaller==received_session_id) //received_session_id is acutally bigger
+					if(smaller==oppsite_session_id) //received_session_id is acutally bigger
 					{
 						printf("old_session_id ,ingored2\n");
 						return 0;
@@ -1006,12 +1042,7 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 			}
 
 
-			if(tmp_received_session_id < received_session_id)
-			{
-				printf("received a packet from an old session,ignored\n");
-				return 0;
-			}
-			if(udp_fd==-1||tmp_received_session_id!=received_session_id)// this is first send or client changed session
+			if(udp_fd==-1||tmp_oppsite_session_id!=oppsite_session_id)// this is first send or client changed session
 			{
 				int old_fd=udp_fd;
 
@@ -1051,9 +1082,9 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 
 			}
 
-			if(tmp_received_session_id!=received_session_id)
+			if(tmp_oppsite_session_id!=oppsite_session_id)
 			{
-				received_session_id=tmp_received_session_id;
+				oppsite_session_id=tmp_oppsite_session_id;
 				printf("created new udp_fd");
 			}
 			printf("received a data from fake tcp,len:%d\n",data_len);
@@ -1063,9 +1094,6 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		}
 	}
 }
-char raw_recv_buf[buf_len];
-char raw_recv_buf2[buf_len];
-
 int on_raw_recv()
 {
 	int size;
@@ -1176,7 +1204,7 @@ int on_raw_recv()
 
     char *data=ip_begin+tcphdrlen+iphdrlen;
 
-    if(prog_mode==client_mode&& data_len!=5  ||prog_mode==server_mode&& data_len!=9)
+    if(data_len>0&&data[0]=='h')
     {
     	printf("recvd <%u %u %d>\n",ntohl(tcph->seq ),ntohl(tcph->ack_seq), data_len);
     }
@@ -1353,7 +1381,7 @@ int client()
 				last_udp_recv_time=get_current_time();
 				if(client_current_state=client_ready)
 				{
-					send_data(g_packet_info,buf,recv_len,session_id,received_session_id);
+					send_data(g_packet_info,buf,recv_len,session_id,oppsite_session_id);
 				}
 				////send_data_raw(buf,recv_len);
 			}
@@ -1397,8 +1425,6 @@ int server()
 	epollfd = epoll_create1(0);
 	const int max_events = 4096;
 
-
-
 	struct epoll_event ev, events[max_events];
 	if (epollfd < 0) {
 		printf("epoll return %d\n", epollfd);
@@ -1407,8 +1433,6 @@ int server()
 
 	ev.events = EPOLLIN;
 	ev.data.u64 = epoll_raw_recv_fd_sn;
-
-
 
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
@@ -1439,7 +1463,7 @@ int server()
 					continue;
 					//return 0;
 				}
-				send_data(g_packet_info,buf,recv_len,session_id,received_session_id);
+				send_data(g_packet_info,buf,recv_len,session_id,oppsite_session_id);
 			}
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
 			if (events[n].data.u64 == epoll_timer_fd_sn)
