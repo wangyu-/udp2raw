@@ -55,7 +55,9 @@ const int handshake_timeout=1000;
 const int heartbeat_timeout=10000;
 const int udp_timeout=2000;
 
-const int timer_interval=400;
+const int heartbeat_interval=1000;
+
+const int timer_interval=50;
 
 //const uint16_t tcp_window=50000;
 
@@ -74,7 +76,7 @@ const int seq_mode=2;  //0  dont  increase /1 increase   //increase randomly,abo
 
 const uint64_t epoll_timer_fd_sn=1;
 const uint64_t epoll_raw_recv_fd_sn=2;
-uint64_t epoll_udp_fd_sn=256;
+uint64_t epoll_udp_fd_sn=256;  //udp_fd_sn =256,512,768......the lower 8 bit is not used,to avoid confliction
 
 
 const int server_nothing=0;
@@ -85,6 +87,7 @@ int server_current_state=server_nothing;
 long long last_hb_recv_time;
 long long last_udp_recv_time=0;
 
+int socket_buf_size=1024*1024*4;
 
 int udp_fd=-1;
 int raw_recv_fd;
@@ -126,7 +129,9 @@ const int client_ready=3;
 int client_current_state=client_nothing;
 int retry_counter;
 
-long long last_state_time;
+long long last_state_time=0;
+
+long long last_hb_sent_time=0;
 
 uint16_t ip_id=1;
 //const int MTU=1440;
@@ -226,17 +231,45 @@ void setnonblocking(int sock) {
 	}
 
 }
-
+int set_udp_buf_size(int fd)
+{
+    if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
+    {
+    	printf("SO_SNDBUFFORCE fail\n");
+    	exit(1);
+    }
+    if(setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
+    {
+    	printf("SO_RCVBUFFORCE fail\n");
+    	exit(1);
+    }
+	return 0;
+}
 int init_raw_socket()
 {
+
 	raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);
+
+
     if(raw_send_fd == -1) {
         perror("Failed to create raw_send_fd");
         exit(1);
     }
+
+    if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
+    {
+    	printf("SO_SNDBUFFORCE fail\n");
+    	exit(1);
+    }
 	//raw_fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
 
 	raw_recv_fd= socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+
+    if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
+    {
+    	printf("SO_RCVBUFFORCE fail\n");
+    	exit(1);
+    }
 	//raw_fd=socket(AF_PACKET , SOCK_RAW , htons(ETH_P_IP));
     // packet_recv_sd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);
     if(raw_recv_fd == -1) {
@@ -704,7 +737,7 @@ int client_bind_to_a_new_port()
 }
 int fake_tcp_keep_connection_client() //for client
 {
-	//printf("timer!");
+	if(debug_mode)printf("timer!\n");
 	//fflush(stdout);
 	begin:
 	if(client_current_state==client_nothing)
@@ -774,6 +807,12 @@ int fake_tcp_keep_connection_client() //for client
 			printf("state back to nothing\n");
 			return 0;
 		}
+
+		if(get_current_time()-last_hb_sent_time<heartbeat_interval)
+		{
+			return 0;
+		}
+
 		g_packet_info.syn=0;
 		g_packet_info.ack=1;
 
@@ -790,6 +829,7 @@ int fake_tcp_keep_connection_client() //for client
 
 		send_raw(g_packet_info,buf,sizeof(session_id)*2+1);*/
 		send_hb(g_packet_info,session_id,oppsite_session_id);
+		last_hb_sent_time=get_current_time();
 		//last_time=get_current_time();
 	}
 
@@ -838,6 +878,13 @@ int fake_tcp_keep_connection_server()
 			printf("changed state to server_nothing111\n");
 			return 0;
 		}
+
+		if(get_current_time()-last_hb_sent_time<heartbeat_interval)
+		{
+			return 0;
+		}
+
+
 		g_packet_info.syn=0;
 		g_packet_info.ack=1;
 		//g_packet_info.psh=1;
@@ -855,6 +902,8 @@ int fake_tcp_keep_connection_server()
 		send_raw(g_packet_info,buf,sizeof(session_id)*2+1);
 		*/
 		send_hb(g_packet_info,session_id,0);
+
+		last_hb_sent_time=get_current_time();
 
 		//last_time=get_current_time();
 		if(debug_mode) printf("heart beat sent<%x>\n",session_id);
@@ -1164,6 +1213,7 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				remote_addr_in.sin_port = htons(remote_port);
 				remote_addr_in.sin_addr.s_addr = inet_addr(remote_address);
 				udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				set_udp_buf_size(udp_fd);
 
 				printf("created new udp_fd");
 				int ret = connect(udp_fd, (struct sockaddr *) &remote_addr_in, slen);
@@ -1382,6 +1432,8 @@ int client()
 	//g_packet_info.src_port=source_port;
 
     udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    set_udp_buf_size(udp_fd);
+
 	int yes = 1;
 	//setsockopt(udp_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
@@ -1605,6 +1657,7 @@ int server()
 }
 int main(int argc, char *argv[])
 {
+
 	g_packet_info.ack_seq=get_true_random_number();
 	g_packet_info.seq=get_true_random_number();
 	int i, j, k;
