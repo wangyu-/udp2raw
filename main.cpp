@@ -142,6 +142,69 @@ uint64_t seq=0;
 uint8_t key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
 
 
+const int window_size=2000;
+struct anti_replay_t
+{
+	uint64_t max_packet_received;
+	char window[window_size];
+	char disabled;
+	anti_replay_t()
+	{
+		disabled=0;
+		max_packet_received=0;
+		//memset(window,0,sizeof(window));
+	}
+	void re_init()
+	{
+		disabled=0;
+		max_packet_received=0;
+		//memset(window,0,sizeof(window));
+	}
+	void disable()
+	{
+		disabled=1;
+	}
+	void enable()
+	{
+		disabled=0;
+	}
+
+	int is_vaild(uint64_t seq)
+	{
+		//if(disabled) return 0;
+
+		if(seq==max_packet_received) return 0||disabled;
+		else if(seq>max_packet_received)
+		{
+			if(seq-max_packet_received>=window_size)
+			{
+				memset(window,0,sizeof(window));
+				window[seq%window_size]=1;
+			}
+			else
+			{
+				for (int i=max_packet_received+1;i<seq;i++)
+					window[i%window_size]=0;
+				window[seq%window_size]=1;
+			}
+			max_packet_received=seq;
+			return 1;
+		}
+		else if(seq<max_packet_received)
+		{
+			if(max_packet_received-seq>=window_size) return 0||disabled;
+			else
+			{
+				if (window[seq%window_size]==1) return 0||disabled;
+				else
+				{
+					window[seq%window_size]=1;
+					return 1;
+				}
+			}
+		}
+	}
+}anti_replay;
 
 int pre_send(char * data, int &data_len)
 {
@@ -194,6 +257,12 @@ int pre_recv(char * data, int &data_len)
 
 
 	uint64_t recv_seq =(seq_high<<32u )+seq_low;
+
+	if(anti_replay.is_vaild(recv_seq)!=1)
+	{
+		printf("dropped replay packet\n");
+		return -1;
+	}
 
 	printf("<<<<<%ld,%d,%ld>>>>\n",seq_high,seq_low,recv_seq);
 
@@ -742,6 +811,7 @@ int fake_tcp_keep_connection_client() //for client
 	begin:
 	if(client_current_state==client_nothing)
 	{
+		anti_replay.re_init(); //  this is not safe
 
 		client_current_state=client_syn_sent;
 		last_state_time=get_current_time();
@@ -1057,6 +1127,8 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 {
 	if(server_current_state==server_nothing)
 	{
+		anti_replay.re_init();
+
 		if(!( tcph->syn==1&&tcph->ack==0 &&data_len==0)) return 0;
 
 		g_packet_info.dst_port=ntohs(tcph->source);
@@ -1099,7 +1171,6 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		last_hb_recv_time=get_current_time(); //this ack is counted as hearbeat
 
 		last_state_time=get_current_time();
-
 	}
 	else if(server_current_state==server_heartbeat_sent)//heart beat received
 	{
@@ -1114,6 +1185,18 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 			return 0;
 		}
 
+
+		uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[1+sizeof(session_id)]));
+
+		printf("received hb %x %x\n",oppsite_session_id,tmp_session_id);
+
+		if(tmp_session_id!=session_id)
+		{
+			printf("auth fail!!\n");
+			return 0;
+		}
+
+
 		int tmp_oppsite_session_id=  ntohl(* ((uint32_t *)&data[1]));
 		if(tmp_oppsite_session_id!=oppsite_session_id)
 		{
@@ -1127,17 +1210,11 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 				udp_fd=-1;
 			}
 			oppsite_session_id=tmp_oppsite_session_id;
+			//anti_replay.re_init();
 		}
 
-		uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[1+sizeof(session_id)]));
 
-		printf("received hb %x %x\n",oppsite_session_id,tmp_session_id);
-
-		if(tmp_session_id!=session_id)
-		{
-			printf("auth fail!!\n");
-			return 0;
-		}
+		//anti_replay.enable();
 
 		//session_id=get_true_random_number();
 
