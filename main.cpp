@@ -39,7 +39,7 @@
 
 #include <sys/timerfd.h>
 #include <set>
-#include <encryption.h>
+#include <encrypt.h>
 #include <inttypes.h>
 
 using namespace std;
