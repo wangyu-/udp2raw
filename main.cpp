@@ -379,7 +379,7 @@ void init_filter(int port)
 	//printf("<%d>\n",bpf.len);
 	int dummy;
 
-	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(int));
+	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy));
 	if (ret != 0)
 	{
 		printf("error remove fiter\n");
