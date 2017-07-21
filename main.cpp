@@ -78,6 +78,15 @@ const int client_mode=1;
 int prog_mode=0; //0 unset; 1client 2server
 
 
+const int disable_encrypt=0;
+const int disable_anti_replay=0;
+
+const int disable_bpf_filter=1;
+
+const int mode_tcp=0;
+const int mode_udp=1;
+int raw_mode=mode_tcp;
+
 const int debug_mode=0;
 int bind_fd;
 
@@ -105,6 +114,7 @@ int udp_fd=-1;
 int raw_recv_fd;
 int raw_send_fd;
 
+int filter_port=-1;
 const int client_nothing=0;
 const int client_syn_sent=1;
 const int client_ack_sent=2;
@@ -128,7 +138,7 @@ char raw_recv_buf3[buf_len];
 char replay_buf[buf_len];
 char send_data_buf[buf_len];  //buf for send data and send hb
 
-struct sock_filter code[] = {
+struct sock_filter code_tcp[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
 		{ 0x15, 0, 10, 0x00000800 },//1
 		{ 0x30, 0, 0, 0x00000017 },//2
@@ -159,6 +169,15 @@ const int window_size=2000;
 
 
 int random_number_fd=-1;
+
+const int conv_timeout=60000; //60 second
+const int conv_clear_ratio=10;
+
+const int hb_length=1+3*sizeof(uint32_t);
+
+int OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO;
+////////==============================variable/function divider=============================================================
+
 void init_random_number_fd()
 {
 	random_number_fd=open("/dev/urandom",O_RDONLY);
@@ -168,12 +187,20 @@ void init_random_number_fd()
 		exit(-1);
 	}
 }
-uint32_t get_true_random_number()
+uint32_t get_true_random_number_0()
 {
 	uint32_t ret;
-
 	read(random_number_fd,&ret,sizeof(ret));
-	return htonl(ret);
+	return ret;
+}
+uint32_t get_true_random_number_nz() //nz for non-zero
+{
+	uint32_t ret=0;
+	while(ret==0)
+	{
+		ret=get_true_random_number_0();
+	}
+	return ret;
 }
 struct anti_replay_t
 {
@@ -238,29 +265,44 @@ struct anti_replay_t
 	}
 }anti_replay;
 
+
 int pre_send(char * data, int &data_len)
 {
 	//return 0;
 	if(data_len<0) return -3;
 
-	seq++;
-	uint32_t seq_high= htonl(seq>>32u);
+	if(disable_encrypt&&disable_anti_replay) return 0;
 
-	uint32_t seq_low= htonl((seq<<32u)>>32u);
-
-	memcpy(replay_buf,&seq_high,sizeof(uint32_t));
-	memcpy(replay_buf+sizeof(uint32_t),&seq_low,sizeof(uint32_t));
-
-	memcpy(replay_buf+sizeof(uint32_t)*2,data,data_len);
-
-	data_len+=sizeof(uint32_t)*2;
-
-	//memcpy(data,replay_buf,data_len);
-
-	if(my_encrypt((unsigned char*)replay_buf,(unsigned char*)data,data_len,key) <0)
+	if(!disable_anti_replay)
 	{
-		printf("encrypt fail\n");
-		return -1;
+		seq++;
+		uint32_t seq_high= htonl(seq>>32u);
+
+		uint32_t seq_low= htonl((seq<<32u)>>32u);
+
+		memcpy(replay_buf,&seq_high,sizeof(uint32_t));
+		memcpy(replay_buf+sizeof(uint32_t),&seq_low,sizeof(uint32_t));
+
+		memcpy(replay_buf+sizeof(uint32_t)*2,data,data_len);
+
+		data_len+=sizeof(uint32_t)*2;
+	}
+	else
+	{
+		memcpy(replay_buf,data,data_len);
+	}
+
+	if(!disable_encrypt)
+	{
+		if(my_encrypt((unsigned char*)replay_buf,(unsigned char*)data,data_len,key) <0)
+		{
+			printf("encrypt fail\n");
+			return -1;
+		}
+	}
+	else
+	{
+		memcpy(data,replay_buf,data_len);
 	}
 	return 0;
 }
@@ -269,43 +311,56 @@ int pre_recv(char * data, int &data_len)
 {
 	//return 0;
 	if(data_len<0) return -1;
-	//if(data_len<8+16) return -3;
 
-	if(my_decrypt((uint8_t*)data,(uint8_t*)replay_buf,data_len,key) <0)
+	if(disable_encrypt&&disable_anti_replay) return 0;
+
+	if(!disable_encrypt)
 	{
-		printf("decrypt fail\n");
-		return -1;
+		if(my_decrypt((uint8_t*)data,(uint8_t*)replay_buf,data_len,key) <0)
+		{
+			printf("decrypt fail\n");
+			return -1;
+		}
+	}
+	else
+	{
+		memcpy(replay_buf,data,data_len);
 	}
 
-	data_len-=sizeof(uint32_t)*2;
-	if(data_len<0)
+	if(!disable_anti_replay)
 	{
-		printf("data_len<=0\n");
-		return -2;
+		data_len-=sizeof(uint32_t)*2;
+		if(data_len<0)
+		{
+			printf("data_len<=0\n");
+			return -2;
+		}
+
+		uint64_t seq_high= ntohl(*((uint32_t*)(replay_buf) ) );
+		uint32_t seq_low= ntohl(*((uint32_t*)(replay_buf+sizeof(uint32_t)) ) );
+
+
+		uint64_t recv_seq =(seq_high<<32u )+seq_low;
+
+		if(anti_replay.is_vaild(recv_seq)!=1)
+		{
+			printf("dropped replay packet\n");
+			return -1;
+		}
+
+		printf("<<<<<%ld,%d,%ld>>>>\n",seq_high,seq_low,recv_seq);
+
+
+		memcpy(data,replay_buf+sizeof(uint32_t)*2,data_len);
 	}
-
-	uint64_t seq_high= ntohl(*((uint32_t*)(replay_buf) ) );
-	uint32_t seq_low= ntohl(*((uint32_t*)(replay_buf+sizeof(uint32_t)) ) );
-
-
-	uint64_t recv_seq =(seq_high<<32u )+seq_low;
-
-	if(anti_replay.is_vaild(recv_seq)!=1)
+	else
 	{
-		printf("dropped replay packet\n");
-		return -1;
+		memcpy(data,replay_buf,data_len);
 	}
-
-	printf("<<<<<%ld,%d,%ld>>>>\n",seq_high,seq_low,recv_seq);
-
-
-	memcpy(data,replay_buf+sizeof(uint32_t)*2,data_len);
 
 
 	return 0;
 }
-
-
 
 void handler(int num) {
 	int status;
@@ -332,7 +387,7 @@ void setnonblocking(int sock) {
 	}
 
 }
-int set_udp_buf_size(int fd)
+int set_buf_size(int fd)
 {
     if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
@@ -346,6 +401,7 @@ int set_udp_buf_size(int fd)
     }
 	return 0;
 }
+
 int init_raw_socket()
 {
 
@@ -387,17 +443,48 @@ int init_raw_socket()
         perror("Error setting IP_HDRINCL");
         exit(2);
     }
+
+    setnonblocking(raw_send_fd); //not really necessary
+    setnonblocking(raw_recv_fd);
+
 	return 0;
+}
+void init_filter(int port)
+{
+	filter_port=port;
+
+	if(disable_bpf_filter) return;
+
+	code_tcp[8].k=code_tcp[10].k=port;
+	bpf.len = sizeof(code_tcp)/sizeof(code_tcp[0]);
+	bpf.filter = code_tcp;
+	//printf("<%d>\n",bpf.len);
+	int dummy;
+
+	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy));
+	if (ret != 0)
+	{
+		printf("error remove fiter\n");
+		perror("filter");
+		//exit(-1);
+	}
+	ret = setsockopt(raw_recv_fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf));
+	//memset(code,0,sizeof(code));
+	if (ret != 0)
+	{
+		printf("error set fiter\n");
+		perror("filter");
+		exit(-1);
+	}
 }
 
 long long get_current_time()
 {
 	timespec tmp_time;
 	clock_gettime(CLOCK_MONOTONIC, &tmp_time);
-	return tmp_time.tv_sec*1000+tmp_time.tv_nsec/(1000*1000ll);
+	return tmp_time.tv_sec*1000+tmp_time.tv_nsec/(1000*1000l);
 }
-const int conv_timeout=60000; //60 second
-const int conv_clear_ratio=10;
+
 void server_clear(uint64_t u64)
 {
 	int fd=int((u64<<32u)>>32u);
@@ -458,10 +545,10 @@ struct conv_manager_t
 	}
 	uint32_t get_new_conv()
 	{
-		uint32_t conv=get_true_random_number();
+		uint32_t conv=get_true_random_number_nz();
 		while(conv!=0&&conv_to_u64.find(conv)!=conv_to_u64.end())
 		{
-			conv=get_true_random_number();
+			conv=get_true_random_number_nz();
 		}
 		return conv;
 	}
@@ -541,30 +628,8 @@ struct conv_manager_t
 		return 0;
 	}
 }conv_manager;
-void init_filter(int port)
-{
-	code[8].k=code[10].k=port;
-	bpf.len = sizeof(code)/sizeof(code[0]);
-	bpf.filter = code;
-	//printf("<%d>\n",bpf.len);
-	int dummy;
 
-	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy));
-	if (ret != 0)
-	{
-		printf("error remove fiter\n");
-		perror("filter");
-		//exit(-1);
-	}
-	ret = setsockopt(raw_recv_fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf));
-	//memset(code,0,sizeof(code));
-	if (ret != 0)
-	{
-		printf("error set fiter\n");
-		perror("filter");
-		exit(-1);
-	}
-}
+
 void process_arg(int argc, char *argv[])
 {
 	int i,j,k,opt;
@@ -664,17 +729,20 @@ struct packet_info_t
 	//ip_part:
 	uint32_t src_ip;
 	uint16_t src_port;
+
 	uint32_t dst_ip;
 	uint16_t dst_port;
 
 	//tcp_part:
-	bool syn,ack,psh;
+	bool syn,ack,psh,rst;
+
 	uint32_t seq,ack_seq;
 
 	uint32_t ts,ts_ack;
 
+	bool has_ts;
 
-}g_packet_info;
+}g_packet_info_send,g_packet_info_recv;
 
 struct pseudo_header {
     u_int32_t source_address;
@@ -709,10 +777,11 @@ unsigned short csum(unsigned short *ptr,int nbytes) {
     return(answer);
 }
 
-int send_raw(packet_info_t &info,char * payload,int payloadlen)
+int send_raw_tcp(packet_info_t &info,char * payload,int payloadlen)
 {
-	if(prog_mode==client_mode&& payloadlen!=9  ||prog_mode==server_mode&& payloadlen!=5)
-	printf("send raw from to %d %d %d %d\n",info.src_ip,info.src_port,info.dst_ip,info.dst_port);
+	if((prog_mode==client_mode&& payloadlen!=9)  ||(prog_mode==server_mode&& payloadlen!=5 )  )
+		printf("send raw from to %d %d %d %d\n",info.src_ip,info.src_port,info.dst_ip,info.dst_port);
+
 	char *data;
 
     memset(raw_send_buf,0,payloadlen+100);
@@ -843,11 +912,11 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
 
 
      if(prog_mode==client_mode&& payloadlen!=9  ||prog_mode==server_mode&& payloadlen!=5)
-     printf("sent seq  ack_seq len<%u %u %d>\n",g_packet_info.seq,g_packet_info.ack_seq,payloadlen);
+     printf("sent seq  ack_seq len<%u %u %d>\n",g_packet_info_send.seq,g_packet_info_send.ack_seq,payloadlen);
 
      int ret = sendto(raw_send_fd, raw_send_buf, iph->tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
 
-     if(g_packet_info.syn==0&&g_packet_info.ack==1&&payloadlen!=0)
+     if(g_packet_info_send.syn==0&&g_packet_info_send.ack==1&&payloadlen!=0)
      {
     	 if(seq_mode==0)
     	 {
@@ -856,12 +925,12 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
     	 }
     	 else if(seq_mode==1)
     	 {
-    		 g_packet_info.seq+=payloadlen;
+    		 g_packet_info_send.seq+=payloadlen;
     	 }
     	 else if(seq_mode==2)
     	 {
     		 if(random()% 5==3 )
-    			 g_packet_info.seq+=payloadlen;
+    			 g_packet_info_send.seq+=payloadlen;
     	 }
      }
      if(debug_mode) printf("<ret:%d>\n",ret);
@@ -874,8 +943,191 @@ int send_raw(packet_info_t &info,char * payload,int payloadlen)
      return 0;
 }
 
+int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
+{
+	iphdr *  iph;
+	tcphdr * tcph;
+	int size;
+	struct sockaddr saddr;
+	socklen_t saddr_size;
+	saddr_size = sizeof(saddr);
+
+	if(debug_mode)printf("raw!\n");
+
+	size = recvfrom(raw_recv_fd, buf, buf_len, 0 ,&saddr , &saddr_size);
+
+	if(buf[12]!=8||buf[13]!=0)
+	{
+		printf("not an ipv4 packet!\n");
+		fflush(stdout);
+		return -1;
+	}
+
+	char *ip_begin=buf+14;
+
+	iph = (struct iphdr *) (ip_begin);
 
 
+    if (!(iph->ihl > 0 && iph->ihl <=60)) {
+    	if(debug_mode) printf("iph ihl error");
+        return -1;
+    }
+
+    if (iph->protocol != IPPROTO_TCP) {
+    	if(debug_mode)printf("iph protocal != tcp\n");
+    	return -1;
+    }
+
+
+	int ip_len=ntohs(iph->tot_len);
+
+    unsigned short iphdrlen =iph->ihl*4;
+    tcph=(struct tcphdr*)(ip_begin+ iphdrlen);
+    unsigned short tcphdrlen = tcph->doff*4;
+
+    if (!(tcph->doff > 0 && tcph->doff <=60)) {
+    	if(debug_mode) printf("tcph error");
+    	return 0;
+    }
+
+
+    if(tcph->dest!=ntohs(uint16_t(filter_port)))
+    {
+    	//printf("%x %x",tcph->dest,);
+    	return -1;
+    }
+    /////ip
+    uint32_t ip_chk=csum ((unsigned short *) ip_begin, iphdrlen);
+
+    int psize = sizeof(struct pseudo_header) + ip_len-iphdrlen;
+    /////ip end
+
+
+    ///tcp
+    struct pseudo_header psh;
+
+    psh.source_address = iph->saddr;
+    psh.dest_address = iph->daddr;
+    psh.placeholder = 0;
+    psh.protocol = IPPROTO_TCP;
+    psh.tcp_length = htons(ip_len-iphdrlen);
+
+    memcpy(raw_recv_buf2 , (char*) &psh , sizeof (struct pseudo_header));
+    memcpy(raw_recv_buf2 + sizeof(struct pseudo_header) , ip_begin+ iphdrlen , ip_len-iphdrlen);
+
+    uint16_t tcp_chk = csum( (unsigned short*) raw_recv_buf2, psize);
+
+
+   if(ip_chk!=0)
+    {
+    	printf("ip header error %d\n",ip_chk);
+    	return -1;
+    }
+    if(tcp_chk!=0)
+    {
+    	printf("tcp_chk:%x\n",tcp_chk);
+    	printf("tcp header error\n");
+    	return -1;
+
+    }
+    char *tcp_begin=raw_recv_buf2+sizeof(struct pseudo_header);  //ip packet's data part
+
+    char *tcp_option=raw_recv_buf2+sizeof(struct pseudo_header)+sizeof(tcphdr);
+
+    info.has_ts=0;
+
+    if(tcph->doff==10)
+    {
+    	if(tcp_option[6]==0x08 &&tcp_option[7]==0x0a)
+    	{
+    		info.has_ts=1;
+    		info.ts=ntohl(*(uint32_t*)(&tcp_option[8]));
+    		info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[12]));
+    		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[8]));
+    	}
+    }
+    else if(tcph->doff==8)
+    {
+    	if(tcp_option[3]==0x08 &&tcp_option[4]==0x0a)
+    	{
+    		info.has_ts=1;
+    		info.ts=ntohl(*(uint32_t*)(&tcp_option[0]));
+    		info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[4]));
+    		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[0]));
+    	}
+    }
+
+    if(tcph->rst==1)
+    {
+    	printf("%%%%%%%%%%rst==1%%%%%%%%%%%%%\n");
+    }
+
+
+    info.ack=tcph->ack;
+    info.syn=tcph->syn;
+    info.rst=tcph->rst;
+    info.src_port=ntohs(tcph->source);
+    info.src_ip=iph->saddr;
+    info.seq=ntohl(tcph->seq);
+    info.ack_seq=ntohl(tcph->ack_seq);
+    info.psh=tcph->psh;
+    if(info.has_ts)
+    {
+    	g_packet_info_send.ts_ack=info.ts;
+    }
+    ////tcp end
+
+
+    payloadlen = ip_len-tcphdrlen-iphdrlen;
+
+    payload=ip_begin+tcphdrlen+iphdrlen;
+
+    if(payloadlen>0&&payload[0]=='h')
+    {
+    	printf("recvd <%u %u %d>\n",ntohl(tcph->seq ),ntohl(tcph->ack_seq), payloadlen);
+    }
+
+    if(payloadlen>0&&tcph->syn==0&&tcph->ack==1)
+    {
+    	//if(seq_increse)
+    		g_packet_info_send.ack_seq=ntohl(tcph->seq)+(uint32_t)payloadlen;
+    }
+
+
+    //printf("%d\n",ip_len);
+/*
+    for(int i=0;i<size;i++)
+    {
+    	printf("<%x>",(unsigned char)buf[i]);
+
+    }
+	  printf("\n");
+	  */
+
+/*
+    for(int i=0;i<data_len;i++)
+    {
+    	printf("<%x>",(unsigned char)data[i]);
+    }*/
+    if(debug_mode)
+    {
+		printf("\n");
+		printf("<%u,%u,%u,%u,%d>\n",(unsigned int)iphdrlen,(unsigned int)tcphdrlen,(unsigned int)tcph->syn,(unsigned int)tcph->ack,payloadlen);
+		//fflush(stdout);
+    }
+
+
+	return 0;
+}
+
+int send_raw(packet_info_t &info,char * payload,int payloadlen)
+{
+	if(raw_mode==mode_tcp) return send_raw_tcp(info,payload,payloadlen);
+}
+int recv_raw(packet_info_t &info,char * &payload,int &payloadlen)
+{
+	if(raw_mode==mode_tcp)  return recv_raw_tcp(info,payload,payloadlen);
+}
 int send_data(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2,uint32_t conv_id)
 {
 	int new_len=1+sizeof(my_id)*3+len;
@@ -899,9 +1151,6 @@ int send_data(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2,u
 	send_raw(info,send_data_buf,new_len);
 	return 0;
 }
-
-
-const int hb_length=1+3*sizeof(uint32_t);
 
 int send_hb(packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t id3)
 {
@@ -938,8 +1187,6 @@ int send_hb(packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t id3)
 	send_raw(g_packet_info,0,0);
 	return 0;
 }*/
-
-
 int try_to_list_and_bind(int port)
 {
 	 int old_bind_fd=bind_fd;
@@ -970,7 +1217,7 @@ int try_to_list_and_bind(int port)
 }
 int client_bind_to_a_new_port()
 {
-	int raw_send_port=10000+get_true_random_number()%(65535-10000);
+	int raw_send_port=10000+get_true_random_number_nz()%(65535-10000);
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
 	{
 		if (try_to_list_and_bind(raw_send_port)==0)
@@ -983,7 +1230,8 @@ int client_bind_to_a_new_port()
 	exit(-1);
 	return -1;////for compiler check
 }
-int fake_tcp_keep_connection_client() //for client
+
+int keep_connection_client() //for client
 {
 	conv_manager.clean_inactive();
 	if(debug_mode)printf("timer!\n");
@@ -998,21 +1246,21 @@ int fake_tcp_keep_connection_client() //for client
 		printf("state changed from nothing to syn_sent\n");
 		retry_counter=RETRY_TIME;
 
-		g_packet_info.src_port=client_bind_to_a_new_port();
-		printf("using port %d\n",g_packet_info.src_port);
+		g_packet_info_send.src_port=client_bind_to_a_new_port();
+		printf("using port %d\n",g_packet_info_send.src_port);
 
-		g_packet_info.src_ip=inet_addr(source_address);
+		g_packet_info_send.src_ip=inet_addr(source_address);
 
-		init_filter(g_packet_info.src_port);
+		init_filter(g_packet_info_send.src_port);
 
-		g_packet_info.seq=get_true_random_number();
-		g_packet_info.ack_seq=0;//get_true_random_number();
-		g_packet_info.ts_ack=0;
-		g_packet_info.ack=0;
-		g_packet_info.syn=1;
-		g_packet_info.psh=0;
+		g_packet_info_send.seq=get_true_random_number_nz();
+		g_packet_info_send.ack_seq=0;//get_true_random_number();
+		g_packet_info_send.ts_ack=0;
+		g_packet_info_send.ack=0;
+		g_packet_info_send.syn=1;
+		g_packet_info_send.psh=0;
 
-		send_raw(g_packet_info,0,0);
+		send_raw(g_packet_info_send,0,0);
 	}
 	if(client_current_state==client_syn_sent  &&get_current_time()-last_state_time>handshake_timeout)
 	{
@@ -1027,7 +1275,7 @@ int fake_tcp_keep_connection_client() //for client
 		{
 			retry_counter--;
 			printf("retry send sync\n");
-			send_raw(g_packet_info,0,0);
+			send_raw(g_packet_info_send,0,0);
 			last_state_time=get_current_time();
 		}
 	}
@@ -1043,7 +1291,7 @@ int fake_tcp_keep_connection_client() //for client
 		else
 		{
 			retry_counter--;
-			send_raw(g_packet_info,0,0);
+			send_raw(g_packet_info_send,0,0);
 			last_state_time=get_current_time();
 			printf("retry send ack  counter left:%d\n",retry_counter);
 		}
@@ -1061,7 +1309,7 @@ int fake_tcp_keep_connection_client() //for client
 		else
 		{
 			retry_counter--;
-			send_hb(g_packet_info,my_id,oppsite_id,const_id);
+			send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
 			last_state_time=get_current_time();
 			printf("retry send heart_beat  counter left:%d\n",retry_counter);
 			printf("heartbeat sent <%x,%x>\n",oppsite_id,my_id);
@@ -1077,7 +1325,7 @@ int fake_tcp_keep_connection_client() //for client
 		if(get_current_time()-last_hb_recv_time>heartbeat_timeout)
 		{
 			client_current_state=client_nothing;
-			my_id=get_true_random_number();
+			my_id=get_true_random_number_nz();
 			printf("state back to nothing\n");
 			return 0;
 		}
@@ -1089,13 +1337,13 @@ int fake_tcp_keep_connection_client() //for client
 
 		if(debug_mode)printf("heartbeat sent <%x,%x>\n",oppsite_id,my_id);
 
-		send_hb(g_packet_info,my_id,oppsite_id,const_id);
+		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
 		last_hb_sent_time=get_current_time();
 	}
 
 }
 
-int fake_tcp_keep_connection_server()
+int keep_connection_server()
 {
 	conv_manager.clean_inactive();
 	//begin:
@@ -1114,7 +1362,7 @@ int fake_tcp_keep_connection_server()
 		else
 		{
 			retry_counter--;
-			send_raw(g_packet_info,0,0);
+			send_raw(g_packet_info_send,0,0);
 			last_state_time=get_current_time();
 			printf("resend syn ack\n");
 		}
@@ -1129,7 +1377,7 @@ int fake_tcp_keep_connection_server()
 		else
 		{
 			retry_counter--;
-			send_hb(g_packet_info,my_id,0,const_id);
+			send_hb(g_packet_info_send,my_id,0,const_id);
 			last_state_time=get_current_time();
 			printf("half heart beat sent<%x>\n",my_id);
 		}
@@ -1143,7 +1391,7 @@ int fake_tcp_keep_connection_server()
 			server_current_state=server_nothing;
 
 			printf("changed session id\n");
-			my_id=get_true_random_number();
+			my_id=get_true_random_number_nz();
 
 			printf("state back to nothing\n");
 			printf("changed state to server_nothing111\n");
@@ -1155,7 +1403,7 @@ int fake_tcp_keep_connection_server()
 			return 0;
 		}
 
-		send_hb(g_packet_info,my_id,oppsite_id,const_id);
+		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
 		last_hb_sent_time=get_current_time();
 
 		if(debug_mode) printf("heart beat sent<%x>\n",my_id);
@@ -1191,27 +1439,28 @@ int set_timer(int epollfd,int &timer_fd)
 	}
 }
 
-int client_raw_recv(iphdr *iph,tcphdr *tcph,char * data,int data_len)
+int client_on_raw_recv(packet_info_t &info,char * data,int data_len)
 {
 	if(client_current_state==client_syn_sent )
 	{
-		if (!(tcph->syn==1&&tcph->ack==1&&data_len==0)) return 0;
-		if(iph->saddr!=g_packet_info.dst_ip||ntohs(tcph->source)!=g_packet_info.dst_port)
+		if (!(info.syn==1&&info.ack==1&&data_len==0)) return 0;
+
+		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
-			printf("unexpected adress %d %d  %d %d\n",iph->saddr,g_packet_info.dst_ip,ntohl(tcph->source),g_packet_info.dst_port);
+			printf("unexpected adress\n");
 			return 0;
 		}
 
-		g_packet_info.ack_seq=ntohl(tcph->seq)+1;
-		g_packet_info.psh=0;
-		g_packet_info.syn=0;
-		g_packet_info.ack=1;
-		g_packet_info.seq+=1;
+		g_packet_info_send.ack_seq=info.seq+1;
+		g_packet_info_send.psh=0;
+		g_packet_info_send.syn=0;
+		g_packet_info_send.ack=1;
+		g_packet_info_send.seq+=1;
 
 		printf("sent ack back\n");
 
 
-		send_raw(g_packet_info,0,0);
+		send_raw(g_packet_info_send,0,0);
 		client_current_state=client_ack_sent;
 		last_state_time=get_current_time();
 		retry_counter=RETRY_TIME;
@@ -1220,27 +1469,29 @@ int client_raw_recv(iphdr *iph,tcphdr *tcph,char * data,int data_len)
 	}
 	if(client_current_state==client_ack_sent )
 	{
-		if( tcph->syn==1||tcph->ack!=1 ||data_len==0)
+		if( info.syn==1||info.ack!=1 ||data_len==0)
 		{
 			printf("unexpected syn ack or other zero lenght packet\n");
 			return 0;
 		}
-		if(data_len<hb_length||data[0]!='h')
-		{
-			printf("not a heartbeat\n");
-			return 0;
-		}
-		if(iph->saddr!=g_packet_info.dst_ip||ntohs(tcph->source)!=g_packet_info.dst_port)
+		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
 			printf("unexpected adress\n");
 			return 0;
 		}
 
+		if(data_len<hb_length||data[0]!='h')
+		{
+			printf("not a heartbeat\n");
+			return 0;
+		}
+
+
 		oppsite_id=  ntohl(* ((uint32_t *)&data[1]));
 
 		printf("====first hb received %x\n==",oppsite_id);
 		printf("changed state to client_heartbeat_sent\n");
-		send_hb(g_packet_info,my_id,oppsite_id,const_id);
+		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
 
 		client_current_state=client_heartbeat_sent;
 		last_state_time=get_current_time();
@@ -1248,19 +1499,19 @@ int client_raw_recv(iphdr *iph,tcphdr *tcph,char * data,int data_len)
 	}
 	if(client_current_state==client_heartbeat_sent)
 	{
-		if( tcph->syn==1||tcph->ack!=1 ||data_len==0)
+		if( info.syn==1||info.ack!=1 ||data_len==0)
 		{
 			printf("unexpected syn ack or other zero lenght packet\n");
+			return 0;
+		}
+		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
+		{
+			printf("unexpected adress\n");
 			return 0;
 		}
 		if(data_len<hb_length||data[0]!='h')
 		{
 			printf("not a heartbeat\n");
-			return 0;
-		}
-		if(iph->saddr!=g_packet_info.dst_ip||ntohs(tcph->source)!=g_packet_info.dst_port)
-		{
-			printf("unexpected adress\n");
 			return 0;
 		}
 		uint32_t tmp_my_id= ntohl(* ((uint32_t *)&data[1+sizeof(my_id)]));
@@ -1286,12 +1537,12 @@ int client_raw_recv(iphdr *iph,tcphdr *tcph,char * data,int data_len)
 
 	if(client_current_state==client_ready )
 	{
-		if( tcph->syn==1||tcph->ack!=1 ||data_len==0)
+		if( info.syn==1||info.ack!=1 ||data_len==0)
 		{
 			printf("unexpected syn ack");
 			return 0;
 		}
-		if(iph->saddr!=g_packet_info.dst_ip||ntohs(tcph->source)!=g_packet_info.dst_port)
+		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
 			printf("unexpected adress\n");
 			return 0;
@@ -1359,26 +1610,27 @@ int client_raw_recv(iphdr *iph,tcphdr *tcph,char * data,int data_len)
 		return 0;
 	}
 }
-int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
+int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 {
 	if(server_current_state==server_nothing)
 	{
 		anti_replay.re_init();
 
-		if(!( tcph->syn==1&&tcph->ack==0 &&data_len==0)) return 0;
+		if(!( info.syn==1&&info.ack==0 &&data_len==0)) return 0;
 
-		g_packet_info.dst_port=ntohs(tcph->source);
-		g_packet_info.dst_ip=iph->saddr;
+		g_packet_info_send.dst_port=info.src_port;
+		g_packet_info_send.dst_ip=info.src_ip;
 
-		g_packet_info.ack_seq=ntohl(tcph->seq)+1;
-		g_packet_info.psh=0;
-		g_packet_info.syn=1;
-		g_packet_info.ack=1;
+		g_packet_info_send.ack_seq=info.seq+1;
 
-		g_packet_info.seq=get_true_random_number();//not necessary to set
+		g_packet_info_send.psh=0;
+		g_packet_info_send.syn=1;
+		g_packet_info_send.ack=1;
+
+		g_packet_info_send.seq=get_true_random_number_nz();//not necessary to set
 
 		printf("sent syn ack\n");
-		send_raw(g_packet_info,0,0);
+		send_raw(g_packet_info_send,0,0);
 
 		printf("changed state to server_syn_ack_sent\n");
 
@@ -1388,18 +1640,18 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 	}
 	else if(server_current_state==server_syn_ack_sent)
 	{
-		if(!( tcph->syn==0&&tcph->ack==1 &&data_len==0)) return 0;
-		if(iph->saddr!=g_packet_info.dst_ip||ntohs(tcph->source)!=g_packet_info.dst_port)
+		if(!( info.syn==0&&info.ack==1 &&data_len==0)) return 0;
+		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
 			printf("unexpected adress\n");
 			return 0;
 		}
 
-		g_packet_info.syn=0;
-		g_packet_info.ack=1;
-		g_packet_info.seq+=1;////////is this right?
+		g_packet_info_send.syn=0;
+		g_packet_info_send.ack=1;
+		g_packet_info_send.seq+=1;////////is this right?
 
-		send_hb(g_packet_info,my_id,0,const_id);   // send a hb immidately
+		send_hb(g_packet_info_send,my_id,0,const_id);   // send a hb immidately
 
 		printf("changed state to server_heartbeat_sent\n");
 
@@ -1411,8 +1663,8 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 	}
 	else if(server_current_state==server_heartbeat_sent)//heart beat received
 	{
-		if( tcph->syn==1||tcph->ack!=1 ||data_len==0)  return 0;
-		if(iph->saddr!=g_packet_info.dst_ip||ntohs(tcph->source)!=g_packet_info.dst_port)
+		if( info.syn==1||info.ack!=1 ||data_len==0)  return 0;
+		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
 			printf("unexpected adress\n");
 			return 0;
@@ -1444,7 +1696,7 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 		int tmp_oppsite_session_id=  ntohl(* ((uint32_t *)&data[1]));
 		oppsite_id=tmp_oppsite_session_id;
 
-		send_hb(g_packet_info,my_id,oppsite_id,const_id);
+		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
 
 		server_current_state=server_ready;
 		last_state_time=get_current_time();
@@ -1457,8 +1709,8 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 	}
 	else if(server_current_state==server_ready)
 	{
-		if( tcph->syn==1||tcph->ack!=1 ||data_len==0)  return 0;
-		if(iph->saddr!=g_packet_info.dst_ip||ntohs(tcph->source)!=g_packet_info.dst_port)
+		if( info.syn==1||info.ack!=1 ||data_len==0)  return 0;
+		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
 			printf("unexpected adress\n");
 			return 0;
@@ -1508,7 +1760,7 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 					printf("create udp_fd error");
 					return -1;
 				}
-				set_udp_buf_size(new_udp_fd);
+				set_buf_size(new_udp_fd);
 
 				printf("created new udp_fd %d\n",new_udp_fd);
 				int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in, slen);
@@ -1634,174 +1886,22 @@ int server_raw_recv(iphdr * iph,tcphdr *tcph,char * data,int data_len)
 	}
 }
 
-
-
-int on_raw_recv(iphdr * & iph,tcphdr * &tcph,char * &data,int &data_len)
-{
-	int size;
-	struct sockaddr saddr;
-	socklen_t saddr_size;
-	saddr_size = sizeof(saddr);
-
-	if(debug_mode)printf("raw!\n");
-
-	size = recvfrom(raw_recv_fd, buf, buf_len, 0 ,&saddr , &saddr_size);
-
-	if(buf[12]!=8||buf[13]!=0)
-	{
-		printf("not an ipv4 packet!\n");
-		fflush(stdout);
-		return 0;
-	}
-
-	char *ip_begin=buf+14;
-
-	iph = (struct iphdr *) (ip_begin);
-
-
-    if (!(iph->ihl > 0 && iph->ihl <=60)) {
-    	if(debug_mode) printf("iph ihl error");
-        return 0;
-    }
-
-    if (iph->protocol != IPPROTO_TCP) {
-    	if(debug_mode)printf("iph protocal != tcp\n");
-    	return 0;
-    }
-
-
-	int ip_len=ntohs(iph->tot_len);
-
-    unsigned short iphdrlen =iph->ihl*4;
-    tcph=(struct tcphdr*)(ip_begin+ iphdrlen);
-    unsigned short tcphdrlen = tcph->doff*4;
-
-    if (!(tcph->doff > 0 && tcph->doff <=60)) {
-    	if(debug_mode) printf("tcph error");
-    	return 0;
-    }
-
-
-    /////ip
-    uint32_t ip_chk=csum ((unsigned short *) ip_begin, iphdrlen);
-
-    int psize = sizeof(struct pseudo_header) + ip_len-iphdrlen;
-    /////ip end
-
-
-    ///tcp
-    struct pseudo_header psh;
-
-    psh.source_address = iph->saddr;
-    psh.dest_address = iph->daddr;
-    psh.placeholder = 0;
-    psh.protocol = IPPROTO_TCP;
-    psh.tcp_length = htons(ip_len-iphdrlen);
-
-    memcpy(raw_recv_buf2 , (char*) &psh , sizeof (struct pseudo_header));
-    memcpy(raw_recv_buf2 + sizeof(struct pseudo_header) , ip_begin+ iphdrlen , ip_len-iphdrlen);
-
-    uint16_t tcp_chk = csum( (unsigned short*) raw_recv_buf2, psize);
-
-
-   if(ip_chk!=0)
-    {
-    	printf("ip header error %d\n",ip_chk);
-    	return 0;
-    }
-    if(tcp_chk!=0)
-    {
-    	printf("tcp_chk:%x\n",tcp_chk);
-    	printf("tcp header error\n");
-    	return 0;
-
-    }
-    char *tcp_begin=raw_recv_buf2+sizeof(struct pseudo_header);  //data
-
-    char *tcp_option=raw_recv_buf2+sizeof(struct pseudo_header)+sizeof(tcphdr);
-
-    if(tcph->doff==10)
-    {
-    	if(tcp_option[6]==0x08 &&tcp_option[7]==0x0a)
-    	{
-    		g_packet_info.ts_ack= ntohl(*(uint32_t*)(&tcp_option[8]));
-    	}
-    }
-    if(tcph->doff==8)
-    {
-    	if(tcp_option[3]==0x08 &&tcp_option[4]==0x0a)
-    	{
-    		g_packet_info.ts_ack= ntohl(*(uint32_t*)(&tcp_option[0]));
-    	}
-    }
-
-    if(tcph->rst==1)
-    {
-    	printf("%%%%%%%%%%rst==1%%%%%%%%%%%%%\n");
-    }
-    ////tcp end
-
-
-
-
-
-   // char pseudo_tcp_buffer[MTU];
-
-    data_len = ip_len-tcphdrlen-iphdrlen;
-
-    data=ip_begin+tcphdrlen+iphdrlen;
-
-    if(data_len>0&&data[0]=='h')
-    {
-    	printf("recvd <%u %u %d>\n",ntohl(tcph->seq ),ntohl(tcph->ack_seq), data_len);
-    }
-
-    if(data_len>0&&tcph->syn==0&&tcph->ack==1)
-    {
-    	//if(seq_increse)
-    		g_packet_info.ack_seq=ntohl(tcph->seq)+(uint32_t)data_len;
-    }
-
-
-    //printf("%d\n",ip_len);
-    /*
-    for(int i=0;i<size;i++)
-    {
-    	printf("<%x>",(unsigned char)buf[i]);
-
-    }
-	  printf("\n");
-
-    for(int i=0;i<data_len;i++)
-    {
-    	printf("<%x>",(unsigned char)data[i]);
-    }*/
-    if(debug_mode)
-    {
-		printf("\n");
-		printf("<%u,%u,%u,%u,%d>\n",(unsigned int)iphdrlen,(unsigned int)tcphdrlen,(unsigned int)tcph->syn,(unsigned int)tcph->ack,data_len);
-		//fflush(stdout);
-    }
-
-
-	return 0;
-}
-int client()
+int client_event_loop()
 {
 	int i, j, k;int ret;
 	init_raw_socket();
-	my_id=get_true_random_number();
-	conv_id=get_true_random_number();
+	my_id=get_true_random_number_nz();
+	conv_id=get_true_random_number_nz();
 
 	//init_filter(source_port);
-	g_packet_info.dst_ip=inet_addr(remote_address);
-	g_packet_info.dst_port=remote_port;
+	g_packet_info_send.dst_ip=inet_addr(remote_address);
+	g_packet_info_send.dst_port=remote_port;
 
 	//g_packet_info.src_ip=inet_addr(source_address);
 	//g_packet_info.src_port=source_port;
 
     udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    set_udp_buf_size(udp_fd);
+    set_buf_size(udp_fd);
 
 	int yes = 1;
 	//setsockopt(udp_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
@@ -1865,16 +1965,19 @@ int client()
 			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
 			{
 				iphdr *iph;tcphdr *tcph;char* data;int data_len;
-				on_raw_recv(iph,tcph,data,data_len);
+				if(recv_raw(g_packet_info_recv,data,data_len)!=0)
+				{
+					continue;
+				}
 
 			    int new_len=data_len;
-			    memcpy(raw_recv_buf3,data,new_len);
+			    memcpy(raw_recv_buf3,data,new_len); //for safety,copy to a new buffer,will remove later
 			    if(data_len!=0)
 			    {
 			    	if(pre_recv(raw_recv_buf3,new_len)<0)
 			    		continue;
 			    }
-				client_raw_recv(iph,tcph,raw_recv_buf3,new_len);
+				client_on_raw_recv(g_packet_info_recv,raw_recv_buf3,new_len);
 			}
 			if(events[n].data.u64 ==epoll_timer_fd_sn)
 			{
@@ -1882,7 +1985,7 @@ int client()
 				//fflush(stdout);
 				uint64_t value;
 				read(timer_fd, &value, 8);
-				fake_tcp_keep_connection_client();
+				keep_connection_client();
 			}
 			if (events[n].data.u64 == epoll_udp_fd_sn)
 			{
@@ -1938,7 +2041,7 @@ int client()
 
 				if(client_current_state==client_ready)
 				{
-						send_data(g_packet_info,buf,recv_len,my_id,oppsite_id,conv);
+						send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv);
 				}
 			}
 		}
@@ -1946,13 +2049,13 @@ int client()
 	return 0;
 }
 
-int server()
+int server_event_loop()
 {
 	conv_manager.set_clear_function(server_clear);
 	int i, j, k;int ret;
 
-	g_packet_info.src_ip=inet_addr(local_address);
-	g_packet_info.src_port=local_port;
+	g_packet_info_send.src_ip=inet_addr(local_address);
+	g_packet_info_send.src_port=local_port;
 
 	bind_fd=socket(AF_INET,SOCK_STREAM,0);
 
@@ -2037,7 +2140,7 @@ int server()
 
 				if(server_current_state==server_ready)
 				{
-					send_data(g_packet_info,buf,recv_len,my_id,oppsite_id,conv_id);
+					send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv_id);
 					printf("send !!!!!!!!!!!!!!!!!!");
 				}
 			}
@@ -2046,12 +2149,15 @@ int server()
 			{
 				uint64_t value;
 				read(timer_fd, &value, 8);
-				fake_tcp_keep_connection_server();
+				keep_connection_server();
 			}
 			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
 			{
 				iphdr *iph;tcphdr *tcph;char* data;int data_len;
-				on_raw_recv(iph,tcph,data,data_len);
+				if(recv_raw(g_packet_info_recv,data,data_len)!=0)
+				{
+					continue;
+				}
 
 			    int new_len=data_len;
 			    memcpy(raw_recv_buf3,data,new_len);
@@ -2061,7 +2167,7 @@ int server()
 			    		continue;
 			    }
 
-				server_raw_recv(iph,tcph,raw_recv_buf3,new_len);
+				server_on_raw_recv(g_packet_info_recv,raw_recv_buf3,new_len);
 			}
 
 		}
@@ -2072,10 +2178,10 @@ int server()
 int main(int argc, char *argv[])
 {
 	init_random_number_fd();
-	const_id=get_true_random_number();
+	const_id=get_true_random_number_nz();
 
-	g_packet_info.ack_seq=get_true_random_number();
-	g_packet_info.seq=get_true_random_number();
+	g_packet_info_send.ack_seq=get_true_random_number_nz();
+	g_packet_info_send.seq=get_true_random_number_nz();
 	int i, j, k;
 
 	signal(SIGCHLD, handler);
@@ -2083,11 +2189,11 @@ int main(int argc, char *argv[])
 
 	if(prog_mode==client_mode)
 	{
-		client();
+		client_event_loop();
 	}
 	else
 	{
-		server();
+		server_event_loop();
 	}
 
 	return 0;
