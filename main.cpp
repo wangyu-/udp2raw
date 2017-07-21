@@ -158,11 +158,21 @@ uint8_t key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
 const int window_size=2000;
 
 
+int random_number_fd=-1;
+void init_random_number_fd()
+{
+	random_number_fd=open("/dev/urandom",O_RDONLY);
+	if(random_number_fd==-1)
+	{
+		printf("error open /dev/urandom");
+		exit(-1);
+	}
+}
 uint32_t get_true_random_number()
 {
 	uint32_t ret;
-	int fd=open("/dev/urandom",O_RDONLY);
-	read(fd,&ret,sizeof(ret));
+
+	read(random_number_fd,&ret,sizeof(ret));
 	return htonl(ret);
 }
 struct anti_replay_t
@@ -986,7 +996,7 @@ int fake_tcp_keep_connection_client() //for client
 		client_current_state=client_syn_sent;
 		last_state_time=get_current_time();
 		printf("state changed from nothing to syn_sent\n");
-		retry_counter=5;
+		retry_counter=RETRY_TIME;
 
 		g_packet_info.src_port=client_bind_to_a_new_port();
 		printf("using port %d\n",g_packet_info.src_port);
@@ -2061,6 +2071,7 @@ int server()
 
 int main(int argc, char *argv[])
 {
+	init_random_number_fd();
 	const_id=get_true_random_number();
 
 	g_packet_info.ack_seq=get_true_random_number();
