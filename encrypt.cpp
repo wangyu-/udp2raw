@@ -9,10 +9,6 @@
 
 static uint8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog use zero iv,you should make sure first block of data contains a random/nonce data
 
-static uint8_t g_key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
-
-static uint8_t buf[65535+100];
-
 static const int disable_all=0;
 
 static const int disable_aes=0;
