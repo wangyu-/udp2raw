@@ -1929,7 +1929,7 @@ int recv_safe(packet_info_t &info,char* &data,int &len)
 }
 
 
-int send_bare_old(packet_info_t &info,char* data,int len)
+int send_bare_deprecated(packet_info_t &info,char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1946,7 +1946,7 @@ int send_bare_old(packet_info_t &info,char* data,int len)
 	return 0;
 }
 
-int send_data(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2,uint32_t conv_id)
+int send_data_deprecated(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2,uint32_t conv_id)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1973,7 +1973,7 @@ int send_data(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2,u
 	return 0;
 }
 
-int send_hb(packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t id3)
+int send_hb_deprecated(packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t id3)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -2000,7 +2000,7 @@ int send_hb(packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t id3)
 	return 0;
 }
 
-int recv_tmp(packet_info_t &info,char * &data,int &data_len)
+int recv_tmp_deprecated(packet_info_t &info,char * &data,int &data_len)
 {
 	if(recv_raw(g_packet_info_recv,data,data_len)!=0)
 	{
