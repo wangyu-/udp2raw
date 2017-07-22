@@ -182,10 +182,17 @@ const int conv_clear_ratio=10;
 
 const int hb_length=1+3*sizeof(uint32_t);
 
-int OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO;
-////////==============================variable/function divider=============================================================
+int VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV;
+////////==============================variable divider=============================================================
 
 
+struct pseudo_header {
+    u_int32_t source_address;
+    u_int32_t dest_address;
+    u_int8_t placeholder;
+    u_int8_t protocol;
+    u_int16_t tcp_length;
+};
 struct icmphdr
 {
 	uint8_t type;
@@ -195,56 +202,6 @@ struct icmphdr
 	uint16_t seq;
 };
 
-
-////////=================================================================================
-void init_random_number_fd()
-{
-	random_number_fd=open("/dev/urandom",O_RDONLY);
-	if(random_number_fd==-1)
-	{
-		printf("error open /dev/urandom");
-		exit(-1);
-	}
-}
-uint64_t get_true_random_number_64()
-{
-	uint64_t ret;
-	read(random_number_fd,&ret,sizeof(ret));
-	return ret;
-}
-uint32_t get_true_random_number_0()
-{
-	uint32_t ret;
-	read(random_number_fd,&ret,sizeof(ret));
-	return ret;
-}
-uint32_t get_true_random_number_nz() //nz for non-zero
-{
-	uint32_t ret=0;
-	while(ret==0)
-	{
-		ret=get_true_random_number_0();
-	}
-	return ret;
-}
-uint64_t ntoh64(uint64_t a)
-{
-	if(__BYTE_ORDER == __LITTLE_ENDIAN)
-	{
-		return __bswap_64( a);
-	}
-	else return a;
-
-}
-uint64_t hton64(uint64_t a)
-{
-	if(__BYTE_ORDER == __LITTLE_ENDIAN)
-	{
-		return __bswap_64( a);
-	}
-	else return a;
-
-}
 struct anti_replay_t
 {
 	uint64_t max_packet_received;
@@ -307,6 +264,214 @@ struct anti_replay_t
 		}
 	}
 }anti_replay;
+
+uint32_t get_true_random_number_nz();
+long long get_current_time();
+struct conv_manager_t
+{
+	map<uint64_t,uint32_t> u64_to_conv;  //conv and u64 are both supposed to be uniq
+	map<uint32_t,uint64_t> conv_to_u64;
+
+	map<uint32_t,uint64_t> conv_last_active_time;
+
+	map<uint32_t,uint64_t>::iterator clear_it;
+
+	void (*clear_function)(uint64_t u64) ;
+
+
+	conv_manager_t()
+	{
+		clear_it=conv_last_active_time.begin();
+		clear_function=0;
+	}
+
+	void set_clear_function(void (*a)(uint64_t u64))
+	{
+		clear_function=a;
+	}
+	void clear()
+	{
+		if(disable_conv_clear) return ;
+
+		if(clear_function!=0)
+		{
+			map<uint32_t,uint64_t>::iterator it;
+			for(it=conv_last_active_time.begin();it!=conv_last_active_time.end();it++)
+			{
+				clear_function(it->second);
+			}
+		}
+		u64_to_conv.clear();
+		conv_to_u64.clear();
+		conv_last_active_time.clear();
+
+		clear_it=conv_last_active_time.begin();
+
+	}
+	uint32_t get_new_conv()
+	{
+		uint32_t conv=get_true_random_number_nz();
+		while(conv!=0&&conv_to_u64.find(conv)!=conv_to_u64.end())
+		{
+			conv=get_true_random_number_nz();
+		}
+		return conv;
+	}
+	int is_conv_used(uint32_t conv)
+	{
+		return conv_to_u64.find(conv)!=conv_to_u64.end();
+	}
+	int is_u64_used(uint64_t u64)
+	{
+		return u64_to_conv.find(u64)!=u64_to_conv.end();
+	}
+	uint32_t find_conv_by_u64(uint64_t u64)
+	{
+		return u64_to_conv[u64];
+	}
+	uint64_t find_u64_by_conv(uint32_t conv)
+	{
+		return conv_to_u64[conv];
+	}
+	int update_active_time(uint32_t conv)
+	{
+		return conv_last_active_time[conv]=get_current_time();
+	}
+	int insert_conv(uint32_t conv,uint64_t u64)
+	{
+		u64_to_conv[u64]=conv;
+		conv_to_u64[conv]=u64;
+		conv_last_active_time[conv]=get_current_time();
+		return 0;
+	}
+	int erase_conv(uint32_t conv)
+	{
+		if(disable_conv_clear) return 0;
+		uint64_t u64=conv_to_u64[conv];
+		if(clear_function!=0)
+		{
+			clear_function(u64);
+		}
+		conv_to_u64.erase(conv);
+		u64_to_conv.erase(u64);
+		conv_last_active_time.erase(conv);
+		return 0;
+	}
+	int clean_inactive( )
+	{
+		if(disable_conv_clear) return 0;
+
+		map<uint32_t,uint64_t>::iterator old_it;
+		map<uint32_t,uint64_t>::iterator it;
+		int cnt=0;
+		it=clear_it;
+		int size=conv_last_active_time.size();
+		int num_to_clean=size/conv_clear_ratio;   //clear 1/10 each time,to avoid latency glitch
+
+		uint64_t current_time=get_current_time();
+		for(;;)
+		{
+			if(cnt>=num_to_clean) break;
+			if(conv_last_active_time.begin()==conv_last_active_time.end()) break;
+
+			if(it==conv_last_active_time.end())
+			{
+				it=conv_last_active_time.begin();
+			}
+
+			if( current_time -it->second  >conv_timeout )
+			{
+				printf("inactive conv %u cleared  !!!!!!!!!!!!!!!!!!!!!!!!!\n",it->first);
+				old_it=it;
+				it++;
+				erase_conv(old_it->first);
+
+			}
+			else
+			{
+				it++;
+			}
+			cnt++;
+		}
+		return 0;
+	}
+}conv_manager;
+
+
+struct packet_info_t
+{
+	uint8_t protocol;
+	//ip_part:
+	uint32_t src_ip;
+	uint16_t src_port;
+
+	uint32_t dst_ip;
+	uint16_t dst_port;
+
+	//tcp_part:
+	bool syn,ack,psh,rst;
+
+	uint32_t seq,ack_seq;
+
+	uint32_t ts,ts_ack;
+
+
+	uint16_t icmp_seq;
+
+	bool has_ts;
+
+}g_packet_info_send,g_packet_info_recv;
+
+int TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;
+////////==========================type divider=======================================================
+void init_random_number_fd()
+{
+	random_number_fd=open("/dev/urandom",O_RDONLY);
+	if(random_number_fd==-1)
+	{
+		printf("error open /dev/urandom");
+		exit(-1);
+	}
+}
+uint64_t get_true_random_number_64()
+{
+	uint64_t ret;
+	read(random_number_fd,&ret,sizeof(ret));
+	return ret;
+}
+uint32_t get_true_random_number_0()
+{
+	uint32_t ret;
+	read(random_number_fd,&ret,sizeof(ret));
+	return ret;
+}
+uint32_t get_true_random_number_nz() //nz for non-zero
+{
+	uint32_t ret=0;
+	while(ret==0)
+	{
+		ret=get_true_random_number_0();
+	}
+	return ret;
+}
+uint64_t ntoh64(uint64_t a)
+{
+	if(__BYTE_ORDER == __LITTLE_ENDIAN)
+	{
+		return __bswap_64( a);
+	}
+	else return a;
+
+}
+uint64_t hton64(uint64_t a)
+{
+	if(__BYTE_ORDER == __LITTLE_ENDIAN)
+	{
+		return __bswap_64( a);
+	}
+	else return a;
+
+}
 
 
 int pre_send(char * data, int &data_len)
@@ -574,135 +739,7 @@ void server_clear(uint64_t u64)
 		printf("close fd %d failed !!!!\n",fd);
 	}
 }
-struct conv_manager_t
-{
-	map<uint64_t,uint32_t> u64_to_conv;  //conv and u64 are both supposed to be uniq
-	map<uint32_t,uint64_t> conv_to_u64;
 
-	map<uint32_t,uint64_t> conv_last_active_time;
-
-	map<uint32_t,uint64_t>::iterator clear_it;
-
-	void (*clear_function)(uint64_t u64) ;
-
-
-	conv_manager_t()
-	{
-		clear_it=conv_last_active_time.begin();
-		clear_function=0;
-	}
-
-	void set_clear_function(void (*a)(uint64_t u64))
-	{
-		clear_function=a;
-	}
-	void clear()
-	{
-		if(disable_conv_clear) return ;
-
-		if(clear_function!=0)
-		{
-			map<uint32_t,uint64_t>::iterator it;
-			for(it=conv_last_active_time.begin();it!=conv_last_active_time.end();it++)
-			{
-				clear_function(it->second);
-			}
-		}
-		u64_to_conv.clear();
-		conv_to_u64.clear();
-		conv_last_active_time.clear();
-
-		clear_it=conv_last_active_time.begin();
-
-	}
-	uint32_t get_new_conv()
-	{
-		uint32_t conv=get_true_random_number_nz();
-		while(conv!=0&&conv_to_u64.find(conv)!=conv_to_u64.end())
-		{
-			conv=get_true_random_number_nz();
-		}
-		return conv;
-	}
-	int is_conv_used(uint32_t conv)
-	{
-		return conv_to_u64.find(conv)!=conv_to_u64.end();
-	}
-	int is_u64_used(uint64_t u64)
-	{
-		return u64_to_conv.find(u64)!=u64_to_conv.end();
-	}
-	uint32_t find_conv_by_u64(uint64_t u64)
-	{
-		return u64_to_conv[u64];
-	}
-	uint64_t find_u64_by_conv(uint32_t conv)
-	{
-		return conv_to_u64[conv];
-	}
-	int update_active_time(uint32_t conv)
-	{
-		return conv_last_active_time[conv]=get_current_time();
-	}
-	int insert_conv(uint32_t conv,uint64_t u64)
-	{
-		u64_to_conv[u64]=conv;
-		conv_to_u64[conv]=u64;
-		conv_last_active_time[conv]=get_current_time();
-		return 0;
-	}
-	int erase_conv(uint32_t conv)
-	{
-		if(disable_conv_clear) return 0;
-		uint64_t u64=conv_to_u64[conv];
-		if(clear_function!=0)
-		{
-			clear_function(u64);
-		}
-		conv_to_u64.erase(conv);
-		u64_to_conv.erase(u64);
-		conv_last_active_time.erase(conv);
-		return 0;
-	}
-	int clean_inactive( )
-	{
-		if(disable_conv_clear) return 0;
-
-		map<uint32_t,uint64_t>::iterator old_it;
-		map<uint32_t,uint64_t>::iterator it;
-		int cnt=0;
-		it=clear_it;
-		int size=conv_last_active_time.size();
-		int num_to_clean=size/conv_clear_ratio;   //clear 1/10 each time,to avoid latency glitch
-
-		uint64_t current_time=get_current_time();
-		for(;;)
-		{
-			if(cnt>=num_to_clean) break;
-			if(conv_last_active_time.begin()==conv_last_active_time.end()) break;
-
-			if(it==conv_last_active_time.end())
-			{
-				it=conv_last_active_time.begin();
-			}
-
-			if( current_time -it->second  >conv_timeout )
-			{
-				printf("inactive conv %u cleared  !!!!!!!!!!!!!!!!!!!!!!!!!\n",it->first);
-				old_it=it;
-				it++;
-				erase_conv(old_it->first);
-
-			}
-			else
-			{
-				it++;
-			}
-			cnt++;
-		}
-		return 0;
-	}
-}conv_manager;
 
 
 void process_arg(int argc, char *argv[])
@@ -799,37 +836,9 @@ void process_arg(int argc, char *argv[])
 		exit(-1);
 	}
 }
-struct packet_info_t
-{
-	uint8_t protocol;
-	//ip_part:
-	uint32_t src_ip;
-	uint16_t src_port;
-
-	uint32_t dst_ip;
-	uint16_t dst_port;
-
-	//tcp_part:
-	bool syn,ack,psh,rst;
-
-	uint32_t seq,ack_seq;
-
-	uint32_t ts,ts_ack;
 
 
-	uint16_t icmp_seq;
 
-	bool has_ts;
-
-}g_packet_info_send,g_packet_info_recv;
-
-struct pseudo_header {
-    u_int32_t source_address;
-    u_int32_t dest_address;
-    u_int8_t placeholder;
-    u_int8_t protocol;
-    u_int16_t tcp_length;
-};
 /*
     Generic checksum calculation function
 */
