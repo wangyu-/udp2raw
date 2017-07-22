@@ -7,7 +7,7 @@
 
 //static uint64_t seq=1;
 
-static uint8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog use zero iv,you should make sure first block of data contains a random/nonce data
+static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog use zero iv,you should make sure first block of data contains a random/nonce data
 
 static const int disable_all=0;
 
@@ -92,6 +92,16 @@ int my_decrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
 
 	len=output[len-16-2]*256u+output[len-16-1];
 
+	return 0;
+}
+
+int my_encrypt_pesudo_header(uint8_t *data,uint8_t *output,int &len,uint8_t * key,uint8_t *header,int hlen)
+{
+
+	return 0;
+}
+int my_decrypt_pesudo_header(uint8_t *data,uint8_t *output,int &len,uint8_t * key,uint8_t *header,int hlen)
+{
 	return 0;
 }
 

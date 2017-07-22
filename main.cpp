@@ -58,6 +58,10 @@ typedef uint32_t id_t;
 
 typedef uint64_t iv_t;
 
+typedef uint64_t anti_replay_seq_t;
+
+anti_replay_seq_t anti_replay_seq=0;
+
 id_t const_id=0;
 
 id_t oppsite_const_id=0;
@@ -150,6 +154,8 @@ char raw_recv_buf2[buf_len];
 char raw_recv_buf3[buf_len];
 char replay_buf[buf_len];
 char send_data_buf[buf_len];  //buf for send data and send hb
+char send_data_buf2[buf_len];
+
 
 struct sock_filter code_tcp[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
@@ -174,7 +180,7 @@ uint16_t ip_id=1;
 
 struct sockaddr_in udp_old_addr_in;
 
-uint64_t anti_replay_seq=0;
+
 
 uint8_t key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
 
@@ -204,6 +210,12 @@ void init_random_number_fd()
 		exit(-1);
 	}
 }
+uint64_t get_true_random_number_64()
+{
+	uint64_t ret;
+	read(random_number_fd,&ret,sizeof(ret));
+	return ret;
+}
 uint32_t get_true_random_number_0()
 {
 	uint32_t ret;
@@ -218,6 +230,24 @@ uint32_t get_true_random_number_nz() //nz for non-zero
 		ret=get_true_random_number_0();
 	}
 	return ret;
+}
+uint64_t ntoh64(uint64_t a)
+{
+	if(__BYTE_ORDER == __LITTLE_ENDIAN)
+	{
+		return __bswap_64( a);
+	}
+	else return a;
+
+}
+uint64_t hton64(uint64_t a)
+{
+	if(__BYTE_ORDER == __LITTLE_ENDIAN)
+	{
+		return __bswap_64( a);
+	}
+	else return a;
+
 }
 struct anti_replay_t
 {
@@ -1698,6 +1728,105 @@ int recv_raw(packet_info_t &info,char * &payload,int &payloadlen)
 	else if(raw_mode==mode_udp) return recv_raw_udp(info,payload,payloadlen);
 	else if(raw_mode==mode_icmp) return recv_raw_icmp(info,payload,payloadlen);
 }
+
+int send_bare(packet_info_t &info,char* data,int len)
+{
+	if(len==0) //dont encrpyt zero length packet;
+	{
+		send_raw(info,data,len);
+		return 0;
+	}
+	//static send_bare[buf_len];
+	iv_t iv=get_true_random_number_64();
+
+	memcpy(send_data_buf,&iv,sizeof(iv_t));
+	memcpy(send_data_buf+sizeof(iv_t),data,len);
+
+	int new_len=len+sizeof(iv_t);
+	if(my_encrypt((uint8_t *)send_data_buf,(uint8_t*)send_data_buf2,new_len,key_me)!=0)
+	{
+		return -1;
+	}
+	send_raw(info,send_data_buf2,new_len);
+	return 0;
+}
+char recv_data_buf[buf_len];
+int recv_bare(packet_info_t &info,char* & data,int & len)
+{
+	if(recv_raw(info,data,len)<0)
+	{
+		return -1;
+	}
+	if(len==0) //dont decrpyt zero length packet;
+	{
+		return 0;
+	}
+
+	if(my_decrypt((uint8_t *)data,(uint8_t*)recv_data_buf,len,key_oppsite)!=0)
+	{
+		return -1;
+	}
+	data=recv_data_buf+sizeof(iv_t);
+	len-=sizeof(iv_t);
+	return 0;
+}
+
+
+int send_safe(packet_info_t &info,char* data,int len)
+{
+	id_t n_tmp_id=hton64(my_id);
+
+	memcpy(send_data_buf,&n_tmp_id,sizeof(n_tmp_id));
+
+	n_tmp_id=hton64(oppsite_id);
+
+	memcpy(send_data_buf+sizeof(n_tmp_id),&n_tmp_id,sizeof(n_tmp_id));
+
+	anti_replay_seq_t n_seq=hton64(anti_replay_seq++);
+
+	memcpy(send_data_buf+sizeof(n_tmp_id)*2,&n_seq,sizeof(n_seq));
+
+
+	memcpy(send_data_buf+sizeof(n_tmp_id)*2+sizeof(n_seq),data,len);//data;
+
+	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2;
+
+	if(my_encrypt((uint8_t *)send_data_buf,(uint8_t*)send_data_buf2,new_len,key_me)!=0)
+	{
+		return -1;
+	}
+
+	send_raw(info,send_data_buf2,new_len);
+
+	return 0;
+}
+
+int recv_safe(packet_info_t &info,char* data,int len)
+{
+
+	if(my_decrypt((uint8_t *)data,(uint8_t*)recv_data_buf,len,key_oppsite)!=0)
+	{
+		return -1;
+	}
+	id_t h_oppiste_id= ntoh64 (  *((anti_replay_seq_t * )(data)) );
+	id_t h_my_id= ntoh64 (  *((anti_replay_seq_t * )(data))   +sizeof(h_my_id) );
+
+	anti_replay_seq_t h_seq= ntoh64 (  *((anti_replay_seq_t * )(data  +sizeof(h_my_id) *2 ))   );
+
+	if(h_oppiste_id!=oppsite_id||h_my_id!=my_id)
+	{
+		printf("auth fail\n");
+		return -1;
+	}
+
+	if (anti_replay.is_vaild(h_seq) != 1) {
+		printf("dropped replay packet\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 
 
 int send_bare_data(packet_info_t &info,char* data,int len)
