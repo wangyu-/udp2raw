@@ -170,9 +170,9 @@ struct sockaddr_in udp_old_addr_in;
 
 uint8_t key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
 
-uint8_t key_me[16];
+uint8_t key2[16];
 
-uint8_t key_oppsite[16];
+//uint8_t key_oppsite[16];
 
 const int window_size=2000;
 
@@ -476,7 +476,7 @@ uint64_t hton64(uint64_t a)
 }
 
 
-int pre_send(char * data, int &data_len)
+int pre_send_deprecate(char * data, int &data_len)
 {
 	char replay_buf[buf_len];
 	//return 0;
@@ -505,7 +505,7 @@ int pre_send(char * data, int &data_len)
 
 	if(!disable_encrypt)
 	{
-		if(my_encrypt((unsigned char*)replay_buf,(unsigned char*)data,data_len,key_me) <0)
+		if(my_encrypt((unsigned char*)replay_buf,(unsigned char*)data,data_len,key2) <0)
 		{
 			printf("encrypt fail\n");
 			return -1;
@@ -518,7 +518,7 @@ int pre_send(char * data, int &data_len)
 	return 0;
 }
 
-int pre_recv(char * data, int &data_len)
+int pre_recv_deprecated(char * data, int &data_len)
 {
 	char replay_buf[buf_len];
 	//return 0;
@@ -528,7 +528,7 @@ int pre_recv(char * data, int &data_len)
 
 	if(!disable_encrypt)
 	{
-		if(my_decrypt((uint8_t*)data,(uint8_t*)replay_buf,data_len,key_oppsite) <0)
+		if(my_decrypt((uint8_t*)data,(uint8_t*)replay_buf,data_len,key2) <0)
 		{
 			printf("decrypt fail\n");
 			return -1;
@@ -1760,7 +1760,7 @@ int send_bare(packet_info_t &info,char* data,int len)
 	memcpy(send_data_buf+sizeof(iv_t),data,len);
 
 	int new_len=len+sizeof(iv_t);
-	if(my_encrypt((uint8_t *)send_data_buf,(uint8_t*)send_data_buf2,new_len,key_me)!=0)
+	if(my_encrypt((uint8_t *)send_data_buf,(uint8_t*)send_data_buf2,new_len,key)!=0)
 	{
 		return -1;
 	}
@@ -1781,7 +1781,7 @@ int recv_bare(packet_info_t &info,char* & data,int & len)
 		return 0;
 	}
 
-	if(my_decrypt((uint8_t *)data,(uint8_t*)recv_data_buf,len,key_oppsite)!=0)
+	if(my_decrypt((uint8_t *)data,(uint8_t*)recv_data_buf,len,key)!=0)
 	{
 		printf("decrypt_fail in recv bare\n");
 		return -1;
@@ -1790,6 +1790,7 @@ int recv_bare(packet_info_t &info,char* & data,int & len)
 	len-=sizeof(iv_t);
 	return 0;
 }
+
 int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int len)
 {
 	static char buf[buf_len];
@@ -1858,7 +1859,7 @@ int send_safe(packet_info_t &info,char* data,int len)
 
 	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2;
 
-	if(my_encrypt((uint8_t *)send_data_buf,(uint8_t*)send_data_buf2,new_len,key_me)!=0)
+	if(my_encrypt((uint8_t *)send_data_buf,(uint8_t*)send_data_buf2,new_len,key2)!=0)
 	{
 		return -1;
 	}
@@ -1890,7 +1891,7 @@ int recv_safe(packet_info_t &info,char* &data,int &len)
 
 	//printf("1111111111111111\n");
 
-	if(my_decrypt((uint8_t *)recv_data,(uint8_t*)recv_data_buf,recv_len,key_oppsite)!=0)
+	if(my_decrypt((uint8_t *)recv_data,(uint8_t*)recv_data_buf,recv_len,key2)!=0)
 	{
 		//printf("decrypt fail\n");
 		return -1;
@@ -1938,7 +1939,7 @@ int send_bare_deprecated(packet_info_t &info,char* data,int len)
 
 	memcpy(send_data_buf,data,len);
 
-	if(pre_send(send_data_buf,new_len)<0)
+	if(pre_send_deprecate(send_data_buf,new_len)<0)
 	{
 		return -1;
 	}
@@ -1965,7 +1966,7 @@ int send_data_deprecated(packet_info_t &info,char* data,int len,uint32_t id1,uin
 
 	memcpy(send_data_buf+1+sizeof(my_id)*3,data,len);
 
-	if(pre_send(send_data_buf,new_len)<0)
+	if(pre_send_deprecate(send_data_buf,new_len)<0)
 	{
 		return -1;
 	}
@@ -1991,7 +1992,7 @@ int send_hb_deprecated(packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t i
 	tmp=htonl(id3);
 	memcpy(send_data_buf+1+sizeof(my_id)*2,&tmp,sizeof(my_id));
 
-	if(pre_send(send_data_buf,new_len)<0)
+	if(pre_send_deprecate(send_data_buf,new_len)<0)
 	{
 		return -1;
 	}
@@ -2009,7 +2010,7 @@ int recv_tmp_deprecated(packet_info_t &info,char * &data,int &data_len)
 
     if(data_len!=0)
     {
-    	if(pre_recv(data,data_len)<0)
+    	if(pre_recv_deprecated(data,data_len)<0)
     		return -1;
     }
     return 0;
@@ -3150,22 +3151,29 @@ int main(int argc, char *argv[])
 	signal(SIGCHLD, handler);
 	process_arg(argc,argv);
 
+	for(int i=0;i<16;i++)
+	{
+		key2[i]=key[i]+1;
+	}
+
 	if(prog_mode==client_mode)
 	{
+		/*
 		for(int i=0;i<16;i++)
 		{
-			key_me[i]=key[i];
+			key_me[i]=key[i]+2;
 			key_oppsite[i]=key[i]+1;
-		}
+		}*/
 		client_event_loop();
 	}
 	else
 	{
+		/*
 		for(int i=0;i<16;i++)
 		{
 			key_me[i]=key[i]+1;
-			key_oppsite[i]=key[i];
-		}
+			key_oppsite[i]=key[i]+2;
+		}*/
 		server_event_loop();
 	}
 
