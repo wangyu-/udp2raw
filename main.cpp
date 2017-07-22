@@ -166,9 +166,13 @@ uint16_t ip_id=1;
 
 struct sockaddr_in udp_old_addr_in;
 
-uint64_t seq=0;
+uint64_t anti_replay_seq=0;
+
 uint8_t key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
 
+uint8_t key_me[16];
+
+uint8_t key_oppsite[16];
 
 const int window_size=2000;
 
@@ -280,10 +284,10 @@ int pre_send(char * data, int &data_len)
 
 	if(!disable_anti_replay)
 	{
-		seq++;
-		uint32_t seq_high= htonl(seq>>32u);
+		anti_replay_seq++;
+		uint32_t seq_high= htonl(anti_replay_seq>>32u);
 
-		uint32_t seq_low= htonl((seq<<32u)>>32u);
+		uint32_t seq_low= htonl((anti_replay_seq<<32u)>>32u);
 
 		memcpy(replay_buf,&seq_high,sizeof(uint32_t));
 		memcpy(replay_buf+sizeof(uint32_t),&seq_low,sizeof(uint32_t));
@@ -299,7 +303,7 @@ int pre_send(char * data, int &data_len)
 
 	if(!disable_encrypt)
 	{
-		if(my_encrypt((unsigned char*)replay_buf,(unsigned char*)data,data_len,key) <0)
+		if(my_encrypt((unsigned char*)replay_buf,(unsigned char*)data,data_len,key_me) <0)
 		{
 			printf("encrypt fail\n");
 			return -1;
@@ -321,7 +325,7 @@ int pre_recv(char * data, int &data_len)
 
 	if(!disable_encrypt)
 	{
-		if(my_decrypt((uint8_t*)data,(uint8_t*)replay_buf,data_len,key) <0)
+		if(my_decrypt((uint8_t*)data,(uint8_t*)replay_buf,data_len,key_oppsite) <0)
 		{
 			printf("decrypt fail\n");
 			return -1;
@@ -347,14 +351,37 @@ int pre_recv(char * data, int &data_len)
 
 		uint64_t seq_high= ntohl(*((uint32_t*)(replay_buf) ) );
 		uint32_t seq_low= ntohl(*((uint32_t*)(replay_buf+sizeof(uint32_t)) ) );
-
-
 		uint64_t recv_seq =(seq_high<<32u )+seq_low;
 
-		if(anti_replay.is_vaild(recv_seq)!=1)
+
+
+
+		if((prog_mode==client_mode&&client_current_state==client_ready)
+				||(prog_mode==server_mode&&server_current_state==server_ready ))
 		{
-			printf("dropped replay packet\n");
-			return -1;
+			if(data_len<sizeof(uint32_t)*2+1)
+			{
+				printf("no room for session id and oppiste session_id");
+				return -4;
+			}
+
+			uint32_t tmp_oppiste_session_id = ntohl(
+					*((uint32_t*) (replay_buf + sizeof(uint32_t) * 2+1)));
+			uint32_t tmp_session_id = ntohl(
+					*((uint32_t*) (replay_buf + sizeof(uint32_t) * 3+1)));
+
+			if (tmp_oppiste_session_id != oppsite_id
+					|| tmp_session_id != my_id) {
+				printf("auth fail and pre send\n");
+				return -5;
+			}
+
+			printf("seq=========%u\n", recv_seq);
+
+			if (anti_replay.is_vaild(recv_seq) != 1) {
+				printf("dropped replay packet\n");
+				return -1;
+			}
 		}
 
 		printf("<<<<<%ld,%d,%ld>>>>\n",seq_high,seq_low,recv_seq);
@@ -2229,7 +2256,7 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 		else if(raw_mode==mode_udp||raw_mode==mode_icmp)
 		{
 
-			if(memcmp((char *)"hello",data,strlen("hello"))!=0)
+			if(data_len==strlen("hello")&& memcmp((char *)"hello",data,strlen("hello"))!=0)
 			{
 				//data[6]=0;
 				printf("not a hello packet %d\n",data,data_len);
@@ -2822,7 +2849,7 @@ int main(int argc, char *argv[])
 	init_random_number_fd();
 	const_id=get_true_random_number_nz();
 
-	seq=get_true_random_number_nz();
+	anti_replay_seq=get_true_random_number_nz();
 
 	g_packet_info_send.ack_seq=get_true_random_number_nz();
 	g_packet_info_send.seq=get_true_random_number_nz();
@@ -2833,10 +2860,20 @@ int main(int argc, char *argv[])
 
 	if(prog_mode==client_mode)
 	{
+		for(int i=0;i<16;i++)
+		{
+			key_me[i]=key[i];
+			key_oppsite[i]=key[i]+1;
+		}
 		client_event_loop();
 	}
 	else
 	{
+		for(int i=0;i<16;i++)
+		{
+			key_me[i]=key[i]+1;
+			key_oppsite[i]=key[i];
+		}
 		server_event_loop();
 	}
 
