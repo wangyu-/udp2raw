@@ -50,7 +50,7 @@ using namespace std;
 const int mode_tcp=0;
 const int mode_udp=1;
 const int mode_icmp=2;
-int raw_mode=mode_udp;
+int raw_mode=mode_tcp;
 
 char local_address[100], remote_address[100],source_address[100];
 int local_port = -1, remote_port = -1;
@@ -918,7 +918,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
 	if(recv_len<0)
 	{
-		printf("recv_len %d",recv_len);
+		printf("recv_len %d\n",recv_len);
 		return -1;
 	}
 	if(recv_len<link_level_header_len)
@@ -1327,7 +1327,7 @@ int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
 
 	if(recv_raw_ip(info,ip_payload,ip_payloadlen)!=0)
 	{
-		printf("recv_raw_ip error");
+		printf("recv_raw_ip error\n");
 		return -1;
 	}
 	if(info.protocol!=IPPROTO_ICMP)
@@ -1773,6 +1773,7 @@ int recv_bare(packet_info_t &info,char* & data,int & len)
 	static char recv_data_buf[buf_len];
 	if(recv_raw(info,data,len)<0)
 	{
+		//printf("recv_raw_fail in recv bare\n");
 		return -1;
 	}
 	if(len==0) //dont decrpyt zero length packet;
@@ -1782,13 +1783,58 @@ int recv_bare(packet_info_t &info,char* & data,int & len)
 
 	if(my_decrypt((uint8_t *)data,(uint8_t*)recv_data_buf,len,key_oppsite)!=0)
 	{
+		printf("decrypt_fail in recv bare\n");
 		return -1;
 	}
 	data=recv_data_buf+sizeof(iv_t);
 	len-=sizeof(iv_t);
 	return 0;
 }
+int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int len)
+{
+	static char buf[buf_len];
+	data=buf;
+	id_t tmp=htonl(id1);
+	memcpy(buf,&tmp,sizeof(tmp));
 
+	tmp=htonl(id2);
+	memcpy(buf+sizeof(tmp),&tmp,sizeof(tmp));
+
+	tmp=htonl(id3);
+	memcpy(buf+sizeof(tmp)*2,&tmp,sizeof(tmp));
+
+	len=sizeof(id_t)*3;
+	return 0;
+}
+
+int char_to_numbers(char * data,int len,id_t &id1,id_t &id2,id_t &id3)
+{
+	if(len<sizeof(id_t)*3) return -1;
+	id1=ntohl(  *((id_t*)(data+0)) );
+	id2=ntohl(  *((id_t*)(data+sizeof(id_t))) );
+	id3=ntohl(  *((id_t*)(data+sizeof(id_t)*2)) );
+	return 0;
+}
+
+
+int send_handshake(packet_info_t &info,id_t id1,id_t id2,id_t id3)
+{
+	char * data;int len;
+	len=sizeof(id_t)*3;
+	if(numbers_to_char(id1,id2,id3,data,len)!=0) return -1;
+	if(send_bare(info,data,len)!=0) {printf("send bare fail\n");return -1;}
+	return 0;
+}
+
+int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
+{
+	char * data;int len;
+	if(recv_bare(info,data,len)!=0) return -1;
+
+	if(char_to_numbers(data,len,id1,id2,id3)!=0) return -1;
+
+	return 0;
+}
 
 int send_safe(packet_info_t &info,char* data,int len)
 {
@@ -1921,6 +1967,22 @@ int send_hb(packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t id3)
 	return 0;
 }
 
+int recv_tmp(packet_info_t &info,char * &data,int &data_len)
+{
+	if(recv_raw(g_packet_info_recv,data,data_len)!=0)
+	{
+		return -1;
+	}
+
+    if(data_len!=0)
+    {
+    	if(pre_recv(data,data_len)<0)
+    		return -1;
+    }
+    return 0;
+}
+
+
 /*int send_sync()
 {
 	//g_packet_info.seq=3;
@@ -2023,7 +2085,7 @@ int keep_connection_client() //for client
 			g_packet_info_send.syn = 1;
 			g_packet_info_send.psh = 0;
 
-			send_raw(g_packet_info_send, 0, 0);
+			send_bare(g_packet_info_send, 0, 0);   /////////////send
 		}
 		else if(raw_mode==mode_udp||raw_mode==mode_icmp)
 		{
@@ -2033,7 +2095,7 @@ int keep_connection_client() //for client
 			retry_counter = RETRY_TIME;
 			g_packet_info_send.icmp_seq=0;
 
-			send_bare_old(g_packet_info_send, (char*)"hello", strlen("hello"));
+			send_bare(g_packet_info_send, (char*)"hello", strlen("hello"));/////////////send
 
 		}
 	}
@@ -2050,7 +2112,7 @@ int keep_connection_client() //for client
 		{
 			retry_counter--;
 			printf("retry send sync\n");
-			send_raw(g_packet_info_send,0,0);
+			send_bare(g_packet_info_send,0,0); /////////////send
 			last_state_time=get_current_time();
 		}
 	}
@@ -2068,11 +2130,11 @@ int keep_connection_client() //for client
 			retry_counter--;
 			if(raw_mode==mode_tcp)
 			{
-				send_raw(g_packet_info_send,0,0);
+				send_bare(g_packet_info_send,0,0);/////////////send
 			}
 			else if(raw_mode==mode_udp||raw_mode==mode_icmp)
 			{
-				send_bare_old(g_packet_info_send, (char*)"hello", strlen("hello"));
+				send_bare(g_packet_info_send, (char*)"hello", strlen("hello"));/////////////send
 			}
 			last_state_time=get_current_time();
 			printf("retry send ack  counter left:%d\n",retry_counter);
@@ -2091,7 +2153,7 @@ int keep_connection_client() //for client
 		else
 		{
 			retry_counter--;
-			send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
+			send_handshake(g_packet_info_send,my_id,oppsite_id,const_id);/////////////send
 			last_state_time=get_current_time();
 			printf("retry send heart_beat  counter left:%d\n",retry_counter);
 			printf("heartbeat sent <%x,%x>\n",oppsite_id,my_id);
@@ -2119,7 +2181,7 @@ int keep_connection_client() //for client
 
 		if(debug_mode)printf("heartbeat sent <%x,%x>\n",oppsite_id,my_id);
 
-		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
+		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);/////////////send
 		last_hb_sent_time=get_current_time();
 	}
 	return 0;
@@ -2145,7 +2207,7 @@ int keep_connection_server()
 		else
 		{
 			retry_counter--;
-			send_raw(g_packet_info_send,0,0);
+			send_bare(g_packet_info_send,0,0);    /////////////send
 			last_state_time=get_current_time();
 			printf("resend syn ack\n");
 		}
@@ -2160,7 +2222,7 @@ int keep_connection_server()
 		else
 		{
 			retry_counter--;
-			send_hb(g_packet_info_send,my_id,random(),const_id);
+			send_handshake(g_packet_info_send,my_id,random(),const_id);   /////////////send
 			last_state_time=get_current_time();
 			printf("half heart beat sent<%x>\n",my_id);
 		}
@@ -2186,7 +2248,7 @@ int keep_connection_server()
 			return 0;
 		}
 
-		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
+		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);  /////////////send
 		last_hb_sent_time=get_current_time();
 
 		if(debug_mode) printf("heart beat sent<%x>\n",my_id);
@@ -2223,10 +2285,22 @@ int set_timer(int epollfd,int &timer_fd)
 	return 0;
 }
 
-int client_on_raw_recv(packet_info_t &info,char * data,int data_len)
+
+int client_on_raw_recv(packet_info_t &info)
 {
+	char* data;int data_len;
+
+
 	if(client_current_state==client_syn_sent )
 	{
+
+
+		if(recv_bare(info,data,data_len)!=0)
+		{
+			return -1;
+		}
+
+
 		if (raw_mode==mode_tcp&&!(info.syn==1&&info.ack==1&&data_len==0)) return 0;
 
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
@@ -2253,6 +2327,13 @@ int client_on_raw_recv(packet_info_t &info,char * data,int data_len)
 	}
 	if(client_current_state==client_ack_sent )
 	{
+
+
+		if(recv_bare(info,data,data_len)!=0)
+		{
+			return -1;
+		}
+
 		if(raw_mode==mode_tcp&& (info.syn==1||info.ack!=1 ||data_len==0))
 		{
 			printf("unexpected syn ack or other zero lenght packet\n");
@@ -2264,18 +2345,19 @@ int client_on_raw_recv(packet_info_t &info,char * data,int data_len)
 			return 0;
 		}
 
+		/*
 		if(data_len<hb_length||data[0]!='h')
 		{
 			printf("not a heartbeat\n");
 			return 0;
-		}
+		}*/
 
 
-		oppsite_id=  ntohl(* ((uint32_t *)&data[1]));
+		oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
 
 		printf("====first hb received %x\n==",oppsite_id);
 		printf("changed state to client_heartbeat_sent\n");
-		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
+		send_handshake(g_packet_info_send,my_id,oppsite_id,const_id);
 
 		client_current_state=client_heartbeat_sent;
 		last_state_time=get_current_time();
@@ -2283,6 +2365,13 @@ int client_on_raw_recv(packet_info_t &info,char * data,int data_len)
 	}
 	if(client_current_state==client_heartbeat_sent)
 	{
+
+
+		if(recv_tmp(info,data,data_len)!=0)
+		{
+			return -1;
+		}
+
 		if((raw_mode==mode_tcp&&( info.syn==1||info.ack!=1 ) )||data_len==0  )
 		{
 			printf("unexpected syn ack or other zero lenght packet\n");
@@ -2321,6 +2410,13 @@ int client_on_raw_recv(packet_info_t &info,char * data,int data_len)
 
 	if(client_current_state==client_ready )
 	{
+
+
+		if(recv_tmp(info,data,data_len)!=0)
+		{
+			return -1;
+		}
+
 		if((raw_mode==mode_tcp&&( info.syn==1||info.ack!=1) )||data_len==0)
 		{
 			printf("unexpected syn ack");
@@ -2395,10 +2491,20 @@ int client_on_raw_recv(packet_info_t &info,char * data,int data_len)
 	}
 	return 0;
 }
-int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
+int server_on_raw_recv(packet_info_t &info)
 {
+
+	char* data;int data_len;
+
+
+
 	if(server_current_state==server_nothing)
 	{
+		if(recv_bare(info,data,data_len)!=0)
+		{
+			return -1;
+		}
+
 		anti_replay.re_init();
 
 		if(raw_mode==mode_icmp)
@@ -2423,7 +2529,7 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 			g_packet_info_send.seq = get_true_random_number_nz(); //not necessary to set
 
 			printf("sent syn ack\n");
-			send_raw(g_packet_info_send, 0, 0);
+			send_bare(g_packet_info_send, 0, 0);  //////////////send
 
 			printf("changed state to server_syn_ack_sent\n");
 
@@ -2447,7 +2553,7 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 
 			printf("sent half heart_beat\n");
 			//send_raw(g_packet_info_send, 0, 0);
-			send_hb(g_packet_info_send,my_id,random(),const_id);
+			send_handshake(g_packet_info_send,my_id,random(),const_id);  //////////////send
 
 			printf("changed state to server_heartbeat_sent_sent\n");
 
@@ -2458,6 +2564,11 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 	}
 	else if(server_current_state==server_syn_ack_sent)
 	{
+		if(recv_bare(info,data,data_len)!=0)
+		{
+			return -1;
+		}
+
 		if(raw_mode==mode_tcp&&!( info.syn==0&&info.ack==1 &&data_len==0)) return 0;
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
@@ -2469,7 +2580,7 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 		g_packet_info_send.ack=1;
 		g_packet_info_send.seq+=1;////////is this right?
 
-		send_hb(g_packet_info_send,my_id,0,const_id);   // send a hb immidately
+		send_handshake(g_packet_info_send,my_id,0,const_id);   //////////////send
 
 		printf("changed state to server_heartbeat_sent\n");
 
@@ -2481,6 +2592,11 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 	}
 	else if(server_current_state==server_heartbeat_sent)//heart beat received
 	{
+		if(recv_bare(info,data,data_len)!=0)
+		{
+			return -1;
+		}
+
 		if(( raw_mode==mode_tcp&& (info.syn==1||info.ack!=1)) ||data_len==0)  return 0;
 
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
@@ -2488,14 +2604,15 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 			printf("unexpected adress\n");
 			return 0;
 		}
+		/*
 		if(data_len<hb_length||data[0]!='h')
 		{
 			return 0;
-		}
+		}*/
 
-		uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[1+sizeof(my_id)]));
+		uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[sizeof(my_id)]));
 
-		uint32_t tmp_oppsite_const_id=ntohl(* ((uint32_t *)&data[1+sizeof(my_id)*2]));
+		uint32_t tmp_oppsite_const_id=ntohl(* ((uint32_t *)&data[sizeof(my_id)*2]));
 
 		if(oppsite_const_id!=0&&tmp_oppsite_const_id!=oppsite_const_id)
 		{
@@ -2512,10 +2629,10 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 			return 0;
 		}
 
-		int tmp_oppsite_session_id=  ntohl(* ((uint32_t *)&data[1]));
+		int tmp_oppsite_session_id=  ntohl(* ((uint32_t *)&data[0]));
 		oppsite_id=tmp_oppsite_session_id;
 
-		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
+		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);/////////////////send
 
 		server_current_state=server_ready;
 		last_state_time=get_current_time();
@@ -2528,6 +2645,11 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 	}
 	else if(server_current_state==server_ready)
 	{
+		if(recv_tmp(info,data,data_len)!=0)
+		{
+			return -1;
+		}
+
 		if( (raw_mode==mode_tcp&&(info.syn==1||info.ack!=1)) ||data_len==0)  return 0;
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
@@ -2787,20 +2909,8 @@ int client_event_loop()
 		for (n = 0; n < nfds; ++n) {
 			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
 			{
-				iphdr *iph;tcphdr *tcph;char* data;int data_len;
-				if(recv_raw(g_packet_info_recv,data,data_len)!=0)
-				{
-					continue;
-				}
-
-			    int new_len=data_len;
-			    //memcpy(raw_recv_buf3,data,new_len); //for safety,copy to a new buffer,will remove later
-			    if(data_len!=0)
-			    {
-			    	if(pre_recv(data,new_len)<0)
-			    		continue;
-			    }
-				client_on_raw_recv(g_packet_info_recv,data,new_len);
+				iphdr *iph;tcphdr *tcph;
+				client_on_raw_recv(g_packet_info_recv);
 			}
 			if(events[n].data.u64 ==epoll_timer_fd_sn)
 			{
@@ -2871,6 +2981,7 @@ int client_event_loop()
 	}
 	return 0;
 }
+
 
 int server_event_loop()
 {
@@ -2989,23 +3100,8 @@ int server_event_loop()
 			}
 			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
 			{
-				iphdr *iph;tcphdr *tcph;char* data;int data_len;
-				if(recv_raw(g_packet_info_recv,data,data_len)!=0)
-				{
-					continue;
-				}
-
-			    int new_len=data_len;
-			    if(data_len!=0)
-			    {
-			    	//if(raw_mode==mode_tcp || ((raw_mode==mode_udp||raw_mode==mode_icmp) &&server_current_state!=server_nothing ))
-			    	//{
-			    	if(pre_recv(data,new_len)<0)
-			    		continue;
-			    	//}
-			    }
-
-				server_on_raw_recv(g_packet_info_recv,data,new_len);
+				iphdr *iph;tcphdr *tcph;
+				server_on_raw_recv(g_packet_info_recv);
 			}
 
 		}
