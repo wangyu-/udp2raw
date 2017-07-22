@@ -54,18 +54,26 @@ char local_address[100], remote_address[100],source_address[100];
 int local_port = -1, remote_port = -1;
 int epollfd ;
 
-uint32_t const_id=0;
+typedef uint32_t id_t;
 
-uint32_t oppsite_const_id=0;
+typedef uint64_t iv_t;
 
-uint32_t my_id=0;
-uint32_t oppsite_id=0;
+id_t const_id=0;
 
-uint32_t conv_id=0;
+id_t oppsite_const_id=0;
+
+id_t my_id=0;
+id_t oppsite_id=0;
+
+uint32_t conv_num=0;
 
 uint32_t link_level_header_len=0;
 
 const int handshake_timeout=2000;
+
+
+
+
 
 const int heartbeat_timeout=10000;
 const int udp_timeout=3000;
@@ -89,7 +97,7 @@ const int disable_encrypt=0;
 const int disable_anti_replay=0;
 
 const int disable_bpf_filter=1;
-
+const int disable_conv_clear=0;
 
 
 const int debug_mode=0;
@@ -562,6 +570,8 @@ struct conv_manager_t
 	}
 	void clear()
 	{
+		if(disable_conv_clear) return ;
+
 		if(clear_function!=0)
 		{
 			map<uint32_t,uint64_t>::iterator it;
@@ -615,6 +625,7 @@ struct conv_manager_t
 	}
 	int erase_conv(uint32_t conv)
 	{
+		if(disable_conv_clear) return 0;
 		uint64_t u64=conv_to_u64[conv];
 		if(clear_function!=0)
 		{
@@ -627,6 +638,8 @@ struct conv_manager_t
 	}
 	int clean_inactive( )
 	{
+		if(disable_conv_clear) return 0;
+
 		map<uint32_t,uint64_t>::iterator old_it;
 		map<uint32_t,uint64_t>::iterator it;
 		int cnt=0;
@@ -2534,7 +2547,7 @@ int client_event_loop()
 	int i, j, k;int ret;
 	init_raw_socket();
 	my_id=get_true_random_number_nz();
-	conv_id=get_true_random_number_nz();
+	conv_num=get_true_random_number_nz();
 
 	//init_filter(source_port);
 	g_packet_info_send.dst_ip=inet_addr(remote_address);
