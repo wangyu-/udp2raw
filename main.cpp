@@ -50,7 +50,7 @@ using namespace std;
 const int mode_tcp=0;
 const int mode_udp=1;
 const int mode_icmp=2;
-int raw_mode=mode_tcp;
+int raw_mode=mode_udp;
 
 char local_address[100], remote_address[100],source_address[100];
 int local_port = -1, remote_port = -1;
@@ -1825,7 +1825,7 @@ int send_handshake(packet_info_t &info,id_t id1,id_t id2,id_t id3)
 	if(send_bare(info,data,len)!=0) {printf("send bare fail\n");return -1;}
 	return 0;
 }
-
+/*
 int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
 {
 	char * data;int len;
@@ -1834,18 +1834,18 @@ int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
 	if(char_to_numbers(data,len,id1,id2,id3)!=0) return -1;
 
 	return 0;
-}
+}*/
 
 int send_safe(packet_info_t &info,char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
 
-	id_t n_tmp_id=hton64(my_id);
+	id_t n_tmp_id=htonl(my_id);
 
 	memcpy(send_data_buf,&n_tmp_id,sizeof(n_tmp_id));
 
-	n_tmp_id=hton64(oppsite_id);
+	n_tmp_id=htonl(oppsite_id);
 
 	memcpy(send_data_buf+sizeof(n_tmp_id),&n_tmp_id,sizeof(n_tmp_id));
 
@@ -1867,29 +1867,61 @@ int send_safe(packet_info_t &info,char* data,int len)
 
 	return 0;
 }
+int send_data_safe(packet_info_t &info,char* data,int len,uint32_t conv_num)
+{
+	char send_data_buf[buf_len];
+	send_data_buf[0]='d';
+	uint32_t n_conv_num=htonl(conv_num);
+	memcpy(send_data_buf+strlen("d"),&n_conv_num,sizeof(n_conv_num));
 
-int recv_safe(packet_info_t &info,char* data,int len)
+	memcpy(send_data_buf+strlen("d")+sizeof(n_conv_num),data,len);
+	int new_len=len+strlen("d")+sizeof(n_conv_num);
+	send_safe(info,send_data_buf,new_len);
+	return 0;
+
+}
+int recv_safe(packet_info_t &info,char* &data,int &len)
 {
 
+	char * recv_data;int recv_len;
 	static char recv_data_buf[buf_len];
 
-	if(my_decrypt((uint8_t *)data,(uint8_t*)recv_data_buf,len,key_oppsite)!=0)
+	if(recv_raw(info,recv_data,recv_len)!=0) return -1;
+
+	//printf("1111111111111111\n");
+
+	if(my_decrypt((uint8_t *)recv_data,(uint8_t*)recv_data_buf,recv_len,key_oppsite)!=0)
 	{
+		//printf("decrypt fail\n");
 		return -1;
 	}
-	id_t h_oppiste_id= ntoh64 (  *((anti_replay_seq_t * )(data)) );
-	id_t h_my_id= ntoh64 (  *((anti_replay_seq_t * )(data))   +sizeof(h_my_id) );
 
-	anti_replay_seq_t h_seq= ntoh64 (  *((anti_replay_seq_t * )(data  +sizeof(h_my_id) *2 ))   );
+	//printf("222222222222222\n");
+
+
+	id_t h_oppiste_id= ntohl (  *((id_t * )(recv_data_buf)) );
+
+	id_t h_my_id= ntohl (  *((id_t * )(recv_data_buf+sizeof(id_t)))    );
+
+	anti_replay_seq_t h_seq= ntoh64 (  *((anti_replay_seq_t * )(recv_data_buf  +sizeof(id_t) *2 ))   );
 
 	if(h_oppiste_id!=oppsite_id||h_my_id!=my_id)
 	{
-		printf("auth fail\n");
+		printf("auth fail %x %x %x %x \n",h_oppiste_id,oppsite_id,h_my_id,my_id);
 		return -1;
 	}
 
 	if (anti_replay.is_vaild(h_seq) != 1) {
 		printf("dropped replay packet\n");
+		return -1;
+	}
+
+	data=recv_data_buf+sizeof(anti_replay_seq_t)+sizeof(id_t)*2;;
+	len=recv_len-(sizeof(anti_replay_seq_t)+sizeof(id_t)*2  );
+
+	if(len<0)
+	{
+		printf("len <0\n");
 		return -1;
 	}
 
@@ -1913,6 +1945,7 @@ int send_bare_old(packet_info_t &info,char* data,int len)
 	send_raw(info,send_data_buf,new_len);
 	return 0;
 }
+
 int send_data(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2,uint32_t conv_id)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
@@ -2181,7 +2214,8 @@ int keep_connection_client() //for client
 
 		if(debug_mode)printf("heartbeat sent <%x,%x>\n",oppsite_id,my_id);
 
-		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);/////////////send
+		send_safe(g_packet_info_send,(char *)"h",strlen("h"));/////////////send
+
 		last_hb_sent_time=get_current_time();
 	}
 	return 0;
@@ -2248,7 +2282,9 @@ int keep_connection_server()
 			return 0;
 		}
 
-		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);  /////////////send
+		//printf("heart beat sent\n");
+		send_safe(g_packet_info_send,(char *)"h",strlen("h"));  /////////////send
+
 		last_hb_sent_time=get_current_time();
 
 		if(debug_mode) printf("heart beat sent<%x>\n",my_id);
@@ -2367,7 +2403,7 @@ int client_on_raw_recv(packet_info_t &info)
 	{
 
 
-		if(recv_tmp(info,data,data_len)!=0)
+		if(recv_safe(info,data,data_len)!=0)
 		{
 			return -1;
 		}
@@ -2382,11 +2418,13 @@ int client_on_raw_recv(packet_info_t &info)
 			printf("unexpected adress\n");
 			return 0;
 		}
-		if(data_len<hb_length||data[0]!='h')
+		if(data_len!=strlen("h")||data[0]!='h')
 		{
 			printf("not a heartbeat\n");
 			return 0;
 		}
+
+		/*
 		uint32_t tmp_my_id= ntohl(* ((uint32_t *)&data[1+sizeof(my_id)]));
 		if(tmp_my_id!=my_id)
 		{
@@ -2400,7 +2438,7 @@ int client_on_raw_recv(packet_info_t &info)
 		{
 			printf("oppsite id mismatch%x %x,ignore\n",tmp_oppsite_session_id,my_id);
 			return 0;
-		}
+		}*/
 
 		printf("changed state to client_ready\n");
 		client_current_state=client_ready;
@@ -2412,7 +2450,7 @@ int client_on_raw_recv(packet_info_t &info)
 	{
 
 
-		if(recv_tmp(info,data,data_len)!=0)
+		if(recv_safe(info,data,data_len)!=0)
 		{
 			return -1;
 		}
@@ -2428,39 +2466,19 @@ int client_on_raw_recv(packet_info_t &info)
 			return 0;
 		}
 
-		if(data_len>=hb_length&&data[0]=='h')
+		if(data_len==strlen("h")&&data[0]=='h')
 		{
 			if(debug_mode)printf("heart beat received\n");
 			last_hb_recv_time=get_current_time();
 			return 0;
 		}
-		else if(data_len>=sizeof(my_id)*3+1&&data[0]=='d')
+		else if(data_len>=sizeof(uint32_t)+1&&data[0]=='d')
 		{
 			printf("received a data from fake tcp,len:%d\n",data_len);
-			uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[1+sizeof(my_id)]));
-
-			if(tmp_session_id!=my_id)
-			{
-				printf("client session id mismatch%x %x,ignore\n",tmp_session_id,my_id);
-				return 0;
-			}
-
-			uint32_t tmp_oppsite_session_id=ntohl(* ((uint32_t *)&data[1]));
-			if(tmp_oppsite_session_id!=oppsite_id)
-			{
-				printf("server session id mismatch%x %x,ignore\n",tmp_oppsite_session_id,my_id);
-				return 0;
-			}
 
 			last_hb_recv_time=get_current_time();
 
-			uint32_t tmp_conv_id= ntohl(* ((uint32_t *)&data[1+sizeof(my_id)*2]));
-			/*
-			if(tmp_conv_id!=conv_id)
-			{
-				printf("conv id mismatch%x %x,ignore\n",tmp_oppsite_session_id,my_id);
-				return 0;
-			}*/
+			uint32_t tmp_conv_id= ntohl(* ((uint32_t *)&data[1]));
 
 			if(!conv_manager.is_conv_used(tmp_conv_id))
 			{
@@ -2481,7 +2499,7 @@ int client_on_raw_recv(packet_info_t &info)
 			tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
 
 
-			int ret=sendto(udp_fd,data+1+sizeof(my_id)*3,data_len -(1+sizeof(my_id)*3),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
+			int ret=sendto(udp_fd,data+1+sizeof(uint32_t),data_len -(1+sizeof(uint32_t)),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
 
 			if(ret<0)perror("ret<0");
 			printf("%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
@@ -2621,7 +2639,6 @@ int server_on_raw_recv(packet_info_t &info)
 		oppsite_const_id=tmp_oppsite_const_id;
 
 
-		printf("received hb %x %x\n",oppsite_id,tmp_session_id);
 
 		if(tmp_session_id!=my_id)
 		{
@@ -2632,7 +2649,12 @@ int server_on_raw_recv(packet_info_t &info)
 		int tmp_oppsite_session_id=  ntohl(* ((uint32_t *)&data[0]));
 		oppsite_id=tmp_oppsite_session_id;
 
-		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);/////////////////send
+
+		printf("received hb %x %x\n",oppsite_id,tmp_session_id);
+
+		send_safe(g_packet_info_send,(char *)"h",strlen("h"));/////////////send
+
+		//send_hb(g_packet_info_send,my_id,oppsite_id,const_id);/////////////////send
 
 		server_current_state=server_ready;
 		last_state_time=get_current_time();
@@ -2645,7 +2667,7 @@ int server_on_raw_recv(packet_info_t &info)
 	}
 	else if(server_current_state==server_ready)
 	{
-		if(recv_tmp(info,data,data_len)!=0)
+		if(recv_safe(info,data,data_len)!=0)
 		{
 			return -1;
 		}
@@ -2657,31 +2679,17 @@ int server_on_raw_recv(packet_info_t &info)
 			return 0;
 		}
 
-		if(data[0]=='h'&&data_len>=hb_length)
+		if(data[0]=='h'&&data_len==strlen("h"))
 		{
 			uint32_t tmp= ntohl(* ((uint32_t *)&data[1+sizeof(uint32_t)]));
 			if(debug_mode)printf("received hb <%x,%x>\n",oppsite_id,tmp);
 			last_hb_recv_time=get_current_time();
 			return 0;
 		}
-		else if(data[0]=='d'&&data_len>=sizeof(my_id)*3+1)
+		else if(data[0]=='d'&&data_len>=sizeof(uint32_t)+1)
 		{
-			uint32_t tmp_oppsite_session_id=ntohl(* ((uint32_t *)&data[1]));
-			uint32_t tmp_session_id=ntohl(* ((uint32_t *)&data[1+sizeof(my_id)]));
-			uint32_t tmp_conv_id=ntohl(* ((uint32_t *)&data[1+sizeof(my_id)*2]));
+			uint32_t tmp_conv_id=ntohl(* ((uint32_t *)&data[1]));
 
-
-			if(tmp_session_id!=my_id)
-			{
-				printf("my id mismatch,ignore\n");
-				return 0;
-			}
-
-			if(tmp_oppsite_session_id!=oppsite_id)
-			{
-				printf("oppsite id mismatch,ignore\n");
-				return 0;
-			}
 			last_hb_recv_time=get_current_time();
 
 			printf("<<<<conv:%u>>>>\n",tmp_conv_id);
@@ -2738,7 +2746,7 @@ int server_on_raw_recv(packet_info_t &info)
 			int fd=int((u64<<32u)>>32u);
 
 			printf("received a data from fake tcp,len:%d\n",data_len);
-			int ret=send(fd,data+1+sizeof(my_id)*3,data_len -(1+sizeof(my_id)*3),0);
+			int ret=send(fd,data+1+sizeof(uint32_t),data_len -(1+sizeof(uint32_t)),0);
 
 			printf("%d byte sent  ,fd :%d\n ",ret,fd);
 			if(ret<0)
@@ -2835,7 +2843,7 @@ int client_event_loop()
 
 	int i, j, k;int ret;
 	init_raw_socket();
-	my_id=get_true_random_number_nz();
+	//my_id=get_true_random_number_nz();
 	conv_num=get_true_random_number_nz();
 
 	//init_filter(source_port);
@@ -2974,7 +2982,7 @@ int client_event_loop()
 
 				if(client_current_state==client_ready)
 				{
-						send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv);
+						send_data_safe(g_packet_info_send,buf,recv_len,conv);
 				}
 			}
 		}
@@ -3087,7 +3095,8 @@ int server_event_loop()
 
 				if(server_current_state==server_ready)
 				{
-					send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv_id);
+					send_data_safe(g_packet_info_send,buf,recv_len,conv_id);
+					//send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv_id);
 					printf("send !!!!!!!!!!!!!!!!!!");
 				}
 			}
@@ -3113,6 +3122,7 @@ int main(int argc, char *argv[])
 {
 	srand(time(0));
 
+
 	if(raw_mode==mode_tcp)
 	{
 		g_packet_info_send.protocol=IPPROTO_TCP;
@@ -3126,7 +3136,10 @@ int main(int argc, char *argv[])
 		g_packet_info_send.protocol=IPPROTO_ICMP;
 	}
 	init_random_number_fd();
+	my_id=get_true_random_number_nz();
 	const_id=get_true_random_number_nz();
+
+	printf("myid:%x constid:%x\n",my_id,const_id);
 
 	anti_replay_seq=get_true_random_number_nz();
 
