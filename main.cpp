@@ -2709,7 +2709,6 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 int client_event_loop()
 {
 	char buf[buf_len];
-	char raw_recv_buf3[buf_len];
 
 
 	int i, j, k;int ret;
@@ -2795,13 +2794,13 @@ int client_event_loop()
 				}
 
 			    int new_len=data_len;
-			    memcpy(raw_recv_buf3,data,new_len); //for safety,copy to a new buffer,will remove later
+			    //memcpy(raw_recv_buf3,data,new_len); //for safety,copy to a new buffer,will remove later
 			    if(data_len!=0)
 			    {
-			    	if(pre_recv(raw_recv_buf3,new_len)<0)
+			    	if(pre_recv(data,new_len)<0)
 			    		continue;
 			    }
-				client_on_raw_recv(g_packet_info_recv,raw_recv_buf3,new_len);
+				client_on_raw_recv(g_packet_info_recv,data,new_len);
 			}
 			if(events[n].data.u64 ==epoll_timer_fd_sn)
 			{
@@ -2876,7 +2875,6 @@ int client_event_loop()
 int server_event_loop()
 {
 	char buf[buf_len];
-	char raw_recv_buf3[buf_len];
 
 	conv_manager.set_clear_function(server_clear);
 	int i, j, k;int ret;
@@ -2998,17 +2996,16 @@ int server_event_loop()
 				}
 
 			    int new_len=data_len;
-			    memcpy(raw_recv_buf3,data,new_len);
 			    if(data_len!=0)
 			    {
 			    	//if(raw_mode==mode_tcp || ((raw_mode==mode_udp||raw_mode==mode_icmp) &&server_current_state!=server_nothing ))
 			    	//{
-			    	if(pre_recv(raw_recv_buf3,new_len)<0)
+			    	if(pre_recv(data,new_len)<0)
 			    		continue;
 			    	//}
 			    }
 
-				server_on_raw_recv(g_packet_info_recv,raw_recv_buf3,new_len);
+				server_on_raw_recv(g_packet_info_recv,data,new_len);
 			}
 
 		}
