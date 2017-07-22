@@ -1851,7 +1851,7 @@ int recv_safe(packet_info_t &info,char* data,int len)
 }
 
 
-int send_bare_data(packet_info_t &info,char* data,int len)
+int send_bare_old(packet_info_t &info,char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -2033,7 +2033,7 @@ int keep_connection_client() //for client
 			retry_counter = RETRY_TIME;
 			g_packet_info_send.icmp_seq=0;
 
-			send_bare_data(g_packet_info_send, (char*)"hello", strlen("hello"));
+			send_bare_old(g_packet_info_send, (char*)"hello", strlen("hello"));
 
 		}
 	}
@@ -2072,7 +2072,7 @@ int keep_connection_client() //for client
 			}
 			else if(raw_mode==mode_udp||raw_mode==mode_icmp)
 			{
-				send_bare_data(g_packet_info_send, (char*)"hello", strlen("hello"));
+				send_bare_old(g_packet_info_send, (char*)"hello", strlen("hello"));
 			}
 			last_state_time=get_current_time();
 			printf("retry send ack  counter left:%d\n",retry_counter);
