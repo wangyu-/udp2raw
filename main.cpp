@@ -75,10 +75,6 @@ uint32_t link_level_header_len=0;
 
 const int handshake_timeout=2000;
 
-
-
-
-
 const int heartbeat_timeout=10000;
 const int udp_timeout=3000;
 
@@ -145,18 +141,6 @@ long long last_state_time=0;
 long long last_hb_sent_time=0;
 
 
-char buf[buf_len];
-char buf2[buf_len];
-char raw_send_buf[buf_len];
-char raw_send_buf2[buf_len];
-char raw_recv_buf[buf_len];
-char raw_recv_buf2[buf_len];
-char raw_recv_buf3[buf_len];
-char replay_buf[buf_len];
-char send_data_buf[buf_len];  //buf for send data and send hb
-char send_data_buf2[buf_len];
-
-
 struct sock_filter code_tcp[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
 		{ 0x15, 0, 10, 0x00000800 },//1
@@ -201,6 +185,18 @@ const int hb_length=1+3*sizeof(uint32_t);
 int OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO;
 ////////==============================variable/function divider=============================================================
 
+
+struct icmphdr
+{
+	uint8_t type;
+	uint8_t code;
+	uint16_t check_sum;
+	uint16_t id;
+	uint16_t seq;
+};
+
+
+////////=================================================================================
 void init_random_number_fd()
 {
 	random_number_fd=open("/dev/urandom",O_RDONLY);
@@ -315,6 +311,7 @@ struct anti_replay_t
 
 int pre_send(char * data, int &data_len)
 {
+	char replay_buf[buf_len];
 	//return 0;
 	if(data_len<0) return -3;
 
@@ -356,6 +353,7 @@ int pre_send(char * data, int &data_len)
 
 int pre_recv(char * data, int &data_len)
 {
+	char replay_buf[buf_len];
 	//return 0;
 	if(data_len<0) return -1;
 
@@ -858,10 +856,12 @@ unsigned short csum(unsigned short *ptr,int nbytes) {
     return(answer);
 }
 
-char send_raw_ip_buf[buf_len];
+
 
 int send_raw_ip(packet_info_t &info,char * payload,int payloadlen)
 {
+	char send_raw_ip_buf[buf_len];
+
 	struct iphdr *iph = (struct iphdr *) send_raw_ip_buf;
     memset(iph,0,sizeof(iphdr));
 
@@ -898,9 +898,10 @@ int send_raw_ip(packet_info_t &info,char * payload,int payloadlen)
     return 0;
 }
 
-char recv_raw_ip_buf[buf_len];
 int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 {
+	static char recv_raw_ip_buf[buf_len];
+
 	iphdr *  iph;
 	struct sockaddr saddr;
 	socklen_t saddr_size;
@@ -966,23 +967,15 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
     	return -1;
     }
 
-
 	return 0;
 }
 
 
-struct icmphdr
-{
-	uint8_t type;
-	uint8_t code;
-	uint16_t check_sum;
-	uint16_t id;
-	uint16_t seq;
-};
 
-char send_raw_icmp_buf[buf_len];
+
 int send_raw_icmp(packet_info_t &info, char * payload, int payloadlen)
 {
+	char send_raw_icmp_buf[buf_len];
 	icmphdr *icmph=(struct icmphdr *) (send_raw_icmp_buf);
 	memset(icmph,0,sizeof(icmphdr));
 	if(prog_mode==client_mode)
@@ -1009,9 +1002,11 @@ int send_raw_icmp(packet_info_t &info, char * payload, int payloadlen)
 
 	return 0;
 }
-char send_raw_udp_buf[buf_len];
+
 int send_raw_udp(packet_info_t &info, char * payload, int payloadlen)
 {
+	char send_raw_udp_buf[buf_len];
+
 	udphdr *udph=(struct udphdr *) (send_raw_udp_buf
 			+ sizeof(struct pseudo_header));
 
@@ -1047,9 +1042,10 @@ int send_raw_udp(packet_info_t &info, char * payload, int payloadlen)
 	}
 	return 0;
 }
-char send_raw_tcp_buf[buf_len];
+
 int send_raw_tcp(packet_info_t &info, char * payload, int payloadlen) {  //TODO seq increase
 
+	char send_raw_tcp_buf[buf_len];
 	struct tcphdr *tcph = (struct tcphdr *) (send_raw_tcp_buf
 			+ sizeof(struct pseudo_header));
 
@@ -1150,6 +1146,9 @@ int send_raw_tcp(packet_info_t &info, char * payload, int payloadlen) {  //TODO 
 }
 int send_raw_tcp_deprecated(packet_info_t &info,char * payload,int payloadlen)
 {
+	char raw_send_buf[buf_len];
+	char raw_send_buf2[buf_len];
+
 	if((prog_mode==client_mode&& payloadlen!=9)  ||(prog_mode==server_mode&& payloadlen!=5 )  )
 		printf("send raw from to %d %d %d %d\n",info.src_ip,info.src_port,info.dst_ip,info.dst_port);
 
@@ -1313,9 +1312,11 @@ int send_raw_tcp_deprecated(packet_info_t &info,char * payload,int payloadlen)
      return 0;
 }
 
-char recv_raw_icmp_buf[buf_len];
+
 int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
 {
+	static char recv_raw_icmp_buf[buf_len];
+
 	char * ip_payload;
 	int ip_payloadlen;
 
@@ -1363,9 +1364,10 @@ int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
 
     return 0;
 }
-char recv_raw_udp_buf[buf_len];
+
 int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
 {
+	static char recv_raw_udp_buf[buf_len];
 	char * ip_payload;
 	int ip_payloadlen;
 
@@ -1431,9 +1433,10 @@ int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
 
     return 0;
 }
-char recv_raw_tcp_buf[buf_len];
+
 int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
 {
+	static char recv_raw_tcp_buf[buf_len];
 
 	char * ip_payload;
 	int ip_payloadlen;
@@ -1541,6 +1544,12 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
 }
 int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 {
+	static char buf[buf_len];
+
+	char raw_recv_buf[buf_len];
+	char raw_recv_buf2[buf_len];
+	char raw_recv_buf3[buf_len];
+
 	iphdr *  iph;
 	tcphdr * tcph;
 	int size;
@@ -1731,6 +1740,9 @@ int recv_raw(packet_info_t &info,char * &payload,int &payloadlen)
 
 int send_bare(packet_info_t &info,char* data,int len)
 {
+	char send_data_buf[buf_len];  //buf for send data and send hb
+	char send_data_buf2[buf_len];
+
 	if(len==0) //dont encrpyt zero length packet;
 	{
 		send_raw(info,data,len);
@@ -1750,9 +1762,10 @@ int send_bare(packet_info_t &info,char* data,int len)
 	send_raw(info,send_data_buf2,new_len);
 	return 0;
 }
-char recv_data_buf[buf_len];
+
 int recv_bare(packet_info_t &info,char* & data,int & len)
 {
+	static char recv_data_buf[buf_len];
 	if(recv_raw(info,data,len)<0)
 	{
 		return -1;
@@ -1774,6 +1787,9 @@ int recv_bare(packet_info_t &info,char* & data,int & len)
 
 int send_safe(packet_info_t &info,char* data,int len)
 {
+	char send_data_buf[buf_len];  //buf for send data and send hb
+	char send_data_buf2[buf_len];
+
 	id_t n_tmp_id=hton64(my_id);
 
 	memcpy(send_data_buf,&n_tmp_id,sizeof(n_tmp_id));
@@ -1804,6 +1820,8 @@ int send_safe(packet_info_t &info,char* data,int len)
 int recv_safe(packet_info_t &info,char* data,int len)
 {
 
+	static char recv_data_buf[buf_len];
+
 	if(my_decrypt((uint8_t *)data,(uint8_t*)recv_data_buf,len,key_oppsite)!=0)
 	{
 		return -1;
@@ -1831,6 +1849,9 @@ int recv_safe(packet_info_t &info,char* data,int len)
 
 int send_bare_data(packet_info_t &info,char* data,int len)
 {
+	char send_data_buf[buf_len];  //buf for send data and send hb
+	char send_data_buf2[buf_len];
+
 	int new_len=len;
 
 	memcpy(send_data_buf,data,len);
@@ -1844,6 +1865,9 @@ int send_bare_data(packet_info_t &info,char* data,int len)
 }
 int send_data(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2,uint32_t conv_id)
 {
+	char send_data_buf[buf_len];  //buf for send data and send hb
+	char send_data_buf2[buf_len];
+
 	int new_len=1+sizeof(my_id)*3+len;
 	send_data_buf[0]='d';
 	uint32_t tmp;
@@ -1868,6 +1892,9 @@ int send_data(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2,u
 
 int send_hb(packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t id3)
 {
+	char send_data_buf[buf_len];  //buf for send data and send hb
+	char send_data_buf2[buf_len];
+
 	int new_len=1+sizeof(my_id)*3;
 	send_data_buf[0]='h';
 
@@ -2673,6 +2700,10 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 
 int client_event_loop()
 {
+	char buf[buf_len];
+	char raw_recv_buf3[buf_len];
+
+
 	int i, j, k;int ret;
 	init_raw_socket();
 	my_id=get_true_random_number_nz();
@@ -2836,6 +2867,9 @@ int client_event_loop()
 
 int server_event_loop()
 {
+	char buf[buf_len];
+	char raw_recv_buf3[buf_len];
+
 	conv_manager.set_clear_function(server_clear);
 	int i, j, k;int ret;
 
