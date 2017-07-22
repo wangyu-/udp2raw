@@ -48,7 +48,7 @@ using namespace std;
 const int mode_tcp=0;
 const int mode_udp=1;
 const int mode_icmp=2;
-int raw_mode=mode_icmp;
+int raw_mode=mode_udp;
 
 char local_address[100], remote_address[100],source_address[100];
 int local_port = -1, remote_port = -1;
@@ -352,8 +352,6 @@ int pre_recv(char * data, int &data_len)
 		uint64_t seq_high= ntohl(*((uint32_t*)(replay_buf) ) );
 		uint32_t seq_low= ntohl(*((uint32_t*)(replay_buf+sizeof(uint32_t)) ) );
 		uint64_t recv_seq =(seq_high<<32u )+seq_low;
-
-
 
 
 		if((prog_mode==client_mode&&client_current_state==client_ready)
@@ -1826,7 +1824,11 @@ int keep_connection_client() //for client
 		anti_replay.re_init(); //  this is not safe
 
 		g_packet_info_send.src_port = client_bind_to_a_new_port();
-		g_packet_info_send.dst_port =g_packet_info_send.src_port ;
+
+		if(raw_mode==mode_icmp)
+		{
+			g_packet_info_send.dst_port =g_packet_info_send.src_port ;
+		}
 		printf("using port %d\n", g_packet_info_send.src_port);
 
 		g_packet_info_send.src_ip = inet_addr(source_address);
