@@ -45,6 +45,8 @@
 
 using namespace std;
 
+
+
 const int mode_tcp=0;
 const int mode_udp=1;
 const int mode_icmp=2;
@@ -740,8 +742,6 @@ void server_clear(uint64_t u64)
 	}
 }
 
-
-
 void process_arg(int argc, char *argv[])
 {
 	int i,j,k,opt;
@@ -836,8 +836,6 @@ void process_arg(int argc, char *argv[])
 		exit(-1);
 	}
 }
-
-
 
 /*
     Generic checksum calculation function
@@ -978,8 +976,6 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
 	return 0;
 }
-
-
 
 
 int send_raw_icmp(packet_info_t &info, char * payload, int payloadlen)
@@ -1855,7 +1851,6 @@ int recv_safe(packet_info_t &info,char* data,int len)
 }
 
 
-
 int send_bare_data(packet_info_t &info,char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
@@ -2127,6 +2122,7 @@ int keep_connection_client() //for client
 		send_hb(g_packet_info_send,my_id,oppsite_id,const_id);
 		last_hb_sent_time=get_current_time();
 	}
+	return 0;
 
 }
 
@@ -2224,6 +2220,7 @@ int set_timer(int epollfd,int &timer_fd)
 		printf("epoll_ctl return %d\n", ret);
 		exit(-1);
 	}
+	return 0;
 }
 
 int client_on_raw_recv(packet_info_t &info,char * data,int data_len)
@@ -2396,6 +2393,7 @@ int client_on_raw_recv(packet_info_t &info,char * data,int data_len)
 		}
 		return 0;
 	}
+	return 0;
 }
 int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 {
@@ -2705,6 +2703,7 @@ int server_on_raw_recv(packet_info_t &info,char * data,int data_len)
 
 		}
 	}
+	return 0;
 }
 
 int client_event_loop()
