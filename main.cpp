@@ -1837,7 +1837,7 @@ int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
 	return 0;
 }*/
 
-int send_safe(packet_info_t &info,char* data,int len)
+int send_safer(packet_info_t &info,char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1868,7 +1868,7 @@ int send_safe(packet_info_t &info,char* data,int len)
 
 	return 0;
 }
-int send_data_safe(packet_info_t &info,char* data,int len,uint32_t conv_num)
+int send_data_safer(packet_info_t &info,char* data,int len,uint32_t conv_num)
 {
 	char send_data_buf[buf_len];
 	send_data_buf[0]='d';
@@ -1877,11 +1877,11 @@ int send_data_safe(packet_info_t &info,char* data,int len,uint32_t conv_num)
 
 	memcpy(send_data_buf+strlen("d")+sizeof(n_conv_num),data,len);
 	int new_len=len+strlen("d")+sizeof(n_conv_num);
-	send_safe(info,send_data_buf,new_len);
+	send_safer(info,send_data_buf,new_len);
 	return 0;
 
 }
-int recv_safe(packet_info_t &info,char* &data,int &len)
+int recv_safer(packet_info_t &info,char* &data,int &len)
 {
 
 	char * recv_data;int recv_len;
@@ -2215,7 +2215,7 @@ int keep_connection_client() //for client
 
 		if(debug_mode)printf("heartbeat sent <%x,%x>\n",oppsite_id,my_id);
 
-		send_safe(g_packet_info_send,(char *)"h",strlen("h"));/////////////send
+		send_safer(g_packet_info_send,(char *)"h",strlen("h"));/////////////send
 
 		last_hb_sent_time=get_current_time();
 	}
@@ -2284,7 +2284,7 @@ int keep_connection_server()
 		}
 
 		//printf("heart beat sent\n");
-		send_safe(g_packet_info_send,(char *)"h",strlen("h"));  /////////////send
+		send_safer(g_packet_info_send,(char *)"h",strlen("h"));  /////////////send
 
 		last_hb_sent_time=get_current_time();
 
@@ -2404,7 +2404,7 @@ int client_on_raw_recv(packet_info_t &info)
 	{
 
 
-		if(recv_safe(info,data,data_len)!=0)
+		if(recv_safer(info,data,data_len)!=0)
 		{
 			return -1;
 		}
@@ -2451,7 +2451,7 @@ int client_on_raw_recv(packet_info_t &info)
 	{
 
 
-		if(recv_safe(info,data,data_len)!=0)
+		if(recv_safer(info,data,data_len)!=0)
 		{
 			return -1;
 		}
@@ -2653,7 +2653,7 @@ int server_on_raw_recv(packet_info_t &info)
 
 		printf("received hb %x %x\n",oppsite_id,tmp_session_id);
 
-		send_safe(g_packet_info_send,(char *)"h",strlen("h"));/////////////send
+		send_safer(g_packet_info_send,(char *)"h",strlen("h"));/////////////send
 
 		//send_hb(g_packet_info_send,my_id,oppsite_id,const_id);/////////////////send
 
@@ -2668,7 +2668,7 @@ int server_on_raw_recv(packet_info_t &info)
 	}
 	else if(server_current_state==server_ready)
 	{
-		if(recv_safe(info,data,data_len)!=0)
+		if(recv_safer(info,data,data_len)!=0)
 		{
 			return -1;
 		}
@@ -2983,7 +2983,7 @@ int client_event_loop()
 
 				if(client_current_state==client_ready)
 				{
-						send_data_safe(g_packet_info_send,buf,recv_len,conv);
+						send_data_safer(g_packet_info_send,buf,recv_len,conv);
 				}
 			}
 		}
@@ -3096,7 +3096,7 @@ int server_event_loop()
 
 				if(server_current_state==server_ready)
 				{
-					send_data_safe(g_packet_info_send,buf,recv_len,conv_id);
+					send_data_safer(g_packet_info_send,buf,recv_len,conv_id);
 					//send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv_id);
 					printf("send !!!!!!!!!!!!!!!!!!");
 				}
