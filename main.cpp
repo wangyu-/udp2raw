@@ -43,6 +43,11 @@
 #include <encrypt.h>
 #include <inttypes.h>
 
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <net/if.h>
+#include <arpa/inet.h>
+
 using namespace std;
 
 
@@ -52,7 +57,7 @@ const int mode_udp=1;
 const int mode_icmp=2;
 int raw_mode=mode_udp;
 
-char local_address[100], remote_address[100],source_address[100];
+char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
 uint32_t local_address_uint32,remote_address_uint32,source_address_uint32;
 int local_port = -1, remote_port = -1;
 int epollfd ;
@@ -945,7 +950,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
 	if(local_address_uint32!=0 &&info.dst_ip!=local_address_uint32)
 	{
-		printf(" bind adress doenst match, dropped\n");
+		//printf(" bind adress doenst match, dropped\n");
 		return -1;
 	}
 
@@ -2853,12 +2858,71 @@ int server_on_raw_recv(packet_info_t &info)
 	}
 	return 0;
 }
+int get_src_adress(uint32_t &ip)
+{
+	struct sockaddr_in remote_addr_in;
 
+	socklen_t slen = sizeof(sockaddr_in);
+	memset(&remote_addr_in, 0, sizeof(remote_addr_in));
+	remote_addr_in.sin_family = AF_INET;
+	remote_addr_in.sin_port = htons(remote_port);
+	remote_addr_in.sin_addr.s_addr = remote_address_uint32;
+
+
+	int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if(new_udp_fd<0)
+	{
+		printf("create udp_fd error");
+		return -1;
+	}
+	set_buf_size(new_udp_fd);
+
+	printf("created new udp_fd %d\n",new_udp_fd);
+	int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in, slen);
+	if(ret!=0)
+	{
+		printf("udp fd connect fail\n");
+		close(new_udp_fd);
+		return -1;
+	}
+
+	struct sockaddr_in my_addr;
+	unsigned int len=sizeof(my_addr);
+
+    if(getsockname(new_udp_fd, (struct sockaddr *) &my_addr, &len)!=0) return -1;
+
+    ip=my_addr.sin_addr.s_addr;
+
+    close(new_udp_fd);
+
+    return 0;
+}
 int client_event_loop()
 {
 	char buf[buf_len];
 
-	g_packet_info_send.src_ip = inet_addr(source_address);
+	//printf("?????\n");
+	if(source_address_uint32==0)
+	{
+		printf("get_src_adress called\n");
+		if(get_src_adress(source_address_uint32)!=0)
+		{
+			printf("the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
+			exit(-1);
+		}
+		else
+		{
+
+		}
+
+	}
+	in_addr tmp;
+	tmp.s_addr=source_address_uint32;
+	printf("source ip = %s\n",inet_ntoa(tmp));
+	//printf("done\n");
+
+
+	g_packet_info_send.src_ip = source_address_uint32;
 
 	int i, j, k;int ret;
 	init_raw_socket();
@@ -3094,7 +3158,7 @@ int server_event_loop()
 
 				if(!conv_manager.is_u64_used(events[n].data.u64))
 				{
-					printf("conv no longer exists\n");
+					printf("conv %x no longer exists\n",conv_id);
 					//int recv_len=recv(fd,buf,buf_len,0); ///////////TODO ,delete this
 					continue;
 				}
@@ -3139,16 +3203,9 @@ int server_event_loop()
 	}
 	return 0;
 }
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h> /* For strncpy */
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-int get_ip()
+
+
+int get_ip_deprecated()
 {
     int fd;
     struct ifreq ifr;
@@ -3174,8 +3231,6 @@ int get_ip()
 
 int main(int argc, char *argv[])
 {
-
-	get_ip();
 	srand(time(0));
 
 
