@@ -1897,6 +1897,9 @@ int recv_safer(packet_info_t &info,char* &data,int &len)
 		return -1;
 	}
 
+
+	//printf("recv _len %d\n ",recv_len);
+
 	//printf("222222222222222\n");
 
 
@@ -1917,12 +1920,14 @@ int recv_safer(packet_info_t &info,char* &data,int &len)
 		return -1;
 	}
 
-	data=recv_data_buf+sizeof(anti_replay_seq_t)+sizeof(id_t)*2;;
+	//printf("recv _len %d\n ",recv_len);
+	data=recv_data_buf+sizeof(anti_replay_seq_t)+sizeof(id_t)*2;
 	len=recv_len-(sizeof(anti_replay_seq_t)+sizeof(id_t)*2  );
+
 
 	if(len<0)
 	{
-		printf("len <0\n");
+		printf("len <0 ,%d\n",len);
 		return -1;
 	}
 

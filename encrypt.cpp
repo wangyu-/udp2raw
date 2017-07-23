@@ -48,8 +48,8 @@ int my_encrypt(const char *data0,char *output,int &len,char * key)
 
 	if(len>65535) return -1;
 
-	data[len-16-2]=(uint16_t(ori_len))>>8;
-	data[len-16-1]=((uint16_t(ori_len))<<8)>>8;
+	data[len-16-2]= (unsigned char)( (uint16_t(ori_len))>>8);
+	data[len-16-1]=(unsigned char)( ((uint16_t(ori_len))<<8)>>8) ;
 
 
 	//printf("%d %d\n",data[len-16-2],data[len-16-1]);
@@ -108,7 +108,7 @@ int my_decrypt(const char *data0,char *output,int &len,char * key)
 		return -2;
 	}
 
-	len=output[len-16-2]*256u+output[len-16-1];
+	len=((unsigned char)output[len-16-2])*256u+((unsigned char)output[len-16-1]);  //this may be broken because of sign
 
 	return 0;
 }
