@@ -13,8 +13,23 @@ static const int disable_all=0;
 
 static const int disable_aes=0;
 
+//int auth(uint8_t *data,)
+/*
 int my_encrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
 {
+
+	return 0;
+}
+int my_decrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
+{
+	return 0;
+}
+*/
+int my_encrypt(const char *data0,char *output,int &len,char * key)
+{
+	char data[65535+100];
+	memcpy(data,data0,len);
+
 	if(disable_all)
 	{
 		memcpy(output,data,len);
@@ -38,7 +53,7 @@ int my_encrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
 
 
 	//printf("%d %d\n",data[len-16-2],data[len-16-1]);
-	md5(data,len-16,data+len-16);
+	md5((unsigned char *)data,len-16,(unsigned char *)(data+len-16));
 
 	//memcpy(buf,data,len);  //not thread safe
 
@@ -56,8 +71,11 @@ int my_encrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
 
 	return 0;
 }
-int my_decrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
+int my_decrypt(const char *data0,char *output,int &len,char * key)
 {
+	char data[65535+100];
+	memcpy(data,data0,len);
+
 	if(disable_all)
 	{
 		memcpy(output,data,len);
@@ -83,7 +101,7 @@ int my_decrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
 
 	//printf("<<%d>>",len);
 
-	md5(output,len-16,md5_res);
+	md5((unsigned char *)output,len-16,(unsigned char *)md5_res);
 
 	if(memcmp(output+len-16,md5_res,16)!=0)
 	{

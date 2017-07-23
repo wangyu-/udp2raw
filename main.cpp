@@ -168,9 +168,9 @@ struct sockaddr_in udp_old_addr_in;
 
 
 
-uint8_t key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
+char key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
 
-uint8_t key2[16];
+char key2[16];
 
 //uint8_t key_oppsite[16];
 
@@ -505,7 +505,7 @@ int pre_send_deprecate(char * data, int &data_len)
 
 	if(!disable_encrypt)
 	{
-		if(my_encrypt((unsigned char*)replay_buf,(unsigned char*)data,data_len,key2) <0)
+		if(my_encrypt(replay_buf,data,data_len,key2) <0)
 		{
 			printf("encrypt fail\n");
 			return -1;
@@ -528,7 +528,7 @@ int pre_recv_deprecated(char * data, int &data_len)
 
 	if(!disable_encrypt)
 	{
-		if(my_decrypt((uint8_t*)data,(uint8_t*)replay_buf,data_len,key2) <0)
+		if(my_decrypt(data,replay_buf,data_len,key2) <0)
 		{
 			printf("decrypt fail\n");
 			return -1;
@@ -840,7 +840,7 @@ void process_arg(int argc, char *argv[])
 /*
     Generic checksum calculation function
 */
-unsigned short csum(unsigned short *ptr,int nbytes) {
+unsigned short csum(const unsigned short *ptr,int nbytes) {
     register long sum;
     unsigned short oddbyte;
     register short answer;
@@ -865,7 +865,7 @@ unsigned short csum(unsigned short *ptr,int nbytes) {
 
 
 
-int send_raw_ip(packet_info_t &info,char * payload,int payloadlen)
+int send_raw_ip(const packet_info_t &info,const char * payload,int payloadlen)
 {
 	char send_raw_ip_buf[buf_len];
 
@@ -978,7 +978,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 }
 
 
-int send_raw_icmp(packet_info_t &info, char * payload, int payloadlen)
+int send_raw_icmp(const packet_info_t &info, const char * payload, int payloadlen)
 {
 	char send_raw_icmp_buf[buf_len];
 	icmphdr *icmph=(struct icmphdr *) (send_raw_icmp_buf);
@@ -1008,7 +1008,7 @@ int send_raw_icmp(packet_info_t &info, char * payload, int payloadlen)
 	return 0;
 }
 
-int send_raw_udp(packet_info_t &info, char * payload, int payloadlen)
+int send_raw_udp(const packet_info_t &info, const char * payload, int payloadlen)
 {
 	char send_raw_udp_buf[buf_len];
 
@@ -1048,7 +1048,7 @@ int send_raw_udp(packet_info_t &info, char * payload, int payloadlen)
 	return 0;
 }
 
-int send_raw_tcp(packet_info_t &info, char * payload, int payloadlen) {  //TODO seq increase
+int send_raw_tcp(const packet_info_t &info,const char * payload, int payloadlen) {  //TODO seq increase
 
 	char send_raw_tcp_buf[buf_len];
 	struct tcphdr *tcph = (struct tcphdr *) (send_raw_tcp_buf
@@ -1149,7 +1149,7 @@ int send_raw_tcp(packet_info_t &info, char * payload, int payloadlen) {  //TODO 
 
 	return 0;
 }
-int send_raw_tcp_deprecated(packet_info_t &info,char * payload,int payloadlen)
+int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int payloadlen)
 {
 	char raw_send_buf[buf_len];
 	char raw_send_buf2[buf_len];
@@ -1285,7 +1285,7 @@ int send_raw_tcp_deprecated(packet_info_t &info,char * payload,int payloadlen)
      //Ip checksum
      iph->check = csum ((unsigned short *) raw_send_buf, iph->tot_len);
 
-     if(prog_mode==client_mode&& payloadlen!=9  ||prog_mode==server_mode&& payloadlen!=5)
+     if((prog_mode==client_mode&& payloadlen!=9)  ||(prog_mode==server_mode&& payloadlen!=5))
      printf("sent seq  ack_seq len<%u %u %d>\n",g_packet_info_send.seq,g_packet_info_send.ack_seq,payloadlen);
 
      int ret = sendto(raw_send_fd, raw_send_buf, iph->tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
@@ -1730,7 +1730,7 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 	return 0;
 }
 
-int send_raw(packet_info_t &info,char * payload,int payloadlen)
+int send_raw(const packet_info_t &info,const char * payload,int payloadlen)
 {
 	if(raw_mode==mode_tcp) return send_raw_tcp(info,payload,payloadlen);
 	else if(raw_mode==mode_udp) return send_raw_udp(info,payload,payloadlen);
@@ -1743,7 +1743,7 @@ int recv_raw(packet_info_t &info,char * &payload,int &payloadlen)
 	else if(raw_mode==mode_icmp) return recv_raw_icmp(info,payload,payloadlen);
 }
 
-int send_bare(packet_info_t &info,char* data,int len)
+int send_bare(const packet_info_t &info,char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1760,7 +1760,7 @@ int send_bare(packet_info_t &info,char* data,int len)
 	memcpy(send_data_buf+sizeof(iv_t),data,len);
 
 	int new_len=len+sizeof(iv_t);
-	if(my_encrypt((uint8_t *)send_data_buf,(uint8_t*)send_data_buf2,new_len,key)!=0)
+	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
 	{
 		return -1;
 	}
@@ -1781,7 +1781,7 @@ int recv_bare(packet_info_t &info,char* & data,int & len)
 		return 0;
 	}
 
-	if(my_decrypt((uint8_t *)data,(uint8_t*)recv_data_buf,len,key)!=0)
+	if(my_decrypt(data,recv_data_buf,len,key)!=0)
 	{
 		printf("decrypt_fail in recv bare\n");
 		return -1;
@@ -1808,7 +1808,7 @@ int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int len)
 	return 0;
 }
 
-int char_to_numbers(char * data,int len,id_t &id1,id_t &id2,id_t &id3)
+int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3)
 {
 	if(len<sizeof(id_t)*3) return -1;
 	id1=ntohl(  *((id_t*)(data+0)) );
@@ -1818,7 +1818,7 @@ int char_to_numbers(char * data,int len,id_t &id1,id_t &id2,id_t &id3)
 }
 
 
-int send_handshake(packet_info_t &info,id_t id1,id_t id2,id_t id3)
+int send_handshake(const packet_info_t &info,id_t id1,id_t id2,id_t id3)
 {
 	char * data;int len;
 	len=sizeof(id_t)*3;
@@ -1837,7 +1837,7 @@ int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
 	return 0;
 }*/
 
-int send_safer(packet_info_t &info,char* data,int len)
+int send_safer(const packet_info_t &info,const char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1859,7 +1859,7 @@ int send_safer(packet_info_t &info,char* data,int len)
 
 	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2;
 
-	if(my_encrypt((uint8_t *)send_data_buf,(uint8_t*)send_data_buf2,new_len,key2)!=0)
+	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key2)!=0)
 	{
 		return -1;
 	}
@@ -1868,7 +1868,7 @@ int send_safer(packet_info_t &info,char* data,int len)
 
 	return 0;
 }
-int send_data_safer(packet_info_t &info,char* data,int len,uint32_t conv_num)
+int send_data_safer(packet_info_t &info,const char* data,int len,uint32_t conv_num)
 {
 	char send_data_buf[buf_len];
 	send_data_buf[0]='d';
@@ -1891,7 +1891,7 @@ int recv_safer(packet_info_t &info,char* &data,int &len)
 
 	//printf("1111111111111111\n");
 
-	if(my_decrypt((uint8_t *)recv_data,(uint8_t*)recv_data_buf,recv_len,key2)!=0)
+	if(my_decrypt(recv_data,recv_data_buf,recv_len,key2)!=0)
 	{
 		//printf("decrypt fail\n");
 		return -1;
@@ -1930,7 +1930,7 @@ int recv_safer(packet_info_t &info,char* &data,int &len)
 }
 
 
-int send_bare_deprecated(packet_info_t &info,char* data,int len)
+int send_bare_deprecated(const packet_info_t &info,const char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1947,7 +1947,7 @@ int send_bare_deprecated(packet_info_t &info,char* data,int len)
 	return 0;
 }
 
-int send_data_deprecated(packet_info_t &info,char* data,int len,uint32_t id1,uint32_t id2,uint32_t conv_id)
+int send_data_deprecated(const packet_info_t &info,const char* data,int len,uint32_t id1,uint32_t id2,uint32_t conv_id)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1974,7 +1974,7 @@ int send_data_deprecated(packet_info_t &info,char* data,int len,uint32_t id1,uin
 	return 0;
 }
 
-int send_hb_deprecated(packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t id3)
+int send_hb_deprecated(const packet_info_t &info,uint32_t id1,uint32_t id2 ,uint32_t id3)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -3121,6 +3121,7 @@ int server_event_loop()
 
 int main(int argc, char *argv[])
 {
+
 	srand(time(0));
 
 
