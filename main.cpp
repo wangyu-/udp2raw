@@ -53,6 +53,7 @@ const int mode_icmp=2;
 int raw_mode=mode_udp;
 
 char local_address[100], remote_address[100],source_address[100];
+uint32_t local_address_uint32,remote_address_uint32,source_address_uint32;
 int local_port = -1, remote_port = -1;
 int epollfd ;
 
@@ -300,7 +301,8 @@ struct conv_manager_t
 			map<uint32_t,uint64_t>::iterator it;
 			for(it=conv_last_active_time.begin();it!=conv_last_active_time.end();it++)
 			{
-				clear_function(it->second);
+				int fd=int((it->second<<32u)>>32u);
+				clear_function(fd);
 			}
 		}
 		u64_to_conv.clear();
@@ -932,6 +934,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 		return -1;
 	}
 
+
 	char *ip_begin=recv_raw_ip_buf+link_level_header_len;  //14 is eth net header
 
 	iph = (struct iphdr *) (ip_begin);
@@ -939,6 +942,12 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 	info.src_ip=iph->saddr;
 	info.dst_ip=iph->daddr;
 	info.protocol=iph->protocol;
+
+	if(local_address_uint32!=0 &&info.dst_ip!=local_address_uint32)
+	{
+		printf(" bind adress doenst match, dropped\n");
+		return -1;
+	}
 
 
     if (!(iph->ihl > 0 && iph->ihl <=60)) {
@@ -2054,7 +2063,7 @@ int try_to_list_and_bind(int port)
 
      temp_bind_addr.sin_family = AF_INET;
      temp_bind_addr.sin_port = htons(port);
-     temp_bind_addr.sin_addr.s_addr = inet_addr(local_address);
+     temp_bind_addr.sin_addr.s_addr = local_address_uint32;
 
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
@@ -2105,7 +2114,7 @@ int keep_connection_client() //for client
 		}
 		printf("using port %d\n", g_packet_info_send.src_port);
 
-		g_packet_info_send.src_ip = inet_addr(source_address);
+
 
 
 		init_filter(g_packet_info_send.src_port);
@@ -2536,6 +2545,9 @@ int server_on_raw_recv(packet_info_t &info)
 			g_packet_info_send.src_port = info.src_port;;
 		}
 
+		g_packet_info_send.src_ip=info.dst_ip;
+		g_packet_info_send.src_port=info.dst_port;
+
 		g_packet_info_send.dst_port = info.src_port;
 		g_packet_info_send.dst_ip = info.src_ip;
 
@@ -2707,7 +2719,7 @@ int server_on_raw_recv(packet_info_t &info)
 				memset(&remote_addr_in, 0, sizeof(remote_addr_in));
 				remote_addr_in.sin_family = AF_INET;
 				remote_addr_in.sin_port = htons(remote_port);
-				remote_addr_in.sin_addr.s_addr = inet_addr(remote_address);
+				remote_addr_in.sin_addr.s_addr = remote_address_uint32;
 
 				int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				if(new_udp_fd<0)
@@ -2846,6 +2858,7 @@ int client_event_loop()
 {
 	char buf[buf_len];
 
+	g_packet_info_send.src_ip = inet_addr(source_address);
 
 	int i, j, k;int ret;
 	init_raw_socket();
@@ -2853,10 +2866,10 @@ int client_event_loop()
 	conv_num=get_true_random_number_nz();
 
 	//init_filter(source_port);
-	g_packet_info_send.dst_ip=inet_addr(remote_address);
+	g_packet_info_send.dst_ip=remote_address_uint32;
 	g_packet_info_send.dst_port=remote_port;
 
-	//g_packet_info.src_ip=inet_addr(source_address);
+	//g_packet_info.src_ip=source_address_uint32;
 	//g_packet_info.src_port=source_port;
 
     udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -2871,7 +2884,7 @@ int client_event_loop()
 	memset(&local_me, 0, sizeof(local_me));
 	local_me.sin_family = AF_INET;
 	local_me.sin_port = htons(local_port);
-	local_me.sin_addr.s_addr = inet_addr(local_address);
+	local_me.sin_addr.s_addr = local_address_uint32;
 
 
 	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
@@ -3004,8 +3017,8 @@ int server_event_loop()
 	conv_manager.set_clear_function(server_clear);
 	int i, j, k;int ret;
 
-	g_packet_info_send.src_ip=inet_addr(local_address);
-	g_packet_info_send.src_port=local_port;
+	//g_packet_info_send.src_ip=inet_addr(local_address);
+	//g_packet_info_send.src_port=local_port;
 
 	 if(raw_mode==mode_tcp)
 	 {
@@ -3021,7 +3034,7 @@ int server_event_loop()
 
      temp_bind_addr.sin_family = AF_INET;
      temp_bind_addr.sin_port = htons(local_port);
-     temp_bind_addr.sin_addr.s_addr = inet_addr(local_address);
+     temp_bind_addr.sin_addr.s_addr = local_address_uint32;
 
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
@@ -3077,13 +3090,16 @@ int server_event_loop()
 			{
 				uint32_t conv_id=events[n].data.u64>>32u;
 
+				int fd=int((events[n].data.u64<<32u)>>32u);
+
 				if(!conv_manager.is_u64_used(events[n].data.u64))
 				{
-					printf("conv no longer exists");
+					printf("conv no longer exists\n");
+					//int recv_len=recv(fd,buf,buf_len,0); ///////////TODO ,delete this
 					continue;
 				}
 
-				int fd=int((events[n].data.u64<<32u)>>32u);
+
 
 				int recv_len=recv(fd,buf,buf_len,0);
 
@@ -3123,11 +3139,45 @@ int server_event_loop()
 	}
 	return 0;
 }
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h> /* For strncpy */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <net/if.h>
+#include <arpa/inet.h>
+int get_ip()
+{
+    int fd;
+    struct ifreq ifr;
+
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+
+    /* I want to get an IPv4 IP address */
+    ifr.ifr_addr.sa_family = AF_INET;
+
+    /* I want an IP address attached to "eth0" */
+    strncpy(ifr.ifr_name, "eth1", IFNAMSIZ-1);
+
+    ioctl(fd, SIOCGIFADDR, &ifr);
+
+    close(fd);
+
+    /* Display result */
+    printf("%s\n", inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
 
+	get_ip();
 	srand(time(0));
+
 
 
 	if(raw_mode==mode_tcp)
@@ -3156,6 +3206,13 @@ int main(int argc, char *argv[])
 
 	signal(SIGCHLD, handler);
 	process_arg(argc,argv);
+
+	local_address_uint32=inet_addr(local_address);
+	remote_address_uint32=inet_addr(remote_address);
+	source_address_uint32=inet_addr(source_address);
+
+
+
 
 	for(int i=0;i<16;i++)
 	{
