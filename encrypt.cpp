@@ -20,10 +20,6 @@ static const int disable_aes=0;
 int auth_mode=auth_md5;
 int cipher_mode=cipher_aes128cbc;
 
-
-
-
-
 //int auth(uint8_t *data,)
 /*
 int my_encrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
@@ -36,6 +32,27 @@ int my_decrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
 	return 0;
 }
 */
+unsigned int crc32h(unsigned char *message,int len) {
+   int i, crc;
+   unsigned int byte, c;
+   const unsigned int g0 = 0xEDB88320,    g1 = g0>>1,
+      g2 = g0>>2, g3 = g0>>3, g4 = g0>>4, g5 = g0>>5,
+      g6 = (g0>>6)^g0, g7 = ((g0>>6)^g0)>>1;
+
+   i = 0;
+   crc = 0xFFFFFFFF;
+   while (i!=len) {    // Get next byte.
+	   byte = message[i];
+      crc = crc ^ byte;
+      c = ((crc<<31>>31) & g7) ^ ((crc<<30>>31) & g6) ^
+          ((crc<<29>>31) & g5) ^ ((crc<<28>>31) & g4) ^
+          ((crc<<27>>31) & g3) ^ ((crc<<26>>31) & g2) ^
+          ((crc<<25>>31) & g1) ^ ((crc<<24>>31) & g0);
+      crc = ((unsigned)crc >> 8) ^ c;
+      i = i + 1;
+   }
+   return ~crc;
+}
 
 int auth_md5_cal(const char *data,char * output,int &len)
 {
@@ -45,6 +62,7 @@ int auth_md5_cal(const char *data,char * output,int &len)
 	len+=16;
 	return 0;
 }
+
 int auth_none_cal(const char *data,char * output,int &len)
 {
 	memcpy(output,data,len);

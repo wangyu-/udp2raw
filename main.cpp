@@ -195,6 +195,9 @@ const int conv_clear_ratio=10;
 
 const int hb_length=1+3*sizeof(uint32_t);
 
+
+sockaddr_in g_tmp_sockaddr;
+
 int VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV;
 ////////==============================variable divider=============================================================
 
@@ -493,7 +496,7 @@ uint64_t hton64(uint64_t a)
 
 }
 
-
+/*
 int pre_send_deprecate(char * data, int &data_len)
 {
 	char replay_buf[buf_len];
@@ -615,7 +618,7 @@ int pre_recv_deprecated(char * data, int &data_len)
 
 
 	return 0;
-}
+}*/
 
 void handler(int num) {
 	int status;
@@ -726,7 +729,6 @@ void init_filter(int port)
 		//exit(-1);
 	}
 	ret = setsockopt(raw_recv_fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf));
-	//memset(code,0,sizeof(code));
 	if (ret != 0)
 	{
 		log(log_fatal,"error set fiter");
@@ -1192,6 +1194,7 @@ int send_raw_tcp(const packet_info_t &info,const char * payload, int payloadlen)
 
 	return 0;
 }
+/*
 int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int payloadlen)
 {
 	char raw_send_buf[buf_len];
@@ -1358,7 +1361,7 @@ int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int p
      }
      return 0;
 }
-
+*/
 
 int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
 {
@@ -1589,6 +1592,7 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
     payload=tcp_begin+tcphdrlen;
     return 0;
 }
+/*
 int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 {
 	static char buf[buf_len];
@@ -1746,27 +1750,13 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 
 
     //printf("%d\n",ip_len);
-/*
-    for(int i=0;i<size;i++)
-    {
-    	printf("<%x>",(unsigned char)buf[i]);
-
-    }
-	  printf("\n");
-	  */
-
-/*
-    for(int i=0;i<data_len;i++)
-    {
-    	printf("<%x>",(unsigned char)data[i]);
-    }*/
 
     log(log_trace,"<%u,%u,%u,%u,%d>\n",(unsigned int)iphdrlen,(unsigned int)tcphdrlen,(unsigned int)tcph->syn,(unsigned int)tcph->ack,payloadlen);
 
 
 	return 0;
 }
-
+*/
 int send_raw(const packet_info_t &info,const char * payload,int payloadlen)
 {
 	if(raw_mode==mode_tcp) return send_raw_tcp(info,payload,payloadlen);
@@ -1780,7 +1770,7 @@ int recv_raw(packet_info_t &info,char * &payload,int &payloadlen)
 	else if(raw_mode==mode_icmp) return recv_raw_icmp(info,payload,payloadlen);
 }
 
-int send_bare(const packet_info_t &info,char* data,int len)
+int send_bare(const packet_info_t &info,const char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1910,10 +1900,10 @@ int send_data_safer(packet_info_t &info,const char* data,int len,uint32_t conv_n
 	char send_data_buf[buf_len];
 	send_data_buf[0]='d';
 	uint32_t n_conv_num=htonl(conv_num);
-	memcpy(send_data_buf+strlen("d"),&n_conv_num,sizeof(n_conv_num));
+	memcpy(send_data_buf+1,&n_conv_num,sizeof(n_conv_num));
 
-	memcpy(send_data_buf+strlen("d")+sizeof(n_conv_num),data,len);
-	int new_len=len+strlen("d")+sizeof(n_conv_num);
+	memcpy(send_data_buf+1+sizeof(n_conv_num),data,len);
+	int new_len=len+1+sizeof(n_conv_num);
 	send_safer(info,send_data_buf,new_len);
 	return 0;
 
@@ -1971,7 +1961,7 @@ int recv_safer(packet_info_t &info,char* &data,int &len)
 	return 0;
 }
 
-
+/*
 int send_bare_deprecated(const packet_info_t &info,const char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
@@ -2056,7 +2046,7 @@ int recv_tmp_deprecated(packet_info_t &info,char * &data,int &data_len)
     		return -1;
     }
     return 0;
-}
+}*/
 
 
 /*int send_sync()
@@ -2259,7 +2249,7 @@ int keep_connection_client() //for client
 
 		log(log_trace,"heartbeat sent <%x,%x>\n",oppsite_id,my_id);
 
-		send_safer(g_packet_info_send,(char *)"h",strlen("h"));/////////////send
+		send_safer(g_packet_info_send,(char *)"h",1);/////////////send
 
 		last_hb_sent_time=get_current_time();
 	}
@@ -2327,7 +2317,7 @@ int keep_connection_server()
 		}
 
 		//printf("heart beat sent\n");
-		send_safer(g_packet_info_send,(char *)"h",strlen("h"));  /////////////send
+		send_safer(g_packet_info_send,(char *)"h",1);  /////////////send
 
 		last_hb_sent_time=get_current_time();
 
@@ -2462,7 +2452,7 @@ int client_on_raw_recv(packet_info_t &info)
 			log(log_trace,"unexpected adress\n");
 			return 0;
 		}
-		if(data_len!=strlen("h")||data[0]!='h')
+		if(data_len!=1||data[0]!='h')
 		{
 			log(log_trace,"not a heartbeat\n");
 			return 0;
@@ -2510,7 +2500,7 @@ int client_on_raw_recv(packet_info_t &info)
 			return 0;
 		}
 
-		if(data_len==strlen("h")&&data[0]=='h')
+		if(data_len==1&&data[0]=='h')
 		{
 			log(log_debug,"heart beat received\n");
 			last_hb_recv_time=get_current_time();
@@ -2534,23 +2524,21 @@ int client_on_raw_recv(packet_info_t &info)
 
 			uint64_t u64=conv_manager.find_u64_by_conv(tmp_conv_id);
 
-			sockaddr_in tmp_sockaddr;
-			memset(&tmp_sockaddr,0,sizeof(tmp_sockaddr));
-
-			tmp_sockaddr.sin_family = AF_INET;
-			tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
-
-			tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
 
 
-			int ret=sendto(udp_fd,data+1+sizeof(uint32_t),data_len -(1+sizeof(uint32_t)),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
+			g_tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
+
+			g_tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
+
+
+			int ret=sendto(udp_fd,data+1+sizeof(uint32_t),data_len -(1+sizeof(uint32_t)),0,(struct sockaddr *)&g_tmp_sockaddr,sizeof(g_tmp_sockaddr));
 
 			if(ret<0)
 			{
 		    	log(log_warn,"");
 				perror("ret<0");
 			}
-			log(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
+			log(log_trace,"%s :%d\n",inet_ntoa(g_tmp_sockaddr.sin_addr),ntohs(g_tmp_sockaddr.sin_port));
 			log(log_trace,"%d byte sent!!!!!!!!!!!!!!!!!!\n",ret);
 		}
 		return 0;
@@ -2703,7 +2691,7 @@ int server_on_raw_recv(packet_info_t &info)
 
 		log(log_info,"received hb %x %x\n",oppsite_id,tmp_session_id);
 
-		send_safer(g_packet_info_send,(char *)"h",strlen("h"));/////////////send
+		send_safer(g_packet_info_send,(char *)"h",1);/////////////send
 
 		//send_hb(g_packet_info_send,my_id,oppsite_id,const_id);/////////////////send
 
@@ -2730,7 +2718,7 @@ int server_on_raw_recv(packet_info_t &info)
 			return 0;
 		}
 
-		if(data[0]=='h'&&data_len==strlen("h"))
+		if(data[0]=='h'&&data_len==1)
 		{
 			uint32_t tmp= ntohl(* ((uint32_t *)&data[1+sizeof(uint32_t)]));
 			log(log_debug,"received hb <%x,%x>\n",oppsite_id,tmp);
@@ -3267,6 +3255,9 @@ int main(int argc, char *argv[])
 	dup2(1, 2);
 	srand(time(0));
 
+	memset(&g_tmp_sockaddr,0,sizeof(g_tmp_sockaddr)); //TODO fix inefficient code
+	g_tmp_sockaddr.sin_family = AF_INET;
+
 
 
 	if(raw_mode==mode_tcp)
@@ -3319,30 +3310,13 @@ int main(int argc, char *argv[])
 
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);
 
-	/*
-	for(int i=0;i<16;i++)
-	{
-		key2[i]=key[i]+1;
-	}*/
 
 	if(prog_mode==client_mode)
 	{
-		/*
-		for(int i=0;i<16;i++)
-		{
-			key_me[i]=key[i]+2;
-			key_oppsite[i]=key[i]+1;
-		}*/
 		client_event_loop();
 	}
 	else
 	{
-		/*
-		for(int i=0;i<16;i++)
-		{
-			key_me[i]=key[i]+1;
-			key_oppsite[i]=key[i]+2;
-		}*/
 		server_event_loop();
 	}
 
