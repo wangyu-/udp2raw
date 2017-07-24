@@ -51,11 +51,10 @@
 using namespace std;
 
 
-
 const int mode_tcp=0;
 const int mode_udp=1;
 const int mode_icmp=2;
-int raw_mode=mode_udp;
+int raw_mode=mode_tcp;
 
 char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
 uint32_t local_address_uint32,remote_address_uint32,source_address_uint32;
