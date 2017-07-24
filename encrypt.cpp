@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <encrypt.h>
 
+#include "log.h"
+
 //static uint64_t seq=1;
 
 static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog use zero iv,you should make sure first block of data contains a random/nonce data
@@ -17,6 +19,10 @@ static const int disable_aes=0;
 
 int auth_mode=auth_md5;
 int cipher_mode=cipher_aes128cbc;
+
+
+
+
 
 //int auth(uint8_t *data,)
 /*
@@ -48,6 +54,7 @@ int auth_md5_verify(const char *data,int &len)
 {
 	if(len<16)
 	{
+		log(log_trace,"auth_md5_verify len<16\n");
 		return -1;
 	}
 	char md5_res[16];
@@ -56,6 +63,7 @@ int auth_md5_verify(const char *data,int &len)
 
 	if(memcmp(md5_res,data+len-16,16)!=0)
 	{
+		log(log_trace,"auth_md5_verify md5 check failed\n");
 		return -2;
 	}
 	len-=16;
@@ -91,8 +99,8 @@ int cipher_none_encrypt(const char *data,char *output,int &len,char * key)
 }
 int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 {
-	if(len%16 !=0) return -1;
-	if(len<2) return -1;
+	if(len%16 !=0) {log(log_trace,"len%16!=0");return -1;}
+	if(len<2) {log(log_trace,"len <2 ");return -1;}return -1;
 	AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	len=((unsigned char)output[len-2])*256u+((unsigned char)output[len-1]);
 	return 0;
@@ -135,14 +143,14 @@ int cipher_decrypt(const char *data,char *output,int &len,char * key)
 
 int my_encrypt(const char *data,char *output,int &len,char * key)
 {
-	if(len<0) return -1;
-	if(len>65535) return -1;
+	if(len<0) {log(log_trace,"len<0");return -1;}
+	if(len>65535) {log(log_trace,"len>65535");return -1;}
 
 	char buf[65535+100];
 	char buf2[65535+100];
 	memcpy(buf,data,len);
-	if(auth_cal(buf,buf2,len)!=0) {return -1;}
-	if(cipher_encrypt(buf2,output,len,key) !=0) {return -1;}
+	if(auth_cal(buf,buf2,len)!=0) {log(log_trace,"auth_cal failed ");return -1;}
+	if(cipher_encrypt(buf2,output,len,key) !=0) {log(log_trace,"auth_cal failed ");return -1;}
 	return 0;
 
 }
@@ -151,8 +159,8 @@ int my_decrypt(const char *data,char *output,int &len,char * key)
 	if(len<0) return -1;
 	if(len>65535) return -1;
 
-	if(cipher_decrypt(data,output,len,key) !=0) {return -1;}
-	if(auth_verify(output,len)!=0) {return -1;}
+	if(cipher_decrypt(data,output,len,key) !=0) {log(log_trace,"cipher_decrypt failed "); return -1;}
+	if(auth_verify(output,len)!=0) {log(log_trace,"auth_verify failed ");return -1;}
 
 	return 0;
 }

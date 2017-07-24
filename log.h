@@ -73,9 +73,9 @@ const int log_debug=4;
 const int log_trace=5;
 
 
+#define log(...) log0(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
 
-
-void log(int level,const char* str, ...);
+void log0(const char * file,const char * function,int line,int level,const char* str, ...);
 
 
 #endif
