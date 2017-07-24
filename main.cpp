@@ -177,6 +177,7 @@ struct sockaddr_in udp_old_addr_in;
 
 
 
+char key_string[1000]= "secret key";
 char key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
 
 char key2[16];
@@ -273,6 +274,9 @@ struct anti_replay_t
 				}
 			}
 		}
+
+
+		return 0; //for complier check
 	}
 }anti_replay;
 
@@ -307,10 +311,10 @@ struct conv_manager_t
 		if(clear_function!=0)
 		{
 			map<uint32_t,uint64_t>::iterator it;
-			for(it=conv_last_active_time.begin();it!=conv_last_active_time.end();it++)
+			for(it=conv_to_u64.begin();it!=conv_to_u64.end();it++)
 			{
-				int fd=int((it->second<<32u)>>32u);
-				clear_function(fd);
+				//int fd=int((it->second<<32u)>>32u);
+				clear_function(  it->second);
 			}
 		}
 		u64_to_conv.clear();
@@ -732,7 +736,7 @@ long long get_current_time()
 	return tmp_time.tv_sec*1000+tmp_time.tv_nsec/(1000*1000l);
 }
 
-void server_clear(uint64_t u64)
+void server_clear_function(uint64_t u64)
 {
 	int fd=int((u64<<32u)>>32u);
 	epoll_event ev;
@@ -744,11 +748,14 @@ void server_clear(uint64_t u64)
 	if (ret!=0)
 	{
 		printf("fd:%d epoll delete failed!!!!\n",fd);
+		exit(-1);   //this shouldnt happen
 	}
 	ret= close(fd);
+
 	if (ret!=0)
 	{
 		printf("close fd %d failed !!!!\n",fd);
+		exit(-1);  //this shouldnt happen
 	}
 }
 
@@ -760,6 +767,7 @@ void process_arg(int argc, char *argv[])
         /* These options set a flag. */
         {"source-ip", required_argument,    0, 1},
         {"source-port", required_argument,    0, 1},
+		{"key", required_argument,    0, 'k'},
       };
     int option_index = 0;
 	printf("argc=%d ", argc);
@@ -820,6 +828,11 @@ void process_arg(int argc, char *argv[])
 			}
 			break;
 		case 'h':
+			break;
+
+		case 'k':
+			printf("parsing key option\n");
+			sscanf(optarg,"%s",key_string);
 			break;
 		case 1:
 			if(strcmp(long_options[option_index].name,"source-ip")==0)
@@ -3093,7 +3106,7 @@ int server_event_loop()
 {
 	char buf[buf_len];
 
-	conv_manager.set_clear_function(server_clear);
+	conv_manager.set_clear_function(server_clear_function);
 	int i, j, k;int ret;
 
 	//g_packet_info_send.src_ip=inet_addr(local_address);
@@ -3174,7 +3187,7 @@ int server_event_loop()
 				if(!conv_manager.is_u64_used(events[n].data.u64))
 				{
 					printf("conv %x no longer exists\n",conv_id);
-					//int recv_len=recv(fd,buf,buf_len,0); ///////////TODO ,delete this
+					int recv_len=recv(fd,buf,buf_len,0); ///////////TODO ,delete this
 					continue;
 				}
 
@@ -3282,12 +3295,29 @@ int main(int argc, char *argv[])
 	source_address_uint32=inet_addr(source_address);
 
 
+	char tmp[1000]="";
+
+	strcat(tmp,key);
+
+	strcat(tmp,"key1");
 
 
+
+	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key);
+
+	tmp[0]=0;
+
+	strcat(tmp,key);
+
+	strcat(tmp,"key2");
+
+	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);
+
+	/*
 	for(int i=0;i<16;i++)
 	{
 		key2[i]=key[i]+1;
-	}
+	}*/
 
 	if(prog_mode==client_mode)
 	{
