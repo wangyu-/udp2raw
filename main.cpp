@@ -59,6 +59,9 @@ int raw_mode=mode_udp;
 
 char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
 uint32_t local_address_uint32,remote_address_uint32,source_address_uint32;
+
+uint32_t source_port=0;
+
 int local_port = -1, remote_port = -1;
 int epollfd ;
 
@@ -756,6 +759,7 @@ void process_arg(int argc, char *argv[])
       {
         /* These options set a flag. */
         {"source-ip", required_argument,    0, 1},
+        {"source-port", required_argument,    0, 1},
       };
     int option_index = 0;
 	printf("argc=%d ", argc);
@@ -766,7 +770,7 @@ void process_arg(int argc, char *argv[])
 	if (argc == 1)
 	{
 		printf(
-				"proc -l [adress:]port -r [adress:]port  [-a passwd] [-b passwd]\n");
+				"proc -l [adress:]port -r [adress:]port  -s/-c [--source-ip] [--source-port]\n");
 		exit(-1);
 	}
 
@@ -818,13 +822,18 @@ void process_arg(int argc, char *argv[])
 		case 'h':
 			break;
 		case 1:
-			//if (strchr(optarg, ':') != 0) {
+			if(strcmp(long_options[option_index].name,"source-ip")==0)
+			{
+				printf("parsing long option :source-ip\n");
 				sscanf(optarg, "%s", source_address);
-				printf("source: %s",source_address);
-			//} else {
-				//printf("format --source-ip :adress");
-				//exit(-1);
-			//}
+				printf("source: %s\n",source_address);
+			}
+			else if(strcmp(long_options[option_index].name,"source-port")==0)
+			{
+				printf("parsing long option :source-port\n");
+				sscanf(optarg, "%d", &source_port);
+				printf("source: %d\n",&source_port);
+			}
 			break;
 
 		default:
@@ -930,7 +939,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 	}
 	if(recv_len<link_level_header_len)
 	{
-		printf("length error");
+		printf("length error\n");
 	}
 
 	if(link_level_header_len ==14&&(recv_raw_ip_buf[12]!=8||recv_raw_ip_buf[13]!=0))
@@ -956,7 +965,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
 
     if (!(iph->ihl > 0 && iph->ihl <=60)) {
-    	if(debug_mode) printf("iph ihl error");
+    	if(debug_mode) printf("iph ihl error\n");
         return -1;
     }
 
@@ -1325,7 +1334,7 @@ int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int p
 	 if(ret<0)
      {
 
-    	 perror("raw send error");
+    	 perror("raw send error\n");
     	 //printf("send error\n");
      }
      return 0;
@@ -1392,7 +1401,7 @@ int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
 
 	if(recv_raw_ip(info,ip_payload,ip_payloadlen)!=0)
 	{
-		printf("recv_raw_ip error");
+		printf("recv_raw_ip error\n");
 		return -1;
 	}
 	if(info.protocol!=IPPROTO_UDP)
@@ -2111,7 +2120,10 @@ int keep_connection_client() //for client
 	{
 		anti_replay.re_init(); //  this is not safe
 
-		g_packet_info_send.src_port = client_bind_to_a_new_port();
+		if(source_port==0)
+		{
+			g_packet_info_send.src_port = client_bind_to_a_new_port();
+		}
 
 		if(raw_mode==mode_icmp)
 		{
@@ -2910,16 +2922,19 @@ int client_event_loop()
 			printf("the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
 			exit(-1);
 		}
-		else
-		{
-
-		}
-
 	}
 	in_addr tmp;
 	tmp.s_addr=source_address_uint32;
 	printf("source ip = %s\n",inet_ntoa(tmp));
 	//printf("done\n");
+
+
+	if(try_to_list_and_bind(source_port)!=0)
+	{
+		printf("bind to source_port:%d fail\n ",source_port);
+		exit(-1);
+	}
+	g_packet_info_send.src_port=source_port;
 
 
 	g_packet_info_send.src_ip = source_address_uint32;
