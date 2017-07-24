@@ -6,7 +6,7 @@
 #include<getopt.h>
 #include <unistd.h>
 #include<errno.h>
-
+ 
 #include <fcntl.h>
 //#include"aes.h"
 
