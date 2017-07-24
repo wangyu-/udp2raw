@@ -1,10 +1,11 @@
 #include <log.h>
 
-const int log_level=log_debug;
+int log_level=log_impossible;
+
 int enable_log_position=1;
 int enable_log_color=1;
-char log_text[][10]={"FATAL","ERROR","WARN","INFO","DEBUG","TRACE"};
-char log_color[][10]={RED,RED,YEL,GRN,BLU,""};
+char log_text[][20]={"IMPOSSIBLE","FATAL","ERROR","WARN","INFO","DEBUG","TRACE"};
+char log_color[][20]={RED,RED,RED,YEL,GRN,BLU,""};
 void log0(const char * file,const char * function,int line,int level,const char* str, ...) {
 
 	if(level>log_level) return ;

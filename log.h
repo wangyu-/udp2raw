@@ -65,12 +65,16 @@ using namespace std;
 #define WHT   "\x1B[37m"
 #define RESET "\x1B[0m"
 
-const int log_fatal=0;
-const int log_error=1;
-const int log_warn=2;
-const int log_info=3;
-const int log_debug=4;
-const int log_trace=5;
+
+const int log_impossible=0;
+const int log_fatal=1;
+const int log_error=2;
+const int log_warn=3;
+const int log_info=4;
+const int log_debug=5;
+const int log_trace=6;
+
+extern int log_level;
 
 
 #define log(...) log0(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)

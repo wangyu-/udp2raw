@@ -17,21 +17,10 @@ static const int disable_all=0;
 static const int disable_aes=0;
 
 
-int auth_mode=auth_md5;
-int cipher_mode=cipher_aes128cbc;
+int auth_mode=auth_none;
+int cipher_mode=cipher_none;
 
-//int auth(uint8_t *data,)
-/*
-int my_encrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
-{
 
-	return 0;
-}
-int my_decrypt(uint8_t *data,uint8_t *output,int &len,uint8_t * key)
-{
-	return 0;
-}
-*/
 unsigned int crc32h(unsigned char *message,int len) {
    int i, crc;
    unsigned int byte, c;
@@ -57,7 +46,6 @@ unsigned int crc32h(unsigned char *message,int len) {
 int auth_md5_cal(const char *data,char * output,int &len)
 {
 	memcpy(output,data,len);//TODO inefficient code
-
 	md5((unsigned char *)output,len,(unsigned char *)(output+len));
 	len+=16;
 	return 0;

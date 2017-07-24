@@ -109,6 +109,7 @@ const int disable_encrypt=0;
 const int disable_anti_replay=0;
 
 const int disable_bpf_filter=1;
+
 const int disable_conv_clear=0;
 
 
@@ -196,7 +197,7 @@ const int conv_clear_ratio=10;
 const int hb_length=1+3*sizeof(uint32_t);
 
 
-sockaddr_in g_tmp_sockaddr;
+sockaddr_in g_tmp_sockaddr;  //global  sockaddr_in for efficiency,so that you wont need to create it everytime
 
 int VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV;
 ////////==============================variable divider=============================================================
@@ -635,14 +636,14 @@ void setnonblocking(int sock) {
 	opts = fcntl(sock, F_GETFL);
 
 	if (opts < 0) {
-    	log(log_fatal,"");
-		perror("fcntl(sock,GETFL)");
+    	log(log_fatal,"fcntl(sock,GETFL)\n");
+		//perror("fcntl(sock,GETFL)");
 		exit(1);
 	}
 	opts = opts | O_NONBLOCK;
 	if (fcntl(sock, F_SETFL, opts) < 0) {
-    	log(log_fatal,"");
-		perror("fcntl(sock,SETFL,opts)");
+    	log(log_fatal,"fcntl(sock,SETFL,opts)\n");
+		//perror("fcntl(sock,SETFL,opts)");
 		exit(1);
 	}
 
@@ -669,8 +670,8 @@ int init_raw_socket()
 
 
     if(raw_send_fd == -1) {
-    	log(log_fatal,"");
-        perror("Failed to create raw_send_fd");
+    	log(log_fatal,"Failed to create raw_send_fd\n");
+        //perror("Failed to create raw_send_fd");
         exit(1);
     }
 
@@ -684,8 +685,8 @@ int init_raw_socket()
 	raw_recv_fd= socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
 
     if(raw_recv_fd == -1) {
-    	log(log_fatal,"Failed to create raw_recv_fd");
-        perror("");
+    	log(log_fatal,"Failed to create raw_recv_fd\n");
+        //perror("");
         exit(1);
     }
 
@@ -700,8 +701,8 @@ int init_raw_socket()
     int one = 1;
     const int *val = &one;
     if (setsockopt (raw_send_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0) {
-    	log(log_fatal,"");
-        perror("Error setting IP_HDRINCL");
+    	log(log_fatal,"Error setting IP_HDRINCL %d\n",errno);
+        //perror("Error setting IP_HDRINCL");
         exit(2);
     }
 
@@ -724,15 +725,15 @@ void init_filter(int port)
 	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy));
 	if (ret != 0)
 	{
-		log(log_debug,"error remove fiter");
-		perror("filter");
+		log(log_debug,"error remove fiter\n");
+		//perror("filter");
 		//exit(-1);
 	}
 	ret = setsockopt(raw_recv_fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf));
 	if (ret != 0)
 	{
-		log(log_fatal,"error set fiter");
-		perror("filter");
+		log(log_fatal,"error set fiter\n");
+		//perror("filter");
 		exit(-1);
 	}
 }
@@ -780,10 +781,12 @@ void process_arg(int argc, char *argv[])
     int option_index = 0;
 
     log(log_info,"argc=%d ", argc);
-	for (i = 0; i < argc; i++)
-		printf("%s ", argv[i]);
-	printf("\n");
-
+    if(log_level>=log_info)
+    {
+		for (i = 0; i < argc; i++)
+			printf("%s ", argv[i]);
+		printf("\n");
+    }
 	if (argc == 1)
 	{
 		printf(
@@ -1015,7 +1018,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
     if(payloadlen<0)
     {
-    	log(log_warn,"error payload len");
+    	log(log_warn,"error payload len\n");
     	return -1;
     }
 
@@ -1494,7 +1497,7 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
 
 	if(recv_raw_ip(info,ip_payload,ip_payloadlen)!=0)
 	{
-		log(log_debug,"recv_raw_ip error");
+		log(log_debug,"recv_raw_ip error\n");
 		return -1;
 	}
 
@@ -1510,7 +1513,7 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
     unsigned short tcphdrlen = tcph->doff*4;
 
     if (!(tcph->doff > 0 && tcph->doff <=60)) {
-    	log(log_debug,"tcph error");
+    	log(log_debug,"tcph error\n");
     	return 0;
     }
 
@@ -2301,7 +2304,7 @@ int keep_connection_server()
 	{
 		if( get_current_time()-last_hb_recv_time>heartbeat_timeout )
 		{
-			log(log_trace,"%lld %lld",get_current_time(),last_state_time);
+			log(log_trace,"%lld %lld\n",get_current_time(),last_state_time);
 			server_current_state=server_nothing;
 
 			log(log_info,"changed session id\n");
@@ -2336,7 +2339,7 @@ int set_timer(int epollfd,int &timer_fd)
 
 	if((timer_fd=timerfd_create(CLOCK_MONOTONIC,TFD_NONBLOCK)) < 0)
 	{
-		log(log_fatal,"timer_fd create error");
+		log(log_fatal,"timer_fd create error\n");
 		exit(1);
 	}
 	its.it_interval.tv_nsec=timer_interval*1000ll*1000ll;
@@ -2425,7 +2428,7 @@ int client_on_raw_recv(packet_info_t &info)
 
 		oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
 
-		log(log_info,"====first hb received %x\n==",oppsite_id);
+		log(log_info,"====first hb received %x==\n",oppsite_id);
 		log(log_info,"changed state to client_heartbeat_sent\n");
 		send_handshake(g_packet_info_send,my_id,oppsite_id,const_id);
 
@@ -2491,7 +2494,7 @@ int client_on_raw_recv(packet_info_t &info)
 
 		if((raw_mode==mode_tcp&&( info.syn==1||info.ack!=1) )||data_len==0)
 		{
-			log(log_debug,"unexpected syn ack");
+			log(log_debug,"unexpected syn ack\n");
 			return 0;
 		}
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
@@ -2535,11 +2538,11 @@ int client_on_raw_recv(packet_info_t &info)
 
 			if(ret<0)
 			{
-		    	log(log_warn,"");
-				perror("ret<0");
+		    	log(log_warn,"sento returned %d\n",ret);
+				//perror("ret<0");
 			}
 			log(log_trace,"%s :%d\n",inet_ntoa(g_tmp_sockaddr.sin_addr),ntohs(g_tmp_sockaddr.sin_port));
-			log(log_trace,"%d byte sent!!!!!!!!!!!!!!!!!!\n",ret);
+			log(log_trace,"%d byte sent\n",ret);
 		}
 		return 0;
 	}
@@ -2745,7 +2748,7 @@ int server_on_raw_recv(packet_info_t &info)
 				int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				if(new_udp_fd<0)
 				{
-					log(log_warn,"create udp_fd error");
+					log(log_warn,"create udp_fd error\n");
 					return -1;
 				}
 				set_buf_size(new_udp_fd);
@@ -2790,8 +2793,8 @@ int server_on_raw_recv(packet_info_t &info)
 			log(log_debug,"%d byte sent  ,fd :%d\n ",ret,fd);
 			if(ret<0)
 			{
-		    	log(log_warn,"");
-				perror("what happened????");
+		    	log(log_warn,"send returned %d\n",ret);
+				//perror("what happened????");
 			}
 
 
@@ -2889,7 +2892,7 @@ int get_src_adress(uint32_t &ip)
 	int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if(new_udp_fd<0)
 	{
-		log(log_warn,"create udp_fd error");
+		log(log_warn,"create udp_fd error\n");
 		return -1;
 	}
 	set_buf_size(new_udp_fd);
@@ -2972,7 +2975,8 @@ int client_event_loop()
 
 
 	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
-		perror("socket bind error");
+		log(log_fatal,"socket bind error\n");
+		//perror("socket bind error");
 		exit(1);
 	}
 	setnonblocking(udp_fd);
@@ -3038,7 +3042,7 @@ int client_event_loop()
 				struct sockaddr_in udp_new_addr_in;
 				if ((recv_len = recvfrom(udp_fd, buf, buf_len, 0,
 						(struct sockaddr *) &udp_new_addr_in, &slen)) == -1) {
-					log(log_error,"recv_from error");
+					log(log_error,"recv_from error\n");
 					//exit(1);
 				};
 
@@ -3192,7 +3196,7 @@ int server_event_loop()
 				if(recv_len<0)
 				{
 					log(log_trace,"continue\n");
-					perror("wtf?");
+					//perror("wtf?");
 					continue;
 					//return 0;
 				}
@@ -3203,7 +3207,7 @@ int server_event_loop()
 				{
 					send_data_safer(g_packet_info_send,buf,recv_len,conv_id);
 					//send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv_id);
-					log(log_trace,"send !!!!!!!!!!!!!!!!!!");
+					log(log_trace,"send !!\n");
 				}
 			}
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
