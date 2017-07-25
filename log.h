@@ -66,7 +66,7 @@ using namespace std;
 #define RESET "\x1B[0m"
 
 
-const int log_impossible=0;
+const int log_never=0;
 const int log_fatal=1;
 const int log_error=2;
 const int log_warn=3;
@@ -75,11 +75,15 @@ const int log_debug=5;
 const int log_trace=6;
 
 extern int log_level;
+extern int enable_log_position;
+extern int enable_log_color;
 
 
-#define log(...) log0(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#define mylog(...) log0(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
 
 void log0(const char * file,const char * function,int line,int level,const char* str, ...);
+
+void log_bare(int level,const char* str, ...);
 
 
 #endif

@@ -8,7 +8,6 @@
 #include<errno.h>
  
 #include <fcntl.h>
-//#include"aes.h"
 
 #include <sys/epoll.h>
 #include <sys/wait.h>
@@ -50,18 +49,31 @@
 #include <stdarg.h>
 #include "log.h"
 
+#include <unordered_map>
+
+
+/*
+#include <ext/hash_map>
+
+using namespace __gnu_cxx;*/
 using namespace std;
 
+/*
+#if __cplusplus <= 199711L
+#define my_hash_map map
+#else
+#define my_hash_map unordered_map
+#end*/
 
-const int mode_tcp=0;
-const int mode_udp=1;
-const int mode_icmp=2;
-int raw_mode=mode_tcp;
+enum raw_mode_t{mode_faketcp=1,mode_udp,mode_icmp,mode_end};
+raw_mode_t raw_mode=mode_faketcp;
+map<int, string> raw_mode_tostring = {{mode_faketcp, "tcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 
 char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
 uint32_t local_address_uint32,remote_address_uint32,source_address_uint32;
 
 uint32_t source_port=0;
+int filter_port=-1;
 
 int local_port = -1, remote_port = -1;
 int epollfd ;
@@ -83,7 +95,7 @@ id_t oppsite_id=0;
 
 uint32_t conv_num=0;
 
-uint32_t link_level_header_len=0;
+uint32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
 
 const int handshake_timeout=2000;
 
@@ -97,18 +109,18 @@ const int timer_interval=500;
 const int RETRY_TIME=3;
 
 //const uint16_t tcp_window=50000;
+extern const int max_data_len=65535;
+extern const int buf_len = max_data_len+100;
 
-const int buf_len = 65535+100;
 
-const int server_mode=2;
-const int client_mode=1;
-int prog_mode=0; //0 unset; 1client 2server
+enum program_mode_t {unset_mode=0,client_mode,server_mode};
+program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 
 
 const int disable_encrypt=0;
 const int disable_anti_replay=0;
 
-const int disable_bpf_filter=1;
+const int disable_bpf_filter=0;  //for test only,most time no need to disable this
 
 const int disable_conv_clear=0;
 
@@ -123,15 +135,12 @@ const int seq_mode=2;  //0  dont  increase /1 increase   //increase randomly,abo
 const uint64_t epoll_timer_fd_sn=1;
 const uint64_t epoll_raw_recv_fd_sn=2;
 const uint64_t epoll_udp_fd_sn_begin=256;
-uint64_t epoll_udp_fd_sn=epoll_udp_fd_sn_begin;  //udp_fd_sn =256,512,768......the lower 8 bit is not used,to avoid confliction
+uint64_t epoll_udp_fd_sn=epoll_udp_fd_sn_begin;  //all udp_fd_sn >=256
 
 
-const int server_nothing=0;
-const int server_syn_ack_sent=1;
-const int server_heartbeat_sent=2;
-const int server_ready=3;
-int server_current_state=server_nothing;
-long long last_hb_recv_time;
+enum server_current_state_t {server_nothing=0,server_syn_ack_sent,server_handshake_sent,server_ready};
+server_current_state_t server_current_state=server_nothing;
+long long last_hb_recv_time=0;
 long long last_udp_recv_time=0;
 
 int socket_buf_size=1024*1024*4;
@@ -140,13 +149,9 @@ int udp_fd=-1;
 int raw_recv_fd;
 int raw_send_fd;
 
-int filter_port=-1;
-const int client_nothing=0;
-const int client_syn_sent=1;
-const int client_ack_sent=2;
-const int client_heartbeat_sent=3;
-const int client_ready=4;
-int client_current_state=client_nothing;
+enum client_current_state_t {client_nothing=0,client_syn_sent,client_ack_sent,client_handshake_sent,client_ready};
+client_current_state_t client_current_state=client_nothing;
+
 int retry_counter;
 
 long long last_state_time=0;
@@ -154,7 +159,7 @@ long long last_state_time=0;
 long long last_hb_sent_time=0;
 
 
-struct sock_filter code_tcp[] = {
+struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
 		{ 0x15, 0, 10, 0x00000800 },//1
 		{ 0x30, 0, 0, 0x00000017 },//2
@@ -169,15 +174,69 @@ struct sock_filter code_tcp[] = {
 		{ 0x6, 0, 0, 0x0000ffff },//11
 		{ 0x6, 0, 0, 0x00000000 },//12
 };
+struct sock_filter code_tcp[] = {
+{ 0x5, 0, 0, 0x00000001 },//0    //jump to 2,dirty hack from tcpdump -d's output
+{ 0x5, 0, 0, 0x00000000 },//1
+{ 0x30, 0, 0, 0x00000009 },//2
+{ 0x15, 0, 6, 0x00000006 },//3
+{ 0x28, 0, 0, 0x00000006 },//4
+{ 0x45, 4, 0, 0x00001fff },//5
+{ 0xb1, 0, 0, 0x00000000 },//6
+{ 0x48, 0, 0, 0x00000002 },//7
+{ 0x15, 0, 1, 0x0000fffe },//8
+{ 0x6, 0, 0, 0x0000ffff },//9
+{ 0x6, 0, 0, 0x00000000 },//10
+};
+int code_tcp_port_index=8;
+
+struct sock_filter code_udp[] = {
+{ 0x5, 0, 0, 0x00000001 },
+{ 0x5, 0, 0, 0x00000000 },
+{ 0x30, 0, 0, 0x00000009 },
+{ 0x15, 0, 6, 0x00000011 },
+{ 0x28, 0, 0, 0x00000006 },
+{ 0x45, 4, 0, 0x00001fff },
+{ 0xb1, 0, 0, 0x00000000 },
+{ 0x48, 0, 0, 0x00000002 },
+{ 0x15, 0, 1, 0x0000fffe },
+{ 0x6, 0, 0, 0x0000ffff },
+{ 0x6, 0, 0, 0x00000000 },
+};
+int code_udp_port_index=8;
+/*
+  tcpdump -i eth1 ip and tcp and dst port 65534 -dd
+
+{ 0x28, 0, 0, 0x0000000c },
+{ 0x15, 0, 8, 0x00000800 },
+{ 0x30, 0, 0, 0x00000017 },
+{ 0x15, 0, 6, 0x00000006 },
+{ 0x28, 0, 0, 0x00000014 },
+{ 0x45, 4, 0, 0x00001fff },
+{ 0xb1, 0, 0, 0x0000000e },
+{ 0x48, 0, 0, 0x00000010 },
+{ 0x15, 0, 1, 0x0000fffe },
+{ 0x6, 0, 0, 0x0000ffff },
+{ 0x6, 0, 0, 0x00000000 },
+
+ (000) ldh      [12]
+(001) jeq      #0x800           jt 2    jf 10
+(002) ldb      [23]
+(003) jeq      #0x6             jt 4    jf 10
+(004) ldh      [20]
+(005) jset     #0x1fff          jt 10   jf 6
+(006) ldxb     4*([14]&0xf)
+(007) ldh      [x + 16]
+(008) jeq      #0xfffe          jt 9    jf 10
+(009) ret      #65535
+(010) ret      #0
+
+ */
 sock_fprog bpf;
 
 
 uint16_t ip_id=1;
-//const int MTU=1440;
 
 struct sockaddr_in udp_old_addr_in;
-
-
 
 char key_string[1000]= "secret key";
 char key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
@@ -186,7 +245,7 @@ char key2[16];
 
 //uint8_t key_oppsite[16];
 
-const int window_size=2000;
+const int anti_replay_window_size=2000;
 
 
 int random_number_fd=-1;
@@ -194,10 +253,9 @@ int random_number_fd=-1;
 const int conv_timeout=60000; //60 second
 const int conv_clear_ratio=10;
 
-const int hb_length=1+3*sizeof(uint32_t);
 
 
-sockaddr_in g_tmp_sockaddr;  //global  sockaddr_in for efficiency,so that you wont need to create it everytime
+//sockaddr_in g_tmp_sockaddr;  //global  sockaddr_in for efficiency,so that you wont need to create it everytime
 
 int VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV;
 ////////==============================variable divider=============================================================
@@ -222,7 +280,7 @@ struct icmphdr
 struct anti_replay_t
 {
 	uint64_t max_packet_received;
-	char window[window_size];
+	char window[anti_replay_window_size];
 	char disabled;
 	anti_replay_t()
 	{
@@ -252,29 +310,29 @@ struct anti_replay_t
 		if(seq==max_packet_received) return 0||disabled;
 		else if(seq>max_packet_received)
 		{
-			if(seq-max_packet_received>=window_size)
+			if(seq-max_packet_received>=anti_replay_window_size)
 			{
 				memset(window,0,sizeof(window));
-				window[seq%window_size]=1;
+				window[seq%anti_replay_window_size]=1;
 			}
 			else
 			{
 				for (int i=max_packet_received+1;i<seq;i++)
-					window[i%window_size]=0;
-				window[seq%window_size]=1;
+					window[i%anti_replay_window_size]=0;
+				window[seq%anti_replay_window_size]=1;
 			}
 			max_packet_received=seq;
 			return 1;
 		}
 		else if(seq<max_packet_received)
 		{
-			if(max_packet_received-seq>=window_size) return 0||disabled;
+			if(max_packet_received-seq>=anti_replay_window_size) return 0||disabled;
 			else
 			{
-				if (window[seq%window_size]==1) return 0||disabled;
+				if (window[seq%anti_replay_window_size]==1) return 0||disabled;
 				else
 				{
-					window[seq%window_size]=1;
+					window[seq%anti_replay_window_size]=1;
 					return 1;
 				}
 			}
@@ -287,14 +345,21 @@ struct anti_replay_t
 
 uint32_t get_true_random_number_nz();
 long long get_current_time();
-struct conv_manager_t
+
+
+
+struct conv_manager_t  //TODO change map to unordered map
 {
-	map<uint64_t,uint32_t> u64_to_conv;  //conv and u64 are both supposed to be uniq
-	map<uint32_t,uint64_t> conv_to_u64;
+	//typedef hash_map map;
+	unordered_map<uint64_t,uint32_t> u64_to_conv;  //conv and u64 are both supposed to be uniq
+	unordered_map<uint32_t,uint64_t> conv_to_u64;
 
-	map<uint32_t,uint64_t> conv_last_active_time;
+	unordered_map<uint32_t,uint64_t> conv_last_active_time;
 
-	map<uint32_t,uint64_t>::iterator clear_it;
+	unordered_map<uint32_t,uint64_t>::iterator clear_it;
+
+	unordered_map<uint32_t,uint64_t>::iterator it;
+	unordered_map<uint32_t,uint64_t>::iterator old_it;
 
 	void (*clear_function)(uint64_t u64) ;
 
@@ -308,6 +373,9 @@ struct conv_manager_t
 	void set_clear_function(void (*a)(uint64_t u64))
 	{
 		clear_function=a;
+		u64_to_conv.reserve(100007);
+		conv_to_u64.reserve(100007);
+		conv_last_active_time.reserve(100007);
 	}
 	void clear()
 	{
@@ -315,7 +383,6 @@ struct conv_manager_t
 
 		if(clear_function!=0)
 		{
-			map<uint32_t,uint64_t>::iterator it;
 			for(it=conv_to_u64.begin();it!=conv_to_u64.end();it++)
 			{
 				//int fd=int((it->second<<32u)>>32u);
@@ -382,8 +449,8 @@ struct conv_manager_t
 	{
 		if(disable_conv_clear) return 0;
 
-		map<uint32_t,uint64_t>::iterator old_it;
-		map<uint32_t,uint64_t>::iterator it;
+
+		//map<uint32_t,uint64_t>::iterator it;
 		int cnt=0;
 		it=clear_it;
 		int size=conv_last_active_time.size();
@@ -402,7 +469,7 @@ struct conv_manager_t
 
 			if( current_time -it->second  >conv_timeout )
 			{
-				log(log_info,"inactive conv %u cleared \n",it->first);
+				mylog(log_info,"inactive conv %u cleared \n",it->first);
 				old_it=it;
 				it++;
 				erase_conv(old_it->first);
@@ -453,7 +520,7 @@ void init_random_number_fd()
 	random_number_fd=open("/dev/urandom",O_RDONLY);
 	if(random_number_fd==-1)
 	{
-		log(log_fatal,"error open /dev/urandom\n");
+		mylog(log_fatal,"error open /dev/urandom\n");
 		exit(-1);
 	}
 }
@@ -497,7 +564,7 @@ uint64_t hton64(uint64_t a)
 
 }
 
-/*
+
 int pre_send_deprecate(char * data, int &data_len)
 {
 	char replay_buf[buf_len];
@@ -529,7 +596,7 @@ int pre_send_deprecate(char * data, int &data_len)
 	{
 		if(my_encrypt(replay_buf,data,data_len,key2) <0)
 		{
-			log(log_debug,"encrypt fail\n");
+			mylog(log_debug,"encrypt fail\n");
 			return -1;
 		}
 	}
@@ -552,12 +619,12 @@ int pre_recv_deprecated(char * data, int &data_len)
 	{
 		if(my_decrypt(data,replay_buf,data_len,key2) <0)
 		{
-			log(log_debug,"decrypt fail\n");
+			mylog(log_debug,"decrypt fail\n");
 			return -1;
 		}
 		else
 		{
-			log(log_debug,"decrypt succ\n");
+			mylog(log_debug,"decrypt succ\n");
 		}
 	}
 	else
@@ -570,7 +637,7 @@ int pre_recv_deprecated(char * data, int &data_len)
 		data_len-=sizeof(uint32_t)*2;
 		if(data_len<0)
 		{
-			log(log_debug,"data_len<=0\n");
+			mylog(log_debug,"data_len<=0\n");
 			return -2;
 		}
 
@@ -579,12 +646,12 @@ int pre_recv_deprecated(char * data, int &data_len)
 		uint64_t recv_seq =(seq_high<<32u )+seq_low;
 
 
-		if((prog_mode==client_mode&&client_current_state==client_ready)
-				||(prog_mode==server_mode&&server_current_state==server_ready ))
+		if((program_mode==client_mode&&client_current_state==client_ready)
+				||(program_mode==server_mode&&server_current_state==server_ready ))
 		{
 			if(data_len<sizeof(uint32_t)*2+1)
 			{
-				log(log_debug,"no room for session id and oppiste session_id\n");
+				mylog(log_debug,"no room for session id and oppiste session_id\n");
 				return -4;
 			}
 
@@ -595,19 +662,19 @@ int pre_recv_deprecated(char * data, int &data_len)
 
 			if (tmp_oppiste_session_id != oppsite_id
 					|| tmp_session_id != my_id) {
-				log(log_debug,"auth fail and pre send\n");
+				mylog(log_debug,"auth fail and pre send\n");
 				return -5;
 			}
 
-			log(log_debug,"seq=========%u\n", recv_seq);
+			mylog(log_debug,"seq=========%u\n", recv_seq);
 
 			if (anti_replay.is_vaild(recv_seq) != 1) {
-				log(log_info,"dropped replay packet\n");
+				mylog(log_info,"dropped replay packet\n");
 				return -1;
 			}
 		}
 
-		log(log_trace,"<<<<<%ld,%d,%ld>>>>\n",seq_high,seq_low,recv_seq);
+		mylog(log_trace,"<<<<<%ld,%d,%ld>>>>\n",seq_high,seq_low,recv_seq);
 
 
 		memcpy(data,replay_buf+sizeof(uint32_t)*2,data_len);
@@ -619,8 +686,13 @@ int pre_recv_deprecated(char * data, int &data_len)
 
 
 	return 0;
-}*/
-
+}
+void  INThandler(int sig)
+{
+     if(enable_log_color)
+    	 printf(RESET);
+     exit(0);
+}
 void handler(int num) {
 	int status;
 	int pid;
@@ -636,13 +708,13 @@ void setnonblocking(int sock) {
 	opts = fcntl(sock, F_GETFL);
 
 	if (opts < 0) {
-    	log(log_fatal,"fcntl(sock,GETFL)\n");
+    	mylog(log_fatal,"fcntl(sock,GETFL)\n");
 		//perror("fcntl(sock,GETFL)");
 		exit(1);
 	}
 	opts = opts | O_NONBLOCK;
 	if (fcntl(sock, F_SETFL, opts) < 0) {
-    	log(log_fatal,"fcntl(sock,SETFL,opts)\n");
+    	mylog(log_fatal,"fcntl(sock,SETFL,opts)\n");
 		//perror("fcntl(sock,SETFL,opts)");
 		exit(1);
 	}
@@ -652,12 +724,12 @@ int set_buf_size(int fd)
 {
     if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	log(log_fatal,"SO_SNDBUFFORCE fail\n");
+    	mylog(log_fatal,"SO_SNDBUFFORCE fail\n");
     	exit(1);
     }
     if(setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	log(log_fatal,"SO_RCVBUFFORCE fail\n");
+    	mylog(log_fatal,"SO_RCVBUFFORCE fail\n");
     	exit(1);
     }
 	return 0;
@@ -670,14 +742,14 @@ int init_raw_socket()
 
 
     if(raw_send_fd == -1) {
-    	log(log_fatal,"Failed to create raw_send_fd\n");
+    	mylog(log_fatal,"Failed to create raw_send_fd\n");
         //perror("Failed to create raw_send_fd");
         exit(1);
     }
 
     if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	log(log_fatal,"SO_SNDBUFFORCE fail\n");
+    	mylog(log_fatal,"SO_SNDBUFFORCE fail\n");
     	exit(1);
     }
 	//raw_fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
@@ -685,14 +757,14 @@ int init_raw_socket()
 	raw_recv_fd= socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
 
     if(raw_recv_fd == -1) {
-    	log(log_fatal,"Failed to create raw_recv_fd\n");
+    	mylog(log_fatal,"Failed to create raw_recv_fd\n");
         //perror("");
         exit(1);
     }
 
     if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	log(log_fatal,"SO_RCVBUFFORCE fail\n");
+    	mylog(log_fatal,"SO_RCVBUFFORCE fail\n");
     	exit(1);
     }
 
@@ -701,7 +773,7 @@ int init_raw_socket()
     int one = 1;
     const int *val = &one;
     if (setsockopt (raw_send_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0) {
-    	log(log_fatal,"Error setting IP_HDRINCL %d\n",errno);
+    	mylog(log_fatal,"Error setting IP_HDRINCL %d\n",errno);
         //perror("Error setting IP_HDRINCL");
         exit(2);
     }
@@ -714,27 +786,49 @@ int init_raw_socket()
 void init_filter(int port)
 {
 	filter_port=port;
-
 	if(disable_bpf_filter) return;
+	if(raw_mode==mode_icmp) return ;
+	//code_tcp[8].k=code_tcp[10].k=port;
+	if(raw_mode==mode_faketcp)
+	{
+		bpf.len = sizeof(code_tcp)/sizeof(code_tcp[0]);
+		code_tcp[code_tcp_port_index].k=port;
+		bpf.filter = code_tcp;
+	}
+	else if(raw_mode==mode_udp)
+	{
+		bpf.len = sizeof(code_udp)/sizeof(code_udp[0]);
+		code_udp[code_udp_port_index].k=port;
+		bpf.filter = code_udp;
+	}
 
-	code_tcp[8].k=code_tcp[10].k=port;
-	bpf.len = sizeof(code_tcp)/sizeof(code_tcp[0]);
-	bpf.filter = code_tcp;
 	int dummy;
 
-	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy));
+	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy)); //in case i forgot to remove
 	if (ret != 0)
 	{
-		log(log_debug,"error remove fiter\n");
+		mylog(log_debug,"error remove fiter\n");
 		//perror("filter");
 		//exit(-1);
 	}
 	ret = setsockopt(raw_recv_fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf));
 	if (ret != 0)
 	{
-		log(log_fatal,"error set fiter\n");
+		mylog(log_fatal,"error set fiter\n");
 		//perror("filter");
 		exit(-1);
+	}
+}
+void remove_filter()
+{
+	filter_port=0;
+	int dummy;
+	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy));
+	if (ret != 0)
+	{
+		mylog(log_debug,"error remove fiter\n");
+		//perror("filter");
+		//exit(-1);
 	}
 }
 
@@ -756,14 +850,14 @@ void server_clear_function(uint64_t u64)
 	int ret = epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, &ev);
 	if (ret!=0)
 	{
-		log(log_fatal,"fd:%d epoll delete failed!!!!\n",fd);
+		mylog(log_fatal,"fd:%d epoll delete failed!!!!\n",fd);
 		exit(-1);   //this shouldnt happen
 	}
 	ret= close(fd);
 
 	if (ret!=0)
 	{
-		log(log_fatal,"close fd %d failed !!!!\n",fd);
+		mylog(log_fatal,"close fd %d failed !!!!\n",fd);
 		exit(-1);  //this shouldnt happen
 	}
 }
@@ -780,12 +874,12 @@ void process_arg(int argc, char *argv[])
       };
     int option_index = 0;
 
-    log(log_info,"argc=%d ", argc);
+    mylog(log_info,"argc=%d ", argc);
     if(log_level>=log_info)
     {
 		for (i = 0; i < argc; i++)
-			printf("%s ", argv[i]);
-		printf("\n");
+			log_bare(log_info,"%s ", argv[i]);
+		log_bare(log_info,"\n");
     }
 	if (argc == 1)
 	{
@@ -818,24 +912,24 @@ void process_arg(int argc, char *argv[])
 			}
 			break;
 		case 's':
-			if(prog_mode==0)
+			if(program_mode==0)
 			{
-				prog_mode=server_mode;
+				program_mode=server_mode;
 			}
 			else
 			{
-				log(log_fatal,"-s /-c has already been set,-s option conflict\n");
+				mylog(log_fatal,"-s /-c has already been set,-s option conflict\n");
 				exit(-1);
 			}
 			break;
 		case 'c':
-			if(prog_mode==0)
+			if(program_mode==0)
 			{
-				prog_mode=client_mode;
+				program_mode=client_mode;
 			}
 			else
 			{
-				log(log_fatal,"-s /-c has already been set,-c option conflict\n");
+				mylog(log_fatal,"-s /-c has already been set,-c option conflict\n");
 				exit(-1);
 			}
 			break;
@@ -843,36 +937,36 @@ void process_arg(int argc, char *argv[])
 			break;
 
 		case 'k':
-			log(log_debug,"parsing key option\n");
+			mylog(log_debug,"parsing key option\n");
 			sscanf(optarg,"%s",key_string);
 			break;
 		case 1:
 			if(strcmp(long_options[option_index].name,"source-ip")==0)
 			{
-				log(log_debug,"parsing long option :source-ip\n");
+				mylog(log_debug,"parsing long option :source-ip\n");
 				sscanf(optarg, "%s", source_address);
-				log(log_info,"source: %s\n",source_address);
+				mylog(log_info,"source: %s\n",source_address);
 			}
 			else if(strcmp(long_options[option_index].name,"source-port")==0)
 			{
-				log(log_debug,"parsing long option :source-port\n");
+				mylog(log_debug,"parsing long option :source-port\n");
 				sscanf(optarg, "%d", &source_port);
-				log(log_info,"source: %d\n",&source_port);
+				mylog(log_info,"source: %d\n",&source_port);
 			}
 			break;
 
 		default:
-			log(log_warn,"ignore unknown <%s>\n", optopt);
+			mylog(log_warn,"ignore unknown <%s>\n", optopt);
 		}
 	}
 
 	if (no_l)
-		log(log_fatal,"error: -l not found\n");
+		mylog(log_fatal,"error: -l not found\n");
 	if (no_r)
-		log(log_fatal,"error: -r not found\n");
-	if(prog_mode==0)
-		log(log_fatal,"error: -c /-s  hasnt been set\n");
-	if (no_l || no_r||prog_mode==0)
+		mylog(log_fatal,"error: -r not found\n");
+	if(program_mode==0)
+		mylog(log_fatal,"error: -c /-s  hasnt been set\n");
+	if (no_l || no_r||program_mode==0)
 	{
 		exit(-1);
 	}
@@ -922,7 +1016,8 @@ int send_raw_ip(const packet_info_t &info,const char * payload,int payloadlen)
     iph->version = 4;
     iph->tos = 0;
 
-    iph->id = htonl (ip_id++); //Id of this packet
+   // iph->id = htonl (ip_id++); //Id of this packet
+    // iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero
     iph->frag_off = htons(0x4000); //DF set,others are zero
     iph->ttl = 64;
     iph->protocol = info.protocol;
@@ -930,17 +1025,18 @@ int send_raw_ip(const packet_info_t &info,const char * payload,int payloadlen)
     iph->saddr = info.src_ip;    //Spoof the source ip address
     iph->daddr = info.dst_ip;
 
-    iph->tot_len = sizeof (struct iphdr)+payloadlen;
-
+    uint16_t ip_tot_len=sizeof (struct iphdr)+payloadlen;
+   // iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
+    //iph->tot_len = ip_tot_len;
     memcpy(send_raw_ip_buf+sizeof(iphdr) , payload, payloadlen);
 
-    iph->check = csum ((unsigned short *) send_raw_ip_buf, iph->tot_len);
+    //iph->check = csum ((unsigned short *) send_raw_ip_buf, ip_tot_len); //this is not necessary ,kernel will always auto fill this
 
-    int ret = sendto(raw_send_fd, send_raw_ip_buf, iph->tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
+    int ret = sendto(raw_send_fd, send_raw_ip_buf, ip_tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
 
     if(ret==-1)
     {
-    	log(log_debug,"sendto failed\n");
+    	mylog(log_debug,"sendto failed\n");
     	return -1;
     }
     return 0;
@@ -959,17 +1055,17 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
 	if(recv_len<0)
 	{
-		log(log_trace,"recv_len %d\n",recv_len);
+		mylog(log_trace,"recv_len %d\n",recv_len);
 		return -1;
 	}
 	if(recv_len<link_level_header_len)
 	{
-		log(log_trace,"length error\n");
+		mylog(log_trace,"length error\n");
 	}
 
 	if(link_level_header_len ==14&&(recv_raw_ip_buf[12]!=8||recv_raw_ip_buf[13]!=0))
 	{
-		log(log_trace,"not an ipv4 packet!\n");
+		mylog(log_trace,"not an ipv4 packet!\n");
 		return -1;
 	}
 
@@ -990,7 +1086,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
 
     if (!(iph->ihl > 0 && iph->ihl <=60)) {
-    	log(log_trace,"iph ihl error\n");
+    	mylog(log_trace,"iph ihl error\n");
         return -1;
     }
 
@@ -998,7 +1094,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
 	if(recv_len-link_level_header_len <ip_len)
 	{
-		log(log_debug,"incomplete packet\n");
+		mylog(log_debug,"incomplete packet\n");
 		return -1;
 	}
 
@@ -1008,7 +1104,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
     if(ip_chk!=0)
      {
-    	log(log_debug,"ip header error %d\n",ip_chk);
+    	mylog(log_debug,"ip header error %d\n",ip_chk);
      	return -1;
      }
 
@@ -1018,7 +1114,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
     if(payloadlen<0)
     {
-    	log(log_warn,"error payload len\n");
+    	mylog(log_warn,"error payload len\n");
     	return -1;
     }
 
@@ -1031,7 +1127,7 @@ int send_raw_icmp(const packet_info_t &info, const char * payload, int payloadle
 	char send_raw_icmp_buf[buf_len];
 	icmphdr *icmph=(struct icmphdr *) (send_raw_icmp_buf);
 	memset(icmph,0,sizeof(icmphdr));
-	if(prog_mode==client_mode)
+	if(program_mode==client_mode)
 	{
 		icmph->type=8;
 	}
@@ -1069,15 +1165,17 @@ int send_raw_udp(const packet_info_t &info, const char * payload, int payloadlen
 	udph->source = htons(info.src_port);
 	udph->dest = htons(info.dst_port);
 
-	int udp_tot_len=payloadlen+sizeof(udph);
+	int udp_tot_len=payloadlen+sizeof(udphdr);
+
 	if(udp_tot_len>65535)
 	{
-		log(log_debug,"invalid len\n");
+		mylog(log_debug,"invalid len\n");
 		return -1;
 	}
+	mylog(log_info,"udp_len:%d %d\n",udp_tot_len,udph->len);
 	udph->len=htons(uint16_t(udp_tot_len));
 
-	memcpy(send_raw_udp_buf+sizeof(struct pseudo_header)+sizeof(udph),payload,payloadlen);
+	memcpy(send_raw_udp_buf+sizeof(struct pseudo_header)+sizeof(udphdr),payload,payloadlen);
 
 	psh->source_address = info.src_ip;
 	psh->dest_address = info.dst_ip;
@@ -1133,7 +1231,7 @@ int send_raw_tcp(const packet_info_t &info,const char * payload, int payloadlen)
 		send_raw_tcp_buf[i++] = 0x04; //sack ok
 		send_raw_tcp_buf[i++] = 0x02; //sack ok
 
-		send_raw_tcp_buf[i++] = 0x08;   //i=6;
+		send_raw_tcp_buf[i++] = 0x08;   //ts
 		send_raw_tcp_buf[i++] = 0x0a;
 
 		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(
@@ -1155,7 +1253,7 @@ int send_raw_tcp(const packet_info_t &info,const char * payload, int payloadlen)
 		send_raw_tcp_buf[i++] = 0x01;
 		send_raw_tcp_buf[i++] = 0x01;
 
-		send_raw_tcp_buf[i++] = 0x08;   //i=0;
+		send_raw_tcp_buf[i++] = 0x08;  //ts
 		send_raw_tcp_buf[i++] = 0x0a;
 
 		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(
@@ -1194,17 +1292,28 @@ int send_raw_tcp(const packet_info_t &info,const char * payload, int payloadlen)
 	{
 		return -1;
 	}
+	if (g_packet_info_send.syn == 0 && g_packet_info_send.ack == 1
+			&& payloadlen != 0) {
+		if (seq_mode == 0) {
+
+		} else if (seq_mode == 1) {
+			g_packet_info_send.seq += payloadlen;
+		} else if (seq_mode == 2) {
+			if (random() % 5 == 3)
+				g_packet_info_send.seq += payloadlen;
+		}
+	}
 
 	return 0;
 }
-/*
+
 int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int payloadlen)
 {
 	char raw_send_buf[buf_len];
 	char raw_send_buf2[buf_len];
 
 	//if((prog_mode==client_mode&& payloadlen!=9)  ||(prog_mode==server_mode&& payloadlen!=5 )  )
-	log(log_trace,"send raw from to %d %d %d %d\n",info.src_ip,info.src_port,info.dst_ip,info.dst_port);
+	mylog(log_trace,"send raw from to %d %d %d %d\n",info.src_ip,info.src_port,info.dst_ip,info.dst_port);
 
 	char *data;
 
@@ -1334,7 +1443,7 @@ int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int p
      //Ip checksum
      iph->check = csum ((unsigned short *) raw_send_buf, iph->tot_len);
 
-     log(log_trace,"sent seq  ack_seq len<%u %u %d>\n",g_packet_info_send.seq,g_packet_info_send.ack_seq,payloadlen);
+     mylog(log_trace,"sent seq  ack_seq len<%u %u %d>\n",g_packet_info_send.seq,g_packet_info_send.ack_seq,payloadlen);
 
      int ret = sendto(raw_send_fd, raw_send_buf, iph->tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
 
@@ -1355,16 +1464,16 @@ int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int p
     			 g_packet_info_send.seq+=payloadlen;
     	 }
      }
-     log(log_trace,"<ret:%d>\n",ret);
+     mylog(log_trace,"<ret:%d>\n",ret);
 	 if(ret<0)
      {
-	    	log(log_fatal,"");
+	    	mylog(log_fatal,"");
     	 perror("raw send error\n");
     	 //printf("send error\n");
      }
      return 0;
 }
-*/
+
 
 int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
 {
@@ -1375,7 +1484,7 @@ int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
 
 	if(recv_raw_ip(info,ip_payload,ip_payloadlen)!=0)
 	{
-		log(log_debug,"recv_raw_ip error\n");
+		mylog(log_debug,"recv_raw_ip error\n");
 		return -1;
 	}
 	if(info.protocol!=IPPROTO_ICMP)
@@ -1389,7 +1498,7 @@ int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
 	info.src_port=info.dst_port=ntohs(icmph->id);
 
 
-	if(prog_mode==client_mode)
+	if(program_mode==client_mode)
 	{
 		if(icmph->type!=0)
 			return -1;
@@ -1407,13 +1516,13 @@ int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
 
 	if(check!=0)
 	{
-		log(log_debug,"icmp checksum fail %x\n",check);
+		mylog(log_debug,"icmp checksum fail %x\n",check);
 		return -1;
 	}
 
 	payload=ip_payload+sizeof(icmphdr);
 	payloadlen=ip_payloadlen-sizeof(icmphdr);
-	log(log_debug,"get a packet len=%d\n",payloadlen);
+	mylog(log_debug,"get a packet len=%d\n",payloadlen);
 
     return 0;
 }
@@ -1426,7 +1535,7 @@ int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
 
 	if(recv_raw_ip(info,ip_payload,ip_payloadlen)!=0)
 	{
-		log(log_debug,"recv_raw_ip error\n");
+		mylog(log_debug,"recv_raw_ip error\n");
 		return -1;
 	}
 	if(info.protocol!=IPPROTO_UDP)
@@ -1436,7 +1545,7 @@ int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
 	}
 	if(ip_payloadlen<sizeof(udphdr))
 	{
-		log(log_debug,"too short to hold udpheader\n");
+		mylog(log_debug,"too short to hold udpheader\n");
 		return -1;
 	}
 	udphdr *udph=(struct udphdr*)ip_payload;
@@ -1444,7 +1553,7 @@ int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
 	if(ntohs(udph->len)!=ip_payloadlen)
 	{
 
-		log(log_debug,"udp length error %d %d \n",ntohs(udph->len),ip_payloadlen);
+		mylog(log_debug,"udp length error %d %d \n",ntohs(udph->len),ip_payloadlen);
 		return -1;
 	}
 
@@ -1469,8 +1578,8 @@ int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
 
     if(udp_chk!=0)
     {
-    	log(log_debug,"udp_chk:%x\n",udp_chk);
-    	log(log_debug,"udp header error\n");
+    	mylog(log_debug,"udp_chk:%x\n",udp_chk);
+    	mylog(log_debug,"udp header error\n");
     	return -1;
 
     }
@@ -1497,7 +1606,7 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
 
 	if(recv_raw_ip(info,ip_payload,ip_payloadlen)!=0)
 	{
-		log(log_debug,"recv_raw_ip error\n");
+		mylog(log_debug,"recv_raw_ip error\n");
 		return -1;
 	}
 
@@ -1513,7 +1622,7 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
     unsigned short tcphdrlen = tcph->doff*4;
 
     if (!(tcph->doff > 0 && tcph->doff <=60)) {
-    	log(log_debug,"tcph error\n");
+    	mylog(log_debug,"tcph error\n");
     	return 0;
     }
 
@@ -1539,8 +1648,8 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
 
     if(tcp_chk!=0)
     {
-    	log(log_debug,"tcp_chk:%x\n",tcp_chk);
-    	log(log_debug,"tcp header error\n");
+    	mylog(log_debug,"tcp_chk:%x\n",tcp_chk);
+    	mylog(log_debug,"tcp header error\n");
     	return -1;
 
     }
@@ -1572,7 +1681,7 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
     }
     if(tcph->rst==1)
     {
-    	log(log_warn,"%%%%%%%%%%%%%rst==1%%%%%%%%%%%%%\n");
+    	mylog(log_warn,"%%%%%%%%%%%%%rst==1%%%%%%%%%%%%%\n");
     }
 
     info.ack=tcph->ack;
@@ -1595,7 +1704,7 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
     payload=tcp_begin+tcphdrlen;
     return 0;
 }
-/*
+
 int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 {
 	static char buf[buf_len];
@@ -1611,13 +1720,13 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 	socklen_t saddr_size;
 	saddr_size = sizeof(saddr);
 
-	log(log_trace,"raw!\n");
+	mylog(log_trace,"raw!\n");
 
 	size = recvfrom(raw_recv_fd, buf, buf_len, 0 ,&saddr , &saddr_size);
 
 	if(buf[12]!=8||buf[13]!=0)
 	{
-		log(log_debug,"not an ipv4 packet!\n");
+		mylog(log_debug,"not an ipv4 packet!\n");
 		return -1;
 	}
 
@@ -1627,12 +1736,12 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 
 
     if (!(iph->ihl > 0 && iph->ihl <=60)) {
-    	log(log_debug,"iph ihl error");
+    	mylog(log_debug,"iph ihl error");
         return -1;
     }
 
     if (iph->protocol != IPPROTO_TCP) {
-    	log(log_debug,"iph protocal != tcp\n");
+    	mylog(log_debug,"iph protocal != tcp\n");
     	return -1;
     }
 
@@ -1644,7 +1753,7 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
     unsigned short tcphdrlen = tcph->doff*4;
 
     if (!(tcph->doff > 0 && tcph->doff <=60)) {
-    	log(log_debug,"tcph error");
+    	mylog(log_debug,"tcph error");
     	return 0;
     }
 
@@ -1678,13 +1787,13 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 
    if(ip_chk!=0)
     {
-	   log(log_debug,"ip header error %d\n",ip_chk);
+	   mylog(log_debug,"ip header error %d\n",ip_chk);
     	return -1;
     }
     if(tcp_chk!=0)
     {
-    	log(log_debug,"tcp_chk:%x\n",tcp_chk);
-    	log(log_debug,"tcp header error\n");
+    	mylog(log_debug,"tcp_chk:%x\n",tcp_chk);
+    	mylog(log_debug,"tcp header error\n");
     	return -1;
 
     }
@@ -1717,7 +1826,7 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 
     if(tcph->rst==1)
     {
-    	log(log_warn,"%%%%%%%%%%rst==1%%%%%%%%%%%%%\n");
+    	mylog(log_warn,"%%%%%%%%%%rst==1%%%%%%%%%%%%%\n");
     }
 
 
@@ -1742,7 +1851,7 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 
     if(payloadlen>0&&payload[0]=='h')
     {
-    	log(log_debug,"recvd <%u %u %d>\n",ntohl(tcph->seq ),ntohl(tcph->ack_seq), payloadlen);
+    	mylog(log_debug,"recvd <%u %u %d>\n",ntohl(tcph->seq ),ntohl(tcph->ack_seq), payloadlen);
     }
 
     if(payloadlen>0&&tcph->syn==0&&tcph->ack==1)
@@ -1754,23 +1863,31 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 
     //printf("%d\n",ip_len);
 
-    log(log_trace,"<%u,%u,%u,%u,%d>\n",(unsigned int)iphdrlen,(unsigned int)tcphdrlen,(unsigned int)tcph->syn,(unsigned int)tcph->ack,payloadlen);
+    mylog(log_trace,"<%u,%u,%u,%u,%d>\n",(unsigned int)iphdrlen,(unsigned int)tcphdrlen,(unsigned int)tcph->syn,(unsigned int)tcph->ack,payloadlen);
 
 
 	return 0;
 }
-*/
+
 int send_raw(const packet_info_t &info,const char * payload,int payloadlen)
 {
-	if(raw_mode==mode_tcp) return send_raw_tcp(info,payload,payloadlen);
-	else if(raw_mode==mode_udp) return send_raw_udp(info,payload,payloadlen);
-	else if(raw_mode==mode_icmp) return send_raw_icmp(info,payload,payloadlen);
+	switch(raw_mode)
+	{
+		case mode_faketcp:return send_raw_tcp(info,payload,payloadlen);
+		case mode_udp: return send_raw_udp(info,payload,payloadlen);
+		case mode_icmp: return send_raw_icmp(info,payload,payloadlen);
+	}
+	return -1;
 }
 int recv_raw(packet_info_t &info,char * &payload,int &payloadlen)
 {
-	if(raw_mode==mode_tcp)  return recv_raw_tcp(info,payload,payloadlen);
-	else if(raw_mode==mode_udp) return recv_raw_udp(info,payload,payloadlen);
-	else if(raw_mode==mode_icmp) return recv_raw_icmp(info,payload,payloadlen);
+	switch(raw_mode)
+	{
+		case mode_faketcp:return recv_raw_tcp(info,payload,payloadlen);
+		case mode_udp: return recv_raw_udp(info,payload,payloadlen);
+		case mode_icmp: return recv_raw_icmp(info,payload,payloadlen);
+	}
+	return -1;
 }
 
 int send_bare(const packet_info_t &info,const char* data,int len)
@@ -1813,7 +1930,7 @@ int recv_bare(packet_info_t &info,char* & data,int & len)
 
 	if(my_decrypt(data,recv_data_buf,len,key)!=0)
 	{
-		log(log_debug,"decrypt_fail in recv bare\n");
+		mylog(log_debug,"decrypt_fail in recv bare\n");
 		return -1;
 	}
 	data=recv_data_buf+sizeof(iv_t);
@@ -1853,7 +1970,7 @@ int send_handshake(const packet_info_t &info,id_t id1,id_t id2,id_t id3)
 	char * data;int len;
 	len=sizeof(id_t)*3;
 	if(numbers_to_char(id1,id2,id3,data,len)!=0) return -1;
-	if(send_bare(info,data,len)!=0) {log(log_warn,"send bare fail\n");return -1;}
+	if(send_bare(info,data,len)!=0) {mylog(log_warn,"send bare fail\n");return -1;}
 	return 0;
 }
 /*
@@ -1941,12 +2058,12 @@ int recv_safer(packet_info_t &info,char* &data,int &len)
 
 	if(h_oppiste_id!=oppsite_id||h_my_id!=my_id)
 	{
-		log(log_warn,"auth fail %x %x %x %x \n",h_oppiste_id,oppsite_id,h_my_id,my_id);
+		mylog(log_warn,"id and oppsite_id verification failed %x %x %x %x \n",h_oppiste_id,oppsite_id,h_my_id,my_id);
 		return -1;
 	}
 
 	if (anti_replay.is_vaild(h_seq) != 1) {
-		log(log_warn,"dropped replay packet\n");
+		mylog(log_warn,"dropped replay packet\n");
 		return -1;
 	}
 
@@ -1957,7 +2074,7 @@ int recv_safer(packet_info_t &info,char* &data,int &len)
 
 	if(len<0)
 	{
-		log(log_error,"len <0 ,%d\n",len);
+		mylog(log_error,"len <0 ,%d\n",len);
 		return -1;
 	}
 
@@ -2066,7 +2183,7 @@ int try_to_list_and_bind(int port)
 {
 	 int old_bind_fd=bind_fd;
 
-	 if(raw_mode==mode_tcp)
+	 if(raw_mode==mode_faketcp)
 	 {
 		 bind_fd=socket(AF_INET,SOCK_STREAM,0);
 	 }
@@ -2088,14 +2205,14 @@ int try_to_list_and_bind(int port)
 
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
-    	 log(log_debug,"bind fail\n");
+    	 mylog(log_debug,"bind fail\n");
     	 return -1;
      }
-	 if(raw_mode==mode_tcp)
+	 if(raw_mode==mode_faketcp)
 	 {
 
 		if (listen(bind_fd, SOMAXCONN) != 0) {
-			log(log_warn,"listen fail\n");
+			mylog(log_warn,"listen fail\n");
 			return -1;
 		}
 	 }
@@ -2111,7 +2228,7 @@ int client_bind_to_a_new_port()
 			return raw_send_port;
 		}
 	}
-	log(log_fatal,"bind port fail\n");
+	mylog(log_fatal,"bind port fail\n");
 	exit(-1);
 	return -1;////for compiler check
 }
@@ -2119,34 +2236,42 @@ int client_bind_to_a_new_port()
 int keep_connection_client() //for client
 {
 	conv_manager.clean_inactive();
-	log(log_trace,"timer!\n");
-	//fflush(stdout);
+	mylog(log_trace,"timer!\n");
 	begin:
 	if(client_current_state==client_nothing)
 	{
 		anti_replay.re_init(); //  this is not safe
 
+		if(raw_mode==mode_icmp)
+		{
+			remove_filter();
+		}
+
 		if(source_port==0)
 		{
 			g_packet_info_send.src_port = client_bind_to_a_new_port();
+		}
+		else
+		{
+			g_packet_info_send.src_port=source_port;
 		}
 
 		if(raw_mode==mode_icmp)
 		{
 			g_packet_info_send.dst_port =g_packet_info_send.src_port ;
 		}
-		log(log_info,"using port %d\n", g_packet_info_send.src_port);
+		mylog(log_info,"using port %d\n", g_packet_info_send.src_port);
 
 
 
 
 		init_filter(g_packet_info_send.src_port);
 
-		if(raw_mode==mode_tcp)
+		if(raw_mode==mode_faketcp)
 		{
 			client_current_state = client_syn_sent;
 			last_state_time = get_current_time();
-			log(log_info,"state changed from nothing to syn_sent\n");
+			mylog(log_info,"state changed from nothing to syn_sent\n");
 			retry_counter = RETRY_TIME;
 
 			g_packet_info_send.seq = get_true_random_number_nz();
@@ -2162,7 +2287,7 @@ int keep_connection_client() //for client
 		{
 			client_current_state = client_ack_sent;
 			last_state_time = get_current_time();
-			log(log_info,"state changed from nothing to ack_sent\n");
+			mylog(log_info,"state changed from nothing to ack_sent\n");
 			retry_counter = RETRY_TIME;
 			g_packet_info_send.icmp_seq=0;
 
@@ -2175,14 +2300,14 @@ int keep_connection_client() //for client
 		if(retry_counter==0)
 		{
 			client_current_state=client_nothing;
-			log(log_info,"state back to nothing\n");
+			mylog(log_info,"state back to nothing\n");
 			return 0;
 			//goto begin;
 		}
 		else
 		{
 			retry_counter--;
-			log(log_info,"retry send sync\n");
+			mylog(log_info,"retry send sync\n");
 			send_bare(g_packet_info_send,0,0); /////////////send
 			last_state_time=get_current_time();
 		}
@@ -2192,14 +2317,14 @@ int keep_connection_client() //for client
 		if(retry_counter==0)
 		{
 			client_current_state=client_nothing;
-			log(log_info,"state back to nothing\n");
+			mylog(log_info,"state back to nothing\n");
 			return 0;
 			//goto begin;
 		}
 		else
 		{
 			retry_counter--;
-			if(raw_mode==mode_tcp)
+			if(raw_mode==mode_faketcp)
 			{
 				send_bare(g_packet_info_send,0,0);/////////////send
 			}
@@ -2208,16 +2333,16 @@ int keep_connection_client() //for client
 				send_bare(g_packet_info_send, (char*)"hello", strlen("hello"));/////////////send
 			}
 			last_state_time=get_current_time();
-			log(log_info,"retry send ack  counter left:%d\n",retry_counter);
+			mylog(log_info,"retry send ack  counter left:%d\n",retry_counter);
 		}
 	}
 
-	if(client_current_state==client_heartbeat_sent&&get_current_time()-last_state_time>handshake_timeout)
+	if(client_current_state==client_handshake_sent&&get_current_time()-last_state_time>handshake_timeout)
 	{
 		if(retry_counter==0)
 		{
 			client_current_state=client_nothing;
-			log(log_info,"state back to nothing\n");
+			mylog(log_info,"state back to nothing\n");
 			return 0;
 			//goto begin;
 		}
@@ -2226,8 +2351,8 @@ int keep_connection_client() //for client
 			retry_counter--;
 			send_handshake(g_packet_info_send,my_id,oppsite_id,const_id);/////////////send
 			last_state_time=get_current_time();
-			log(log_info,"retry send heart_beat  counter left:%d\n",retry_counter);
-			log(log_info,"heartbeat sent <%x,%x>\n",oppsite_id,my_id);
+			mylog(log_info,"retry send handshake  counter left:%d\n",retry_counter);
+			mylog(log_info,"handshake sent <%x,%x>\n",oppsite_id,my_id);
 
 		}
 
@@ -2236,12 +2361,12 @@ int keep_connection_client() //for client
 
 	if(client_current_state==client_ready)
 	{
-		log(log_trace,"time %lld %lld\n",get_current_time(),last_state_time);
+		mylog(log_trace,"time %lld %lld\n",get_current_time(),last_state_time);
 		if(get_current_time()-last_hb_recv_time>heartbeat_timeout)
 		{
 			client_current_state=client_nothing;
 			my_id=get_true_random_number_nz();
-			log(log_info,"state back to nothing\n");
+			mylog(log_info,"state back to nothing\n");
 			return 0;
 		}
 
@@ -2250,7 +2375,7 @@ int keep_connection_client() //for client
 			return 0;
 		}
 
-		log(log_trace,"heartbeat sent <%x,%x>\n",oppsite_id,my_id);
+		mylog(log_trace,"heartbeat sent <%x,%x>\n",oppsite_id,my_id);
 
 		send_safer(g_packet_info_send,(char *)"h",1);/////////////send
 
@@ -2264,9 +2389,13 @@ int keep_connection_server()
 {
 	conv_manager.clean_inactive();
 	//begin:
-	log(log_trace,"timer!\n");
+	mylog(log_trace,"timer!\n");
 	if(server_current_state==server_nothing)
 	{
+		if(raw_mode==mode_icmp)
+		{
+			remove_filter();
+		}
 		return 0;
 	}
 	if(server_current_state==server_syn_ack_sent &&get_current_time()-last_state_time>handshake_timeout )
@@ -2274,29 +2403,29 @@ int keep_connection_server()
 		if(retry_counter==0)
 		{
 			server_current_state=server_nothing;
-			log(log_info,"state back to nothing\n");
+			mylog(log_info,"state back to nothing\n");
 		}
 		else
 		{
 			retry_counter--;
 			send_bare(g_packet_info_send,0,0);    /////////////send
 			last_state_time=get_current_time();
-			log(log_info,"resend syn ack\n");
+			mylog(log_info,"resend syn ack\n");
 		}
 	}
-	if(server_current_state==server_heartbeat_sent &&get_current_time()-last_state_time>handshake_timeout)
+	if(server_current_state==server_handshake_sent &&get_current_time()-last_state_time>handshake_timeout)
 	{
 		if(retry_counter==0)
 		{
 			server_current_state=server_nothing;
-			log(log_info,"state back to nothing\n");
+			mylog(log_info,"state back to nothing\n");
 		}
 		else
 		{
 			retry_counter--;
 			send_handshake(g_packet_info_send,my_id,random(),const_id);   /////////////send
 			last_state_time=get_current_time();
-			log(log_info,"half heart beat sent<%x>\n",my_id);
+			mylog(log_info,"handshake sent<%x>\n",my_id);
 		}
 	}
 
@@ -2304,13 +2433,13 @@ int keep_connection_server()
 	{
 		if( get_current_time()-last_hb_recv_time>heartbeat_timeout )
 		{
-			log(log_trace,"%lld %lld\n",get_current_time(),last_state_time);
+			mylog(log_trace,"%lld %lld\n",get_current_time(),last_state_time);
 			server_current_state=server_nothing;
 
-			log(log_info,"changed session id\n");
+			mylog(log_info,"changed server id\n");
 			my_id=get_true_random_number_nz();
 
-			log(log_info,"changed state to server_nothing111\n");
+			mylog(log_info,"changed state to server_nothing\n");
 			return 0;
 		}
 
@@ -2324,7 +2453,7 @@ int keep_connection_server()
 
 		last_hb_sent_time=get_current_time();
 
-		log(log_trace,"heart beat sent<%x>\n",my_id);
+		mylog(log_trace,"heart beat sent<%x>\n",my_id);
 	}
 
 }
@@ -2339,7 +2468,7 @@ int set_timer(int epollfd,int &timer_fd)
 
 	if((timer_fd=timerfd_create(CLOCK_MONOTONIC,TFD_NONBLOCK)) < 0)
 	{
-		log(log_fatal,"timer_fd create error\n");
+		mylog(log_fatal,"timer_fd create error\n");
 		exit(1);
 	}
 	its.it_interval.tv_nsec=timer_interval*1000ll*1000ll;
@@ -2352,7 +2481,7 @@ int set_timer(int epollfd,int &timer_fd)
 
 	epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
-		log(log_fatal,"epoll_ctl return %d\n", ret);
+		mylog(log_fatal,"epoll_ctl return %d\n", ret);
 		exit(-1);
 	}
 	return 0;
@@ -2374,11 +2503,11 @@ int client_on_raw_recv(packet_info_t &info)
 		}
 
 
-		if (raw_mode==mode_tcp&&!(info.syn==1&&info.ack==1&&data_len==0)) return 0;
+		if (raw_mode==mode_faketcp&&!(info.syn==1&&info.ack==1&&data_len==0)) return 0;
 
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
-			log(log_debug,"unexpected adress\n");
+			mylog(log_debug,"unexpected adress %x %x %d %d\n",info.src_ip,g_packet_info_send.dst_ip,info.src_port,g_packet_info_send.dst_port);
 			return 0;
 		}
 
@@ -2388,7 +2517,7 @@ int client_on_raw_recv(packet_info_t &info)
 		g_packet_info_send.ack=1;
 		g_packet_info_send.seq+=1;
 
-		log(log_info,"sent ack back\n");
+		mylog(log_info,"sent ack back\n");
 
 
 		send_raw(g_packet_info_send,0,0);
@@ -2396,7 +2525,7 @@ int client_on_raw_recv(packet_info_t &info)
 		last_state_time=get_current_time();
 		retry_counter=RETRY_TIME;
 
-		log(log_info,"changed state to client_ack_sent\n");
+		mylog(log_info,"changed state to client_ack_sent\n");
 	}
 	if(client_current_state==client_ack_sent )
 	{
@@ -2407,14 +2536,14 @@ int client_on_raw_recv(packet_info_t &info)
 			return -1;
 		}
 
-		if(raw_mode==mode_tcp&& (info.syn==1||info.ack!=1 ||data_len==0))
+		if(raw_mode==mode_faketcp&& (info.syn==1||info.ack!=1 ||data_len==0))
 		{
-			log(log_debug,"unexpected syn ack or other zero lenght packet\n");
+			mylog(log_debug,"unexpected syn ack or other zero lenght packet\n");
 			return 0;
 		}
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
-			log(log_debug,"unexpected adress\n");
+			mylog(log_debug,"unexpected adress %x %x %d %d\n",info.src_ip,g_packet_info_send.dst_ip,info.src_port,g_packet_info_send.dst_port);
 			return 0;
 		}
 
@@ -2428,15 +2557,15 @@ int client_on_raw_recv(packet_info_t &info)
 
 		oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
 
-		log(log_info,"====first hb received %x==\n",oppsite_id);
-		log(log_info,"changed state to client_heartbeat_sent\n");
+		mylog(log_info,"handshake received %x\n",oppsite_id);
+		mylog(log_info,"changed state to client_handshake_sent\n");
 		send_handshake(g_packet_info_send,my_id,oppsite_id,const_id);
 
-		client_current_state=client_heartbeat_sent;
+		client_current_state=client_handshake_sent;
 		last_state_time=get_current_time();
 		retry_counter=RETRY_TIME;
 	}
-	if(client_current_state==client_heartbeat_sent)
+	if(client_current_state==client_handshake_sent)
 	{
 
 
@@ -2445,19 +2574,19 @@ int client_on_raw_recv(packet_info_t &info)
 			return -1;
 		}
 
-		if((raw_mode==mode_tcp&&( info.syn==1||info.ack!=1 ) )||data_len==0  )
+		if((raw_mode==mode_faketcp&&( info.syn==1||info.ack!=1 ) )||data_len==0  )
 		{
-			log(log_trace,"unexpected syn ack or other zero lenght packet\n");
+			mylog(log_trace,"unexpected syn ack or other zero lenght packet\n");
 			return 0;
 		}
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
-			log(log_trace,"unexpected adress\n");
+			mylog(log_trace,"unexpected adress\n");
 			return 0;
 		}
 		if(data_len!=1||data[0]!='h')
 		{
-			log(log_trace,"not a heartbeat\n");
+			mylog(log_trace,"not a heartbeat\n");
 			return 0;
 		}
 
@@ -2477,7 +2606,7 @@ int client_on_raw_recv(packet_info_t &info)
 			return 0;
 		}*/
 
-		log(log_info,"changed state to client_ready\n");
+		mylog(log_info,"changed state to client_ready\n");
 		client_current_state=client_ready;
 		last_state_time=get_current_time();
 		last_hb_recv_time=get_current_time();
@@ -2492,26 +2621,26 @@ int client_on_raw_recv(packet_info_t &info)
 			return -1;
 		}
 
-		if((raw_mode==mode_tcp&&( info.syn==1||info.ack!=1) )||data_len==0)
+		if((raw_mode==mode_faketcp&&( info.syn==1||info.ack!=1) )||data_len==0)
 		{
-			log(log_debug,"unexpected syn ack\n");
+			mylog(log_debug,"unexpected syn ack\n");
 			return 0;
 		}
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
-			log(log_debug,"unexpected adress\n");
+			mylog(log_debug,"unexpected adress\n");
 			return 0;
 		}
 
 		if(data_len==1&&data[0]=='h')
 		{
-			log(log_debug,"heart beat received\n");
+			mylog(log_debug,"heart beat received\n");
 			last_hb_recv_time=get_current_time();
 			return 0;
 		}
 		else if(data_len>=sizeof(uint32_t)+1&&data[0]=='d')
 		{
-			log(log_trace,"received a data from fake tcp,len:%d\n",data_len);
+			mylog(log_trace,"received a data from fake tcp,len:%d\n",data_len);
 
 			last_hb_recv_time=get_current_time();
 
@@ -2519,7 +2648,7 @@ int client_on_raw_recv(packet_info_t &info)
 
 			if(!conv_manager.is_conv_used(tmp_conv_id))
 			{
-				log(log_info,"unknow conv %d,ignore\n",tmp_conv_id);
+				mylog(log_info,"unknow conv %d,ignore\n",tmp_conv_id);
 				return 0;
 			}
 
@@ -2528,21 +2657,23 @@ int client_on_raw_recv(packet_info_t &info)
 			uint64_t u64=conv_manager.find_u64_by_conv(tmp_conv_id);
 
 
+			sockaddr_in tmp_sockaddr;
 
-			g_tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
+			tmp_sockaddr.sin_family = AF_INET;
+			tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
 
-			g_tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
+			tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
 
 
-			int ret=sendto(udp_fd,data+1+sizeof(uint32_t),data_len -(1+sizeof(uint32_t)),0,(struct sockaddr *)&g_tmp_sockaddr,sizeof(g_tmp_sockaddr));
+			int ret=sendto(udp_fd,data+1+sizeof(uint32_t),data_len -(1+sizeof(uint32_t)),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
 
 			if(ret<0)
 			{
-		    	log(log_warn,"sento returned %d\n",ret);
+		    	mylog(log_warn,"sento returned %d\n",ret);
 				//perror("ret<0");
 			}
-			log(log_trace,"%s :%d\n",inet_ntoa(g_tmp_sockaddr.sin_addr),ntohs(g_tmp_sockaddr.sin_port));
-			log(log_trace,"%d byte sent\n",ret);
+			mylog(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
+			mylog(log_trace,"%d byte sent\n",ret);
 		}
 		return 0;
 	}
@@ -2575,7 +2706,7 @@ int server_on_raw_recv(packet_info_t &info)
 		g_packet_info_send.dst_port = info.src_port;
 		g_packet_info_send.dst_ip = info.src_ip;
 
-		if(raw_mode==mode_tcp)
+		if(raw_mode==mode_faketcp)
 		{
 			if (!(info.syn == 1 && info.ack == 0 && data_len == 0))
 				return 0;
@@ -2588,13 +2719,13 @@ int server_on_raw_recv(packet_info_t &info)
 
 			g_packet_info_send.seq = get_true_random_number_nz(); //not necessary to set
 
-			log(log_info,"sent syn ack\n");
+			mylog(log_info,"sent syn ack\n");
 			send_bare(g_packet_info_send, 0, 0);  //////////////send
 
-			log(log_info,"changed state to server_syn_ack_sent\n");
+			mylog(log_info,"changed state to server_syn_ack_sent\n");
 
 			server_current_state = server_syn_ack_sent;
-			retry_counter = RETRY_TIME;
+			retry_counter = 0;
 			last_state_time = get_current_time();
 		}
 		else if(raw_mode==mode_udp||raw_mode==mode_icmp)
@@ -2603,22 +2734,22 @@ int server_on_raw_recv(packet_info_t &info)
 			if(data_len==strlen("hello")&& memcmp((char *)"hello",data,strlen("hello"))!=0)
 			{
 				//data[6]=0;
-				log(log_debug,"not a hello packet %d\n",data,data_len);
+				mylog(log_debug,"not a hello packet %d\n",data,data_len);
 				return 0;
 			}
 			else
 			{
-				log(log_info,"got a hello packet\n");
+				mylog(log_info,"got a hello packet\n");
 			}
 
-			log(log_info,"sent half heart_beat\n");
+			mylog(log_info,"sent half heart_beat\n");
 			//send_raw(g_packet_info_send, 0, 0);
 			send_handshake(g_packet_info_send,my_id,random(),const_id);  //////////////send
 
-			log(log_info,"changed state to server_heartbeat_sent_sent\n");
+			mylog(log_info,"changed state to server_heartbeat_sent_sent\n");
 
-			server_current_state = server_heartbeat_sent;
-			retry_counter = RETRY_TIME;
+			server_current_state = server_handshake_sent;
+			retry_counter = 0;
 			last_state_time = get_current_time();
 		}
 	}
@@ -2629,10 +2760,10 @@ int server_on_raw_recv(packet_info_t &info)
 			return -1;
 		}
 
-		if(raw_mode==mode_tcp&&!( info.syn==0&&info.ack==1 &&data_len==0)) return 0;
+		if(raw_mode==mode_faketcp&&!( info.syn==0&&info.ack==1 &&data_len==0)) return 0;
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
-			log(log_debug,"unexpected adress\n");
+			mylog(log_debug,"unexpected adress\n");
 			return 0;
 		}
 
@@ -2642,26 +2773,26 @@ int server_on_raw_recv(packet_info_t &info)
 
 		send_handshake(g_packet_info_send,my_id,0,const_id);   //////////////send
 
-		log(log_info,"changed state to server_heartbeat_sent\n");
+		mylog(log_info,"changed state to server_handshake_sent\n");
 
-		server_current_state=server_heartbeat_sent;
+		server_current_state=server_handshake_sent;
 		last_state_time=get_current_time();
 
 		retry_counter=RETRY_TIME;
 
 	}
-	else if(server_current_state==server_heartbeat_sent)//heart beat received
+	else if(server_current_state==server_handshake_sent)//heart beat received
 	{
 		if(recv_bare(info,data,data_len)!=0)
 		{
 			return -1;
 		}
 
-		if(( raw_mode==mode_tcp&& (info.syn==1||info.ack!=1)) ||data_len==0)  return 0;
+		if(( raw_mode==mode_faketcp&& (info.syn==1||info.ack!=1)) ||data_len==0)  return 0;
 
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
-			log(log_trace,"unexpected adress\n");
+			mylog(log_trace,"unexpected adress\n");
 			return 0;
 		}
 		/*
@@ -2684,7 +2815,7 @@ int server_on_raw_recv(packet_info_t &info)
 
 		if(tmp_session_id!=my_id)
 		{
-			log(log_trace,"auth fail!!\n");
+			mylog(log_trace,"auth fail!!\n");
 			return 0;
 		}
 
@@ -2692,7 +2823,7 @@ int server_on_raw_recv(packet_info_t &info)
 		oppsite_id=tmp_oppsite_session_id;
 
 
-		log(log_info,"received hb %x %x\n",oppsite_id,tmp_session_id);
+		mylog(log_info,"received heartbeat %x %x\n",oppsite_id,tmp_session_id);
 
 		send_safer(g_packet_info_send,(char *)"h",1);/////////////send
 
@@ -2704,7 +2835,7 @@ int server_on_raw_recv(packet_info_t &info)
 		last_hb_recv_time=get_current_time();
 		//first_data_packet=1;
 
-		log(log_info,"changed state to server_ready\n");
+		mylog(log_info,"changed state to server_ready\n");
 
 	}
 	else if(server_current_state==server_ready)
@@ -2714,17 +2845,17 @@ int server_on_raw_recv(packet_info_t &info)
 			return -1;
 		}
 
-		if( (raw_mode==mode_tcp&&(info.syn==1||info.ack!=1)) ||data_len==0)  return 0;
+		if( (raw_mode==mode_faketcp&&(info.syn==1||info.ack!=1)) ||data_len==0)  return 0;
 		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
 		{
-			log(log_debug,"unexpected adress\n");
+			mylog(log_debug,"unexpected adress\n");
 			return 0;
 		}
 
 		if(data[0]=='h'&&data_len==1)
 		{
 			uint32_t tmp= ntohl(* ((uint32_t *)&data[1+sizeof(uint32_t)]));
-			log(log_debug,"received hb <%x,%x>\n",oppsite_id,tmp);
+			mylog(log_debug,"received hb <%x,%x>\n",oppsite_id,tmp);
 			last_hb_recv_time=get_current_time();
 			return 0;
 		}
@@ -2734,7 +2865,7 @@ int server_on_raw_recv(packet_info_t &info)
 
 			last_hb_recv_time=get_current_time();
 
-			log(log_debug,"<<<<conv:%u>>>>\n",tmp_conv_id);
+			mylog(log_debug,"<<<<conv:%u>>>>\n",tmp_conv_id);
 			if(!conv_manager.is_conv_used(tmp_conv_id))
 			{
 				struct sockaddr_in remote_addr_in;
@@ -2748,23 +2879,23 @@ int server_on_raw_recv(packet_info_t &info)
 				int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				if(new_udp_fd<0)
 				{
-					log(log_warn,"create udp_fd error\n");
+					mylog(log_warn,"create udp_fd error\n");
 					return -1;
 				}
 				set_buf_size(new_udp_fd);
 
-				log(log_debug,"created new udp_fd %d\n",new_udp_fd);
+				mylog(log_debug,"created new udp_fd %d\n",new_udp_fd);
 				int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in, slen);
 				if(ret!=0)
 				{
-					log(log_warn,"udp fd connect fail\n");
+					mylog(log_warn,"udp fd connect fail\n");
 					close(new_udp_fd);
 					return -1;
 				}
 				struct epoll_event ev;
 
 				uint64_t u64=((u_int64_t(tmp_conv_id))<<32u)+(uint32_t)new_udp_fd;
-				log(log_trace,"u64: %ld\n",u64);
+				mylog(log_trace,"u64: %ld\n",u64);
 				ev.events = EPOLLIN;
 
 				ev.data.u64 = u64;
@@ -2772,7 +2903,7 @@ int server_on_raw_recv(packet_info_t &info)
 				ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, new_udp_fd, &ev);
 
 				if (ret!= 0) {
-					log(log_warn,"add udp_fd error\n");
+					mylog(log_warn,"add udp_fd error\n");
 					close(new_udp_fd);
 					return -1;
 				}
@@ -2787,13 +2918,13 @@ int server_on_raw_recv(packet_info_t &info)
 
 			int fd=int((u64<<32u)>>32u);
 
-			log(log_debug,"received a data from fake tcp,len:%d\n",data_len);
+			mylog(log_debug,"received a data from fake tcp,len:%d\n",data_len);
 			int ret=send(fd,data+1+sizeof(uint32_t),data_len -(1+sizeof(uint32_t)),0);
 
-			log(log_debug,"%d byte sent  ,fd :%d\n ",ret,fd);
+			mylog(log_debug,"%d byte sent  ,fd :%d\n ",ret,fd);
 			if(ret<0)
 			{
-		    	log(log_warn,"send returned %d\n",ret);
+		    	mylog(log_warn,"send returned %d\n",ret);
 				//perror("what happened????");
 			}
 
@@ -2892,16 +3023,16 @@ int get_src_adress(uint32_t &ip)
 	int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if(new_udp_fd<0)
 	{
-		log(log_warn,"create udp_fd error\n");
+		mylog(log_warn,"create udp_fd error\n");
 		return -1;
 	}
 	set_buf_size(new_udp_fd);
 
-	log(log_debug,"created new udp_fd %d\n",new_udp_fd);
+	mylog(log_debug,"created new udp_fd %d\n",new_udp_fd);
 	int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in, slen);
 	if(ret!=0)
 	{
-		log(log_warn,"udp fd connect fail\n");
+		mylog(log_warn,"udp fd connect fail\n");
 		close(new_udp_fd);
 		return -1;
 	}
@@ -2924,22 +3055,22 @@ int client_event_loop()
 	//printf("?????\n");
 	if(source_address_uint32==0)
 	{
-		log(log_info,"get_src_adress called\n");
+		mylog(log_info,"get_src_adress called\n");
 		if(get_src_adress(source_address_uint32)!=0)
 		{
-			log(log_fatal,"the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
+			mylog(log_fatal,"the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
 			exit(-1);
 		}
 	}
 	in_addr tmp;
 	tmp.s_addr=source_address_uint32;
-	log(log_info,"source ip = %s\n",inet_ntoa(tmp));
+	mylog(log_info,"source ip = %s\n",inet_ntoa(tmp));
 	//printf("done\n");
 
 
 	if(try_to_list_and_bind(source_port)!=0)
 	{
-		log(log_fatal,"bind to source_port:%d fail\n ",source_port);
+		mylog(log_fatal,"bind to source_port:%d fail\n ",source_port);
 		exit(-1);
 	}
 	g_packet_info_send.src_port=source_port;
@@ -2975,7 +3106,7 @@ int client_event_loop()
 
 
 	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
-		log(log_fatal,"socket bind error\n");
+		mylog(log_fatal,"socket bind error\n");
 		//perror("socket bind error");
 		exit(1);
 	}
@@ -2984,7 +3115,7 @@ int client_event_loop()
 	const int max_events = 4096;
 	struct epoll_event ev, events[max_events];
 	if (epollfd < 0) {
-		log(log_fatal,"epoll return %d\n", epollfd);
+		mylog(log_fatal,"epoll return %d\n", epollfd);
 		exit(-1);
 	}
 
@@ -2992,7 +3123,7 @@ int client_event_loop()
 	ev.data.u64 = epoll_udp_fd_sn;
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
 	if (ret!=0) {
-		log(log_fatal,"add  udp_listen_fd error\n");
+		mylog(log_fatal,"add  udp_listen_fd error\n");
 		exit(-1);
 	}
 	ev.events = EPOLLIN;
@@ -3000,7 +3131,7 @@ int client_event_loop()
 
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
-		log(log_fatal,"add raw_fd error\n");
+		mylog(log_fatal,"add raw_fd error\n");
 		exit(-1);
 	}
 
@@ -3017,7 +3148,7 @@ int client_event_loop()
 	{
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
-			log(log_fatal,"epoll_wait return %d\n", nfds);
+			mylog(log_fatal,"epoll_wait return %d\n", nfds);
 			exit(-1);
 		}
 		int n;
@@ -3029,8 +3160,6 @@ int client_event_loop()
 			}
 			if(events[n].data.u64 ==epoll_timer_fd_sn)
 			{
-				//printf("timer!\n");
-				//fflush(stdout);
 				uint64_t value;
 				read(timer_fd, &value, 8);
 				keep_connection_client();
@@ -3042,11 +3171,11 @@ int client_event_loop()
 				struct sockaddr_in udp_new_addr_in;
 				if ((recv_len = recvfrom(udp_fd, buf, buf_len, 0,
 						(struct sockaddr *) &udp_new_addr_in, &slen)) == -1) {
-					log(log_error,"recv_from error\n");
+					mylog(log_error,"recv_from error\n");
 					//exit(1);
 				};
 
-				log(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
+				mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
 						ntohs(udp_new_addr_in.sin_port),recv_len);
 
 				/*
@@ -3076,7 +3205,7 @@ int client_event_loop()
 
 				if(!conv_manager.is_u64_used(u64))
 				{
-					log(log_debug,"new connection!!!!!!!!!!!\n");
+					mylog(log_debug,"new connection!!!!!!!!!!!\n");
 					conv=conv_manager.get_new_conv();
 					conv_manager.insert_conv(conv,u64);
 				}
@@ -3108,7 +3237,7 @@ int server_event_loop()
 	//g_packet_info_send.src_ip=inet_addr(local_address);
 	//g_packet_info_send.src_port=local_port;
 
-	 if(raw_mode==mode_tcp)
+	 if(raw_mode==mode_faketcp)
 	 {
 		 bind_fd=socket(AF_INET,SOCK_STREAM,0);
 	 }
@@ -3126,15 +3255,15 @@ int server_event_loop()
 
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
-    	 log(log_fatal,"bind fail\n");
+    	 mylog(log_fatal,"bind fail\n");
     	 exit(-1);
      }
-	 if(raw_mode==mode_tcp)
+	 if(raw_mode==mode_faketcp)
 	 {
 
 		 if(listen(bind_fd, SOMAXCONN) != 0 )
 		 {
-			 log(log_fatal,"listen fail\n");
+			 mylog(log_fatal,"listen fail\n");
 			 exit(-1);
 		 }
 	 }
@@ -3149,7 +3278,7 @@ int server_event_loop()
 
 	struct epoll_event ev, events[max_events];
 	if (epollfd < 0) {
-		log(log_fatal,"epoll return %d\n", epollfd);
+		mylog(log_fatal,"epoll return %d\n", epollfd);
 		exit(-1);
 	}
 
@@ -3158,7 +3287,7 @@ int server_event_loop()
 
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
-		log(log_fatal,"add raw_fd error\n");
+		mylog(log_fatal,"add raw_fd error\n");
 		exit(-1);
 	}
 	int timer_fd;
@@ -3167,7 +3296,7 @@ int server_event_loop()
 	{
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
-			log(log_fatal,"epoll_wait return %d\n", nfds);
+			mylog(log_fatal,"epoll_wait return %d\n", nfds);
 			exit(-1);
 		}
 		int n;
@@ -3182,7 +3311,7 @@ int server_event_loop()
 
 				if(!conv_manager.is_u64_used(events[n].data.u64))
 				{
-					log(log_debug,"conv %x no longer exists\n",conv_id);
+					mylog(log_debug,"conv %x no longer exists\n",conv_id);
 					int recv_len=recv(fd,buf,buf_len,0); ///////////TODO ,delete this
 					continue;
 				}
@@ -3191,11 +3320,11 @@ int server_event_loop()
 
 				int recv_len=recv(fd,buf,buf_len,0);
 
-				log(log_debug,"received a packet from udp_fd,len:%d\n",recv_len);
+				mylog(log_debug,"received a packet from udp_fd,len:%d\n",recv_len);
 
 				if(recv_len<0)
 				{
-					log(log_trace,"continue\n");
+					mylog(log_trace,"continue\n");
 					//perror("wtf?");
 					continue;
 					//return 0;
@@ -3207,7 +3336,7 @@ int server_event_loop()
 				{
 					send_data_safer(g_packet_info_send,buf,recv_len,conv_id);
 					//send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv_id);
-					log(log_trace,"send !!\n");
+					mylog(log_trace,"send !!\n");
 				}
 			}
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
@@ -3255,16 +3384,14 @@ int get_ip_deprecated()
 
 int main(int argc, char *argv[])
 {
+	signal(SIGINT, INThandler);
+	signal(SIGCHLD, handler);
+	process_arg(argc,argv);
 
-	dup2(1, 2);
+	dup2(1, 2);//redirect stderr to stdout
 	srand(time(0));
 
-	memset(&g_tmp_sockaddr,0,sizeof(g_tmp_sockaddr)); //TODO fix inefficient code
-	g_tmp_sockaddr.sin_family = AF_INET;
-
-
-
-	if(raw_mode==mode_tcp)
+	if(raw_mode==mode_faketcp)
 	{
 		g_packet_info_send.protocol=IPPROTO_TCP;
 	}
@@ -3280,16 +3407,12 @@ int main(int argc, char *argv[])
 	my_id=get_true_random_number_nz();
 	const_id=get_true_random_number_nz();
 
-	log(log_info,"myid:%x constid:%x\n",my_id,const_id);
+	mylog(log_info,"myid:%x constid:%x\n",my_id,const_id);
 
 	anti_replay_seq=get_true_random_number_nz();
 
 	g_packet_info_send.ack_seq=get_true_random_number_nz();
 	g_packet_info_send.seq=get_true_random_number_nz();
-	int i, j, k;
-
-	signal(SIGCHLD, handler);
-	process_arg(argc,argv);
 
 	local_address_uint32=inet_addr(local_address);
 	remote_address_uint32=inet_addr(remote_address);
@@ -3315,7 +3438,7 @@ int main(int argc, char *argv[])
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);
 
 
-	if(prog_mode==client_mode)
+	if(program_mode==client_mode)
 	{
 		client_event_loop();
 	}
