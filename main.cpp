@@ -103,7 +103,7 @@ const int udp_timeout=3000;
 
 const int heartbeat_interval=1000;
 
-const int timer_interval=500;
+const int timer_interval=200;
 
 const int RETRY_TIME=3;
 
@@ -158,7 +158,7 @@ char key2[16];
 
 const int anti_replay_window_size=1000;
 
-const int conv_timeout=60000; //60 second
+const int conv_timeout=30000; //60 second
 const int conv_clear_ratio=10;
 
 
@@ -354,7 +354,8 @@ struct anti_replay_t
 }anti_replay;
 
 uint32_t get_true_random_number_nz();
-long long get_current_time();
+uint64_t get_current_time();
+uint64_t current_time_rough=0;
 
 
 
@@ -433,13 +434,13 @@ struct conv_manager_t  //TODO change map to unordered map
 	}
 	int update_active_time(uint32_t conv)
 	{
-		return conv_last_active_time[conv]=get_current_time();
+		return conv_last_active_time[conv]=current_time_rough;
 	}
 	int insert_conv(uint32_t conv,uint64_t u64)
 	{
 		u64_to_conv[u64]=conv;
 		conv_to_u64[conv]=u64;
-		conv_last_active_time[conv]=get_current_time();
+		conv_last_active_time[conv]=current_time_rough;
 		return 0;
 	}
 	int erase_conv(uint32_t conv)
@@ -456,7 +457,7 @@ struct conv_manager_t  //TODO change map to unordered map
 		mylog(log_info,"conv %x cleared\n");
 		return 0;
 	}
-	int clean_inactive( )
+	int clean_inactive()
 	{
 		if(disable_conv_clear) return 0;
 
@@ -465,7 +466,7 @@ struct conv_manager_t  //TODO change map to unordered map
 		int cnt=0;
 		it=clear_it;
 		int size=conv_last_active_time.size();
-		int num_to_clean=size/conv_clear_ratio;   //clear 1/10 each time,to avoid latency glitch
+		int num_to_clean=size/conv_clear_ratio+1;   //clear 1/10 each time,to avoid latency glitch
 
 		uint64_t current_time=get_current_time();
 		for(;;)
@@ -480,7 +481,7 @@ struct conv_manager_t  //TODO change map to unordered map
 
 			if( current_time -it->second  >conv_timeout )
 			{
-				mylog(log_info,"inactive conv %u cleared \n",it->first);
+				//mylog(log_info,"inactive conv %u cleared \n",it->first);
 				old_it=it;
 				it++;
 				erase_conv(old_it->first);
@@ -858,7 +859,7 @@ void remove_filter()
 	}
 }
 
-long long get_current_time()
+uint64_t get_current_time()
 {
 	timespec tmp_time;
 	clock_gettime(CLOCK_MONOTONIC, &tmp_time);
@@ -2154,6 +2155,7 @@ int client_bind_to_a_new_port()
 
 int keep_connection_client() //for client
 {
+	current_time_rough=get_current_time();
 	conv_manager.clean_inactive();
 	mylog(log_trace,"timer!\n");
 	begin:
@@ -2306,6 +2308,7 @@ int keep_connection_client() //for client
 
 int keep_connection_server()
 {
+	current_time_rough=get_current_time();
 	conv_manager.clean_inactive();
 	//begin:
 	mylog(log_trace,"timer!\n");
@@ -2554,14 +2557,14 @@ int client_on_raw_recv(packet_info_t &info)
 		if(data_len==1&&data[0]=='h')
 		{
 			mylog(log_debug,"heart beat received\n");
-			last_hb_recv_time=get_current_time();
+			last_hb_recv_time=current_time_rough;
 			return 0;
 		}
 		else if(data_len>=sizeof(uint32_t)+1&&data[0]=='d')
 		{
 			mylog(log_trace,"received a data from fake tcp,len:%d\n",data_len);
 
-			last_hb_recv_time=get_current_time();
+			last_hb_recv_time=current_time_rough;
 
 			uint32_t tmp_conv_id= ntohl(* ((uint32_t *)&data[1]));
 
@@ -2775,14 +2778,14 @@ int server_on_raw_recv(packet_info_t &info)
 		{
 			uint32_t tmp= ntohl(* ((uint32_t *)&data[1+sizeof(uint32_t)]));
 			mylog(log_debug,"received hb <%x,%x>\n",oppsite_id,tmp);
-			last_hb_recv_time=get_current_time();
+			last_hb_recv_time=current_time_rough;
 			return 0;
 		}
 		else if(data[0]=='d'&&data_len>=sizeof(uint32_t)+1)
 		{
 			uint32_t tmp_conv_id=ntohl(* ((uint32_t *)&data[1]));
 
-			last_hb_recv_time=get_current_time();
+			last_hb_recv_time=current_time_rough;
 
 			mylog(log_debug,"<<<<conv:%u>>>>\n",tmp_conv_id);
 			if(!conv_manager.is_conv_used(tmp_conv_id))
@@ -2848,82 +2851,6 @@ int server_on_raw_recv(packet_info_t &info)
 		    	mylog(log_warn,"send returned %d\n",ret);
 				//perror("what happened????");
 			}
-
-
-			/*
-			if(first_data_packet==0&& tmp_conv_id!=conv_id)  //magic to find out which one is actually larger
-				//consider 0xffffffff+1= 0x0 ,in this case 0x0 is "actually" larger
-			{
-				uint32_t smaller,bigger;
-				smaller=min(conv_id,tmp_conv_id);//smaller in normal sense
-				bigger=max(conv_id,tmp_conv_id);
-				uint32_t distance=min(bigger-smaller,smaller+(0xffffffff-bigger+1));
-
-				if(distance==bigger-smaller)
-				{
-					if(bigger==conv_id) //received_session_id is acutally bigger
-					{
-						printf("old_session_id ,ingored1\n");
-						return 0;
-					}
-				}
-				else
-				{
-					if(smaller==conv_id) //received_session_id is acutally bigger
-					{
-						printf("old_session_id ,ingored2\n");
-						return 0;
-					}
-				}
-			}
-			first_data_packet=0;
-
-			if(udp_fd==-1||tmp_conv_id!=conv_id)// this is first send or client changed session
-			{
-				int old_fd=udp_fd;
-
-				struct sockaddr_in remote_addr_in;
-
-				socklen_t slen = sizeof(sockaddr_in);
-				memset(&remote_addr_in, 0, sizeof(remote_addr_in));
-				remote_addr_in.sin_family = AF_INET;
-				remote_addr_in.sin_port = htons(remote_port);
-				remote_addr_in.sin_addr.s_addr = inet_addr(remote_address);
-				udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-				set_udp_buf_size(udp_fd);
-
-				printf("created new udp_fd");
-				int ret = connect(udp_fd, (struct sockaddr *) &remote_addr_in, slen);
-				if(ret!=0)
-				{
-					printf("udp fd connect fail\n");
-				}
-				struct epoll_event ev;
-
-				ev.events = EPOLLIN;
-				epoll_udp_fd_sn+=256;
-				ev.data.u64 = epoll_udp_fd_sn;
-
-				ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
-
-				if (ret!= 0) {
-					printf("add udp_fd error\n");
-					exit(-1);
-				}
-
-				if(old_fd!=-1)
-				{
-					epoll_ctl(epollfd, EPOLL_CTL_DEL, old_fd, 0);
-					close(old_fd);
-				}
-
-			}
-
-			if(tmp_conv_id!=conv_id)
-			{
-				conv_id=tmp_conv_id;
-			}
-			*/
 
 
 		}
@@ -3611,6 +3538,7 @@ int main(int argc, char *argv[])
 
 	dup2(1, 2);//redirect stderr to stdout
 	srand(time(0));
+	current_time_rough=get_current_time();
 
 	if(raw_mode==mode_faketcp)
 	{
