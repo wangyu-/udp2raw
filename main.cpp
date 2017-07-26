@@ -925,7 +925,7 @@ unsigned short csum(const unsigned short *ptr,int nbytes) {
 
 
 
-int send_raw_ip(const packet_info_t &info,const char * payload,int payloadlen)
+int send_raw_ip(const packet_info_t info,const char * payload,int payloadlen)
 {
 	char send_raw_ip_buf[buf_len];
 
@@ -1047,7 +1047,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 }
 
 
-int send_raw_icmp(const packet_info_t &info, const char * payload, int payloadlen)
+int send_raw_icmp(packet_info_t &info, const char * payload, int payloadlen)
 {
 	char send_raw_icmp_buf[buf_len];
 	icmphdr *icmph=(struct icmphdr *) (send_raw_icmp_buf);
@@ -1061,9 +1061,9 @@ int send_raw_icmp(const packet_info_t &info, const char * payload, int payloadle
 		icmph->type=0;
 	}
 	icmph->code=0;
-	icmph->id=htons(g_packet_info_send.src_port);
+	icmph->id=htons(info.src_port);
 
-	icmph->seq=htons(g_packet_info_send.icmp_seq++);
+	icmph->seq=htons(info.icmp_seq++);
 
 	memcpy(send_raw_icmp_buf+sizeof(icmphdr),payload,payloadlen);
 
@@ -1119,7 +1119,7 @@ int send_raw_udp(const packet_info_t &info, const char * payload, int payloadlen
 	return 0;
 }
 
-int send_raw_tcp(const packet_info_t &info,const char * payload, int payloadlen) {  //TODO seq increase
+int send_raw_tcp(packet_info_t &info,const char * payload, int payloadlen) {  //TODO seq increase
 
 	char send_raw_tcp_buf[buf_len];
 	struct tcphdr *tcph = (struct tcphdr *) (send_raw_tcp_buf
@@ -1217,15 +1217,15 @@ int send_raw_tcp(const packet_info_t &info,const char * payload, int payloadlen)
 	{
 		return -1;
 	}
-	if (g_packet_info_send.syn == 0 && g_packet_info_send.ack == 1
+	if (info.syn == 0 && info.ack == 1
 			&& payloadlen != 0) {
 		if (seq_mode == 0) {
 
 		} else if (seq_mode == 1) {
-			g_packet_info_send.seq += payloadlen;
+			info.seq += payloadlen;
 		} else if (seq_mode == 2) {
 			if (random() % 5 == 3)
-				g_packet_info_send.seq += payloadlen;
+				info.seq += payloadlen;
 		}
 	}
 
@@ -1795,7 +1795,7 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 	return 0;
 }
 
-int send_raw(const packet_info_t &info,const char * payload,int payloadlen)
+int send_raw(packet_info_t &info,const char * payload,int payloadlen)
 {
 	switch(raw_mode)
 	{
@@ -1816,7 +1816,7 @@ int recv_raw(packet_info_t &info,char * &payload,int &payloadlen)
 	return -1;
 }
 
-int send_bare(const packet_info_t &info,const char* data,int len)
+int send_bare(packet_info_t &info,const char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1898,7 +1898,7 @@ int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3)
 }
 
 
-int send_handshake(const packet_info_t &info,id_t id1,id_t id2,id_t id3)
+int send_handshake(packet_info_t &info,id_t id1,id_t id2,id_t id3)
 {
 	char * data;int len;
 	len=sizeof(id_t)*3;
@@ -1917,7 +1917,7 @@ int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
 	return 0;
 }*/
 
-int send_safer(const packet_info_t &info,const char* data,int len)
+int send_safer(packet_info_t &info,const char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -2324,14 +2324,16 @@ int keep_connection_client() //for client
 }
 struct conn_info_t
 {
-	server_current_state_t current_stat;
-	packet_info_t recv_packet_info;
+	server_current_state_t server_current_state;
+	//packet_info_t recv_packet_info;
 	packet_info_t send_packet_info;
 	long long last_state_time;
 	id_t my_id;
+	id_t oppsite_id;
 	conn_info_t()
 	{
-		current_stat=server_nothing;
+		send_packet_info.protocol=g_packet_info_send.protocol;
+		server_current_state=server_nothing;
 		last_state_time=0;
 	}
 };
@@ -2339,9 +2341,13 @@ struct conn_info_t
 struct conn_manager_t
 {
  unordered_map<uint64_t,conn_info_t> mp;
+ uint32_t current_ready_ip;
+ uint16_t current_ready_port;
  conn_manager_t()
  {
 	 mp.reserve(10007);
+	 current_ready_ip=0;
+	 current_ready_port=0;
  }
  int exist(uint32_t ip,uint16_t port)
  {
@@ -2378,8 +2384,38 @@ struct conn_manager_t
 
 int keep_connection_server_multi()
 {
-	//current_time_rough=get_current_time();
-	//conv_manager.clean_inactive();
+	current_time_rough=get_current_time();
+	conv_manager.clean_inactive();
+
+	if(server_current_state==server_ready)
+	{
+		if( get_current_time()-last_hb_recv_time>heartbeat_timeout )
+		{
+			mylog(log_trace,"%lld %lld\n",get_current_time(),last_state_time);
+			server_current_state=server_nothing;
+
+			mylog(log_info,"changed server id\n");
+			my_id=get_true_random_number_nz();
+
+			conn_manager.current_ready_ip=0;
+			conn_manager.current_ready_port=0;
+			mylog(log_info,"changed state to server_nothing\n");
+			return 0;
+		}
+
+		if(get_current_time()-last_hb_sent_time<heartbeat_interval)
+		{
+			return 0;
+		}
+
+		//printf("heart beat sent\n");
+		send_safer(g_packet_info_send,(char *)"h",1);  /////////////send
+
+		last_hb_sent_time=get_current_time();
+
+		mylog(log_trace,"heart beat sent<%x>\n",my_id);
+	}
+
 }
 int keep_connection_server()
 {
@@ -2676,18 +2712,276 @@ int server_on_raw_recv_multi()
 {
 	char* data;int data_len;
 	packet_info_t recv_info;
-	if(recv_bare(recv_info,data,data_len)!=0)
+	if(recv_raw(recv_info,data,data_len)!=0)
 	{
 		return -1;
 	}
 	uint32_t ip=recv_info.src_ip;
 	uint16_t port=recv_info.src_port;
 
+	if(ip==conn_manager.current_ready_ip&&port==conn_manager.current_ready_port)
+	{
+		if (parse_safer(data, data_len, data, data_len) != 0) {
+			return -1;
+		}
+
+		if( (raw_mode==mode_faketcp&&(recv_info.syn==1||recv_info.ack!=1)) ||data_len==0)  return 0;
+		if(recv_info.src_ip!=g_packet_info_send.dst_ip||recv_info.src_port!=g_packet_info_send.dst_port)
+		{
+			mylog(log_debug,"unexpected adress\n");
+			return 0;
+		}
+
+		if(data[0]=='h'&&data_len==1)
+		{
+			uint32_t tmp= ntohl(* ((uint32_t *)&data[1+sizeof(uint32_t)]));
+			mylog(log_debug,"received hb <%x,%x>\n",oppsite_id,tmp);
+			last_hb_recv_time=current_time_rough;
+			return 0;
+		}
+		else if(data[0]=='d'&&data_len>=sizeof(uint32_t)+1)
+		{
+			uint32_t tmp_conv_id=ntohl(* ((uint32_t *)&data[1]));
+
+			last_hb_recv_time=current_time_rough;
+
+			mylog(log_debug,"<<<<conv:%u>>>>\n",tmp_conv_id);
+			if(!conv_manager.is_conv_used(tmp_conv_id))
+			{
+				if(conv_manager.get_size() >=max_conv_num)
+				{
+					mylog(log_warn,"ignored new conv %x connect bc max_conv_num exceed\n",tmp_conv_id);
+					return 0;
+				}
+				struct sockaddr_in remote_addr_in;
+
+				socklen_t slen = sizeof(sockaddr_in);
+				memset(&remote_addr_in, 0, sizeof(remote_addr_in));
+				remote_addr_in.sin_family = AF_INET;
+				remote_addr_in.sin_port = htons(remote_port);
+				remote_addr_in.sin_addr.s_addr = remote_address_uint32;
+
+				int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				if(new_udp_fd<0)
+				{
+					mylog(log_warn,"create udp_fd error\n");
+					return -1;
+				}
+				set_buf_size(new_udp_fd);
+
+				mylog(log_debug,"created new udp_fd %d\n",new_udp_fd);
+				int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in, slen);
+				if(ret!=0)
+				{
+					mylog(log_warn,"udp fd connect fail\n");
+					close(new_udp_fd);
+					return -1;
+				}
+				struct epoll_event ev;
+
+				uint64_t u64=((u_int64_t(tmp_conv_id))<<32u)+(uint32_t)new_udp_fd;
+				mylog(log_trace,"u64: %ld\n",u64);
+				ev.events = EPOLLIN;
+
+				ev.data.u64 = u64;
+
+				ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, new_udp_fd, &ev);
+
+				if (ret!= 0) {
+					mylog(log_warn,"add udp_fd error\n");
+					close(new_udp_fd);
+					return -1;
+				}
+
+				conv_manager.insert_conv(tmp_conv_id,u64);
+
+				mylog(log_info,"new conv conv_id=%x, assigned fd=%d\n",tmp_conv_id,new_udp_fd);
+
+			}
+
+			uint64_t u64=conv_manager.find_u64_by_conv(tmp_conv_id);
+
+			conv_manager.update_active_time(tmp_conv_id);
+
+			int fd=int((u64<<32u)>>32u);
+
+			mylog(log_debug,"received a data from fake tcp,len:%d\n",data_len);
+			int ret=send(fd,data+1+sizeof(uint32_t),data_len -(1+sizeof(uint32_t)),0);
+
+			mylog(log_debug,"%d byte sent  ,fd :%d\n ",ret,fd);
+			if(ret<0)
+			{
+		    	mylog(log_warn,"send returned %d\n",ret);
+				//perror("what happened????");
+			}
+		return 0;
+		}
+	}
+	//else
+	if(parse_bare(data,data_len,data,data_len)!=0)
+	{
+		return -1;
+	}
+	if(!conn_manager.exist(ip,port))
+	{
+		if(raw_mode==mode_faketcp)
+		{
+			if (!(recv_info.syn == 1 && recv_info.ack == 0 && data_len == 0))
+				return 0;
+
+		}
+		else if(raw_mode==mode_udp||raw_mode==mode_icmp)
+		{
+
+			if(data_len==strlen("hello")&& memcmp((char *)"hello",data,strlen("hello"))!=0)
+			{
+				//data[6]=0;
+				mylog(log_debug,"not a hello packet %d\n",data,data_len);
+				return 0;
+			}
+		}
+	}
 	conn_info_t & conn_info=conn_manager.find(ip,port);
 	packet_info_t &send_info=conn_info.send_packet_info;
-	server_current_state_t &server_current_state=conn_info.current_stat;
-	int retry_counter;
+	server_current_state=server_nothing; //dummy variable,to avoid accidently access global variable
 
+	if(conn_info.server_current_state==server_nothing)
+	{
+		send_info.src_ip=recv_info.dst_ip;
+		send_info.src_port=recv_info.dst_port;
+
+		send_info.dst_port = recv_info.src_port;
+		send_info.dst_ip = recv_info.src_ip;
+
+		mylog(log_info,"send_info.src_port  %d,%d\n",send_info.src_port,send_info.dst_port);
+
+		if(raw_mode==mode_faketcp)
+		{
+			send_info.ack_seq = recv_info.seq + 1;
+
+			send_info.psh = 0;
+			send_info.syn = 1;
+			send_info.ack = 1;
+
+			send_info.seq = get_true_random_number_nz(); //not necessary to set
+
+			mylog(log_info,"sent syn ack\n");
+			send_bare(send_info, 0, 0);  //////////////send
+
+			mylog(log_info,"changed state to server_syn_ack_sent\n");
+
+			conn_info.server_current_state = server_syn_ack_sent;
+			conn_info.last_state_time = get_current_time();
+		}
+		else if(raw_mode==mode_udp||raw_mode==mode_icmp)
+		{
+			mylog(log_info,"got a hello packet\n");
+
+			mylog(log_info,"sent handshake\n");
+
+			conn_info.my_id=get_true_random_number_nz();
+			send_handshake(send_info,conn_info.my_id,random(),const_id);  //////////////send
+
+			mylog(log_info,"changed state to server_heartbeat_sent_sent\n");
+
+			conn_info.server_current_state = server_handshake_sent;
+			conn_info.last_state_time = get_current_time();
+		}
+	}
+	else if(conn_info.server_current_state==server_syn_ack_sent)
+	{
+		if(raw_mode==mode_faketcp&&!( recv_info.syn==0&&recv_info.ack==1 &&data_len==0)) return 0;
+		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
+		{
+			mylog(log_debug,"unexpected adress\n");
+			return 0;
+		}
+
+		send_info.syn=0;
+		send_info.ack=1;
+		send_info.seq+=1;////////is this right?
+
+		conn_info.my_id=get_true_random_number_nz();
+		send_handshake(send_info,conn_info.my_id,0,const_id);   //////////////send
+
+		mylog(log_info,"changed state to server_handshake_sent\n");
+
+		conn_info.server_current_state=server_handshake_sent;
+		conn_info.last_state_time=get_current_time();
+	}
+	else if(conn_info.server_current_state==server_handshake_sent)//heart beat received
+	{
+		if(( raw_mode==mode_faketcp&& (recv_info.syn==1||recv_info.ack!=1)) ||data_len==0)  return 0;
+
+		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
+		{
+			mylog(log_trace,"unexpected adress\n");
+			return 0;
+		}
+
+		if(conn_info.last_state_time <last_state_time)
+		{
+			mylog(log_info,"ignored handshake of older timestamp than current ready connection");
+			return 0;
+		}
+
+		uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[sizeof(my_id)]));
+
+		uint32_t tmp_oppsite_const_id=ntohl(* ((uint32_t *)&data[sizeof(my_id)*2]));
+
+		/*if(oppsite_const_id!=0&&tmp_oppsite_const_id!=oppsite_const_id)  //TODO MOVE TO READY
+		{
+			conv_manager.clear();
+		}*/
+		//oppsite_const_id=tmp_oppsite_const_id;
+
+		if(tmp_session_id!=conn_info.my_id)
+		{
+			mylog(log_trace,"auth fail!!\n");
+			return 0;
+		}
+
+		int tmp_oppsite_session_id=  ntohl(* ((uint32_t *)&data[0]));
+		conn_info.oppsite_id=tmp_oppsite_session_id;
+
+		mylog(log_info,"received handshake %x %x\n",conn_info.oppsite_id,conn_info.my_id);
+
+
+
+		//send_hb(g_packet_info_send,my_id,oppsite_id,const_id);/////////////////send
+
+		conn_info.server_current_state=server_ready;
+		server_current_state=server_ready;
+		last_state_time=conn_info.last_state_time;
+
+
+
+		//conn_info.last_state_time=get_current_time();
+
+		g_packet_info_send=send_info;
+
+		conn_manager.current_ready_ip=ip;
+		conn_manager.current_ready_port=port;
+
+		my_id=conn_info.my_id;
+		oppsite_id=conn_info.oppsite_id;
+
+		last_hb_recv_time=get_current_time();
+
+		send_safer(send_info,(char *)"h",1);/////////////send
+
+		mylog(log_info,"changed state to server_ready,%d %d\n",ip,port);
+		anti_replay.re_init();
+
+		if(oppsite_const_id!=0&&tmp_oppsite_const_id!=oppsite_const_id)  //TODO MOVE TO READY
+		{
+			mylog(log_info,"cleared all conv bc of const id doesnt match\n");
+			conv_manager.clear();
+		}
+		oppsite_const_id=tmp_oppsite_const_id;
+
+	}
+	return 0;
 
 }
 int server_on_raw_recv(packet_info_t &recv_info,packet_info_t &send_info)
@@ -2790,7 +3084,6 @@ int server_on_raw_recv(packet_info_t &recv_info,packet_info_t &send_info)
 		last_state_time=get_current_time();
 
 		retry_counter=RETRY_TIME;
-
 	}
 	else if(server_current_state==server_handshake_sent)//heart beat received
 	{
@@ -3291,12 +3584,12 @@ int server_event_loop()
 			{
 				uint64_t value;
 				read(timer_fd, &value, 8);
-				keep_connection_server();
+				keep_connection_server_multi();
 			}
 			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
 			{
 				iphdr *iph;tcphdr *tcph;
-				server_on_raw_recv(g_packet_info_recv,g_packet_info_send);
+				server_on_raw_recv_multi();
 			}
 
 		}
