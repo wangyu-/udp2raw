@@ -77,7 +77,6 @@ int filter_port=-1;
 
 int local_port = -1, remote_port = -1;
 
-
 typedef uint32_t id_t;
 
 typedef uint64_t iv_t;
@@ -108,22 +107,15 @@ const int timer_interval=500;
 
 const int RETRY_TIME=3;
 
-//const uint16_t tcp_window=50000;
 extern const int max_data_len=65535;
 extern const int buf_len = max_data_len+100;
-
 
 enum program_mode_t {unset_mode=0,client_mode,server_mode};
 program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 
-
-
-
 int disable_bpf_filter=0;  //for test only,most time no need to disable this
 
 const int disable_conv_clear=0;
-
-
 
 int first_data_packet=0;
 
@@ -144,19 +136,30 @@ long long last_udp_recv_time=0;
 int socket_buf_size=1024*1024;
 
 int udp_fd=-1;
-int raw_recv_fd;
-int raw_send_fd;
-int bind_fd;
-int epollfd ;
+int raw_recv_fd=-1;
+int raw_send_fd=-1;
+int bind_fd=-1;
+int epollfd=-1;
+int random_number_fd=-1;
 
 enum client_current_state_t {client_nothing=0,client_syn_sent,client_ack_sent,client_handshake_sent,client_ready};
 client_current_state_t client_current_state=client_nothing;
 
-int retry_counter;
+int retry_counter=0;
 
 long long last_state_time=0;
 
 long long last_hb_sent_time=0;
+
+char key_string[1000]= "secret key";
+char key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
+
+char key2[16];
+
+const int anti_replay_window_size=1000;
+
+const int conv_timeout=60000; //60 second
+const int conv_clear_ratio=10;
 
 
 struct sock_filter code_tcp_old[] = {
@@ -261,28 +264,6 @@ tcpdump -i eth1  ip and icmp -dd
 
  */
 sock_fprog bpf;
-
-
-//
-
-//struct sockaddr_in udp_old_addr_in;
-
-char key_string[1000]= "secret key";
-char key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
-
-char key2[16];
-
-//uint8_t key_oppsite[16];
-
-const int anti_replay_window_size=1000;
-
-
-int random_number_fd=-1;
-
-const int conv_timeout=60000; //60 second
-const int conv_clear_ratio=10;
-
-
 
 //sockaddr_in g_tmp_sockaddr;  //global  sockaddr_in for efficiency,so that you wont need to create it everytime
 
