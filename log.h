@@ -73,6 +73,10 @@ const int log_warn=3;
 const int log_info=4;
 const int log_debug=5;
 const int log_trace=6;
+const int log_end=7;
+
+const char log_text[][20]={"NEVER","FATAL","ERROR","WARN","INFO","DEBUG","TRACE",""};
+const char log_color[][20]={RED,RED,RED,YEL,GRN,BLU,""};
 
 extern int log_level;
 extern int enable_log_position;

@@ -67,7 +67,7 @@ using namespace std;
 
 enum raw_mode_t{mode_faketcp=1,mode_udp,mode_icmp,mode_end};
 raw_mode_t raw_mode=mode_faketcp;
-map<int, string> raw_mode_tostring = {{mode_faketcp, "tcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
+map<int, string> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 
 char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
 uint32_t local_address_uint32,remote_address_uint32,source_address_uint32;
@@ -140,10 +140,11 @@ uint64_t epoll_udp_fd_sn=epoll_udp_fd_sn_begin;  //all udp_fd_sn >=256
 
 enum server_current_state_t {server_nothing=0,server_syn_ack_sent,server_handshake_sent,server_ready};
 server_current_state_t server_current_state=server_nothing;
+
 long long last_hb_recv_time=0;
 long long last_udp_recv_time=0;
 
-int socket_buf_size=1024*1024*4;
+int socket_buf_size=1024*1024;
 
 int udp_fd=-1;
 int raw_recv_fd;
@@ -862,115 +863,7 @@ void server_clear_function(uint64_t u64)
 	}
 }
 
-void process_arg(int argc, char *argv[])
-{
-	int i,j,k,opt;
-    static struct option long_options[] =
-      {
-        /* These options set a flag. */
-        {"source-ip", required_argument,    0, 1},
-        {"source-port", required_argument,    0, 1},
-		{"key", required_argument,    0, 'k'},
-      };
-    int option_index = 0;
 
-    mylog(log_info,"argc=%d ", argc);
-    if(log_level>=log_info)
-    {
-		for (i = 0; i < argc; i++)
-			log_bare(log_info,"%s ", argv[i]);
-		log_bare(log_info,"\n");
-    }
-	if (argc == 1)
-	{
-		printf(
-				"proc -l [adress:]port -r [adress:]port  -s/-c [--source-ip] [--source-port]\n");
-		exit(-1);
-	}
-
-	int no_l = 1, no_r = 1;
-	while ((opt = getopt_long(argc, argv, "l:r:sch",long_options,&option_index)) != -1) {
-		//string opt_key;
-		//opt_key+=opt;
-		switch (opt) {
-		case 'l':
-			no_l = 0;
-			if (strchr(optarg, ':') != 0) {
-				sscanf(optarg, "%[^:]:%d", local_address, &local_port);
-			} else {
-				strcpy(local_address, "127.0.0.1");
-				sscanf(optarg, "%d", &local_port);
-			}
-			break;
-		case 'r':
-			no_r = 0;
-			if (strchr(optarg, ':') != 0) {
-				sscanf(optarg, "%[^:]:%d", remote_address, &remote_port);
-			} else {
-				strcpy(remote_address, "127.0.0.1");
-				sscanf(optarg, "%d", &remote_port);
-			}
-			break;
-		case 's':
-			if(program_mode==0)
-			{
-				program_mode=server_mode;
-			}
-			else
-			{
-				mylog(log_fatal,"-s /-c has already been set,-s option conflict\n");
-				exit(-1);
-			}
-			break;
-		case 'c':
-			if(program_mode==0)
-			{
-				program_mode=client_mode;
-			}
-			else
-			{
-				mylog(log_fatal,"-s /-c has already been set,-c option conflict\n");
-				exit(-1);
-			}
-			break;
-		case 'h':
-			break;
-
-		case 'k':
-			mylog(log_debug,"parsing key option\n");
-			sscanf(optarg,"%s",key_string);
-			break;
-		case 1:
-			if(strcmp(long_options[option_index].name,"source-ip")==0)
-			{
-				mylog(log_debug,"parsing long option :source-ip\n");
-				sscanf(optarg, "%s", source_address);
-				mylog(log_info,"source: %s\n",source_address);
-			}
-			else if(strcmp(long_options[option_index].name,"source-port")==0)
-			{
-				mylog(log_debug,"parsing long option :source-port\n");
-				sscanf(optarg, "%d", &source_port);
-				mylog(log_info,"source: %d\n",&source_port);
-			}
-			break;
-
-		default:
-			mylog(log_warn,"ignore unknown <%s>\n", optopt);
-		}
-	}
-
-	if (no_l)
-		mylog(log_fatal,"error: -l not found\n");
-	if (no_r)
-		mylog(log_fatal,"error: -r not found\n");
-	if(program_mode==0)
-		mylog(log_fatal,"error: -c /-s  hasnt been set\n");
-	if (no_l || no_r||program_mode==0)
-	{
-		exit(-1);
-	}
-}
 
 /*
     Generic checksum calculation function
@@ -3381,7 +3274,250 @@ int get_ip_deprecated()
 
     return 0;
 }
+void print_help()
+{
+	printf("udp-to-raw tunnel v0.1\n");
+	printf("\n");
+	printf("usage:\n");
+	printf("    run as client : ./this_program -c -l adress:port -r adress:port  [options]\n");
+	printf("    run as server : ./this_program -s -l adress:port -r adress:port  [options]\n");
+	printf("\n");
+	printf("common options,these options must be same on both side\n");
+	printf("    --raw-mode      <string>    avaliable values:faketcp,udp,icmp\n");
+	printf("    --key           <string>    password to gen symetric key\n");
+	printf("    --auth-mode     <string>    avaliable values:aes128cbc,xor,none\n");
+	printf("    --cipher-mode   <string>    avaliable values:md5,crc32,sum,none\n");
+	printf("\n");
+	printf("other options:\n");
+	printf("    --source-ip     <ip>        override source-ip for raw socket\n");
+	printf("    --source-port   <port>      override source-port for tcp/udp \n");
+	printf("    --log-level     <number>    0:never print log\n");
+	printf("                                1:fatal\n");
+	printf("                                2:error\n");
+	printf("                                3:warn\n");
+	printf("                                4:info\n");
+	printf("                                5:debug\n");
+	printf("                                6:trace\n");
+	printf("\n");
+	printf("    -h,--help                   print this help message\n");
 
+	//printf("common options,these options must be same on both side\n");
+}
+void process_arg(int argc, char *argv[])
+{
+	int i,j,k,opt;
+    static struct option long_options[] =
+      {
+        /* These options set a flag. */
+        {"source-ip", required_argument,    0, 1},
+        {"source-port", required_argument,    0, 1},
+		{"log-level", required_argument,    0, 1},
+		{"key", required_argument,    0, 'k'},
+		{"auth-mode", required_argument,    0, 1},
+		{"cipher-mode", required_argument,    0, 1},
+		{"raw-mode", required_argument,    0, 1},
+		{NULL, 0, 0, 0}
+      };
+
+    int option_index = 0;
+	for (i = 0; i < argc; i++)
+	{
+		if(strcmp(argv[i],"-h")==0||strcmp(argv[i],"--help")==0)
+		{
+			print_help();
+			exit(0);
+		}
+	}
+	for (i = 0; i < argc; i++)
+	{
+		if(strcmp(argv[i],"--log-level")==0)
+		{
+			if(i<argc -1)
+			{
+				sscanf(argv[i+1],"%d",&log_level);
+				if(0<=log_level&&log_level<log_end)
+				{
+				}
+				else
+				{
+					log_bare(log_fatal,"invalid log_level\n");
+					exit(-1);
+				}
+			}
+		}
+	}
+
+    mylog(log_info,"argc=%d ", argc);
+
+	for (i = 0; i < argc; i++) {
+		log_bare(log_info, "%s", argv[i]);
+	}
+	log_bare(log_info, "\n");
+
+	if (argc == 1)
+	{
+		print_help();
+		exit(-1);
+	}
+
+	int no_l = 1, no_r = 1;
+	while ((opt = getopt_long(argc, argv, "l:r:sch",long_options,&option_index)) != -1) {
+		//string opt_key;
+		//opt_key+=opt;
+		switch (opt) {
+		case 'l':
+			no_l = 0;
+			if (strchr(optarg, ':') != 0) {
+				sscanf(optarg, "%[^:]:%d", local_address, &local_port);
+			} else {
+				strcpy(local_address, "127.0.0.1");
+				sscanf(optarg, "%d", &local_port);
+			}
+			break;
+		case 'r':
+			no_r = 0;
+			if (strchr(optarg, ':') != 0) {
+				sscanf(optarg, "%[^:]:%d", remote_address, &remote_port);
+			} else {
+				strcpy(remote_address, "127.0.0.1");
+				sscanf(optarg, "%d", &remote_port);
+			}
+			break;
+		case 's':
+			if(program_mode==0)
+			{
+				program_mode=server_mode;
+			}
+			else
+			{
+				mylog(log_fatal,"-s /-c has already been set,-s option conflict\n");
+				exit(-1);
+			}
+			break;
+		case 'c':
+			if(program_mode==0)
+			{
+				program_mode=client_mode;
+			}
+			else
+			{
+				mylog(log_fatal,"-s /-c has already been set,-c option conflict\n");
+				exit(-1);
+			}
+			break;
+		case 'h':
+			break;
+
+		case 'k':
+			mylog(log_debug,"parsing key option\n");
+			sscanf(optarg,"%s",key_string);
+			break;
+		case 1:
+			mylog(log_debug,"option_index: %d\n",option_index);
+			if(strcmp(long_options[option_index].name,"source-ip")==0)
+			{
+				mylog(log_debug,"parsing long option :source-ip\n");
+				sscanf(optarg, "%s", source_address);
+				mylog(log_debug,"source: %s\n",source_address);
+			}
+			else if(strcmp(long_options[option_index].name,"source-port")==0)
+			{
+				mylog(log_debug,"parsing long option :source-port\n");
+				sscanf(optarg, "%d", &source_port);
+				mylog(log_info,"source: %d\n",&source_port);
+			}
+			else if(strcmp(long_options[option_index].name,"raw-mode")==0)
+			{
+				for(int i=0;i<mode_end;i++)
+				{
+					if(strcmp(optarg,raw_mode_tostring[i].c_str())==0)
+					{
+						raw_mode=(raw_mode_t)i;
+						break;
+					}
+				}
+				if(i==mode_end)
+				{
+					mylog(log_fatal,"no such raw_mode %s\n",optarg);
+					exit(-1);
+				}
+			}
+			else if(strcmp(long_options[option_index].name,"auth-mode")==0)
+			{
+				for(int i=0;i<auth_end;i++)
+				{
+					if(strcmp(optarg,auth_mode_tostring[i].c_str())==0)
+					{
+						auth_mode=(auth_mode_t)i;
+						break;
+					}
+				}
+				if(i==auth_end)
+				{
+					mylog(log_fatal,"no such auth_mode %s\n",optarg);
+					exit(-1);
+				}
+			}
+			else if(strcmp(long_options[option_index].name,"cipher-mode")==0)
+			{
+				for(int i=0;i<cipher_end;i++)
+				{
+					if(strcmp(optarg,cipher_mode_tostring[i].c_str())==0)
+					{
+						cipher_mode=(cipher_mode_t)i;
+						break;
+					}
+				}
+				if(i==cipher_end)
+				{
+					mylog(log_fatal,"no such cipher_mode %s\n",optarg);
+					exit(-1);
+				}
+			}
+			else if(strcmp(long_options[option_index].name,"log-level")==0)
+			{
+
+			}
+			else
+			{
+				mylog(log_warn,"ignored unknown long option ,option_index:%d code:<%x>\n",option_index, optopt);
+			}
+			break;
+		default:
+			mylog(log_warn,"ignored unknown option ,code:<%x>\n", optopt);
+		}
+	}
+
+	if (no_l)
+		mylog(log_fatal,"error: -l not found\n");
+	if (no_r)
+		mylog(log_fatal,"error: -r not found\n");
+	if(program_mode==0)
+		mylog(log_fatal,"error: -c /-s  hasnt been set\n");
+	if (no_l || no_r||program_mode==0)
+	{
+		print_help();
+		exit(-1);
+	}
+
+	 mylog(log_info,"important variables: ", argc);
+
+	 log_bare(log_info,"log_level=%d:%s ",log_level,log_text[log_level]);
+	 log_bare(log_info,"raw_mode=%s ",raw_mode_tostring[raw_mode].c_str());
+	 log_bare(log_info,"cipher_mode=%s ",cipher_mode_tostring[cipher_mode].c_str());
+	 log_bare(log_info,"auth_mode=%s ",auth_mode_tostring[auth_mode].c_str());
+
+	 log_bare(log_info,"key=%s ",key_string);
+
+	 log_bare(log_info,"local_ip=%s ",local_address);
+	 log_bare(log_info,"local_port=%d ",local_port);
+	 log_bare(log_info,"remote_ip=%s ",remote_address);
+	 log_bare(log_info,"remote_port=%d ",remote_port);
+	 log_bare(log_info,"source_ip=%s ",source_address);
+	 log_bare(log_info,"source_port=%d ",source_port);
+
+	 log_bare(log_info,"\n");
+}
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, INThandler);
@@ -3421,7 +3557,7 @@ int main(int argc, char *argv[])
 
 	char tmp[1000]="";
 
-	strcat(tmp,key);
+	strcat(tmp,key_string);
 
 	strcat(tmp,"key1");
 
@@ -3431,7 +3567,7 @@ int main(int argc, char *argv[])
 
 	tmp[0]=0;
 
-	strcat(tmp,key);
+	strcat(tmp,key_string);
 
 	strcat(tmp,"key2");
 

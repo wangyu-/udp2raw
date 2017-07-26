@@ -6,6 +6,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <map>
+#include <string>
+using namespace std;
 int my_encrypt(const char *data,char *output,int &len,char * key);
 int my_decrypt(const char *data,char *output,int &len,char * key);
 
@@ -16,9 +19,14 @@ int my_decrypt_pesudo_header(uint8_t *data,uint8_t *output,int &len,uint8_t * ke
 unsigned short csum(const unsigned short *ptr,int nbytes) ;
 
 
-enum auth_mode_t {auth_none=0,auth_md5,auth_crc32,auth_sum};
+enum auth_mode_t {auth_none=0,auth_md5,auth_crc32,auth_sum,auth_end};
+extern map<int, string> auth_mode_tostring;
 
-enum cipher_mode_t {cipher_none=0,cipher_aes128cbc,cipher_xor};
+enum cipher_mode_t {cipher_none=0,cipher_aes128cbc,cipher_xor,cipher_end};
+extern map<int, string> cipher_mode_tostring;
 
+extern auth_mode_t auth_mode;
+extern cipher_mode_t cipher_mode;
+//const map<int, string> auth_mode_tostring2 = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_sum,"sum"}};
 
 #endif
