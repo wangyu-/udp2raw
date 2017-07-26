@@ -1,5 +1,5 @@
-# udp-to-raw-tunnel
-udp-to-raw-tunnel  (udp to tcp with fake tcp header)
+# udp2raw-tunnel
+udp2raw tunnel  (udp to tcp with fake tcp header)
 
 #usage
 
