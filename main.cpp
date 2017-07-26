@@ -158,7 +158,8 @@ char key2[16];
 
 const int anti_replay_window_size=1000;
 
-const int conv_timeout=30000; //60 second
+const int max_conv_num=10000;
+const int conv_timeout=120000; //60 second
 const int conv_clear_ratio=10;
 
 
@@ -379,6 +380,10 @@ struct conv_manager_t  //TODO change map to unordered map
 	{
 		clear_it=conv_last_active_time.begin();
 		clear_function=0;
+	}
+	int get_size()
+	{
+		return conv_to_u64.size();
 	}
 
 	void set_clear_function(void (*a)(uint64_t u64))
@@ -2790,6 +2795,11 @@ int server_on_raw_recv(packet_info_t &info)
 			mylog(log_debug,"<<<<conv:%u>>>>\n",tmp_conv_id);
 			if(!conv_manager.is_conv_used(tmp_conv_id))
 			{
+				if(conv_manager.get_size() >=max_conv_num)
+				{
+					mylog(log_warn,"ignored new conv %x connect bc max_conv_num exceed\n",tmp_conv_id);
+					return 0;
+				}
 				struct sockaddr_in remote_addr_in;
 
 				socklen_t slen = sizeof(sockaddr_in);
@@ -3053,6 +3063,11 @@ int client_event_loop()
 
 				if(!conv_manager.is_u64_used(u64))
 				{
+					if(conv_manager.get_size() >=max_conv_num)
+					{
+						mylog(log_warn,"ignored new udp connect bc max_conv_num exceed\n");
+						continue;
+					}
 					conv=conv_manager.get_new_conv();
 					conv_manager.insert_conv(conv,u64);
 					mylog(log_info,"new connection from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
@@ -3530,12 +3545,8 @@ void process_arg(int argc, char *argv[])
 
 	 log_bare(log_info,"\n");
 }
-int main(int argc, char *argv[])
+void iptables_warn()
 {
-	signal(SIGINT, INThandler);
-	signal(SIGCHLD, handler);
-	process_arg(argc,argv);
-
 	if(program_mode==client_mode)
 	{
 		if(raw_mode==mode_faketcp)
@@ -3573,8 +3584,14 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+}
+int main(int argc, char *argv[])
+{
+	signal(SIGINT, INThandler);
+	signal(SIGCHLD, handler);
+	process_arg(argc,argv);
 
-
+	iptables_warn();
 
 	dup2(1, 2);//redirect stderr to stdout
 	srand(time(0));
