@@ -97,6 +97,7 @@ uint32_t conv_num=0;
 uint32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
 
 const int handshake_timeout=2000;
+const int server_handshake_timeout=10000;
 
 const int heartbeat_timeout=10000;
 const int udp_timeout=3000;
@@ -2310,7 +2311,65 @@ int keep_connection_client() //for client
 	return 0;
 
 }
+struct conn_info_t
+{
+	server_current_state_t current_stat;
+	packet_info_t recv_packet_info;
+	packet_info_t send_packet_info;
+	long long last_state_time;
+	id_t my_id;
+	conn_info_t()
+	{
+		current_stat=server_nothing;
+		last_state_time=0;
+	}
+};
 
+struct conn_manager_t
+{
+ unordered_map<uint64_t,conn_info_t> mp;
+ conn_manager_t()
+ {
+	 mp.reserve(10007);
+ }
+ int exist(uint32_t ip,uint16_t port)
+ {
+	 uint64_t u64=0;
+	 u64=ip;
+	 u64<<=32u;
+	 u64|=port;
+	 if(mp.find(u64)!=mp.end())
+	 {
+		 return 1;
+	 }
+	 return 0;
+ }
+ int insert(uint32_t ip,uint16_t port)
+ {
+	 uint64_t u64=0;
+	 u64=ip;
+	 u64<<=32u;
+	 u64|=port;
+	 mp[u64];
+	 return 0;
+ }
+ conn_info_t & find(uint32_t ip,uint16_t port)  //be aware,the adress may change after rehash
+ {
+	 uint64_t u64=0;
+	 u64=ip;
+	 u64<<=32u;
+	 u64|=port;
+	 return mp[u64];
+ }
+
+}conn_manager;
+
+
+int keep_connection_server_multi()
+{
+	//current_time_rough=get_current_time();
+	//conv_manager.clean_inactive();
+}
 int keep_connection_server()
 {
 	current_time_rough=get_current_time();
@@ -2606,16 +2665,34 @@ int client_on_raw_recv(packet_info_t &info)
 	}
 	return 0;
 }
-int server_on_raw_recv(packet_info_t &info)
+int server_on_raw_recv_multi()
+{
+	char* data;int data_len;
+	packet_info_t recv_info;
+	if(recv_bare(recv_info,data,data_len)!=0)
+	{
+		return -1;
+	}
+	uint32_t ip=recv_info.src_ip;
+	uint16_t port=recv_info.src_port;
+
+	conn_info_t & conn_info=conn_manager.find(ip,port);
+	packet_info_t &send_info=conn_info.send_packet_info;
+	server_current_state_t &server_current_state=conn_info.current_stat;
+	int retry_counter;
+
+
+}
+int server_on_raw_recv(packet_info_t &recv_info,packet_info_t &send_info)
 {
 
 	char* data;int data_len;
 
 
-
+	//packet_info_t send_info;
 	if(server_current_state==server_nothing)
 	{
-		if(recv_bare(info,data,data_len)!=0)
+		if(recv_bare(recv_info,data,data_len)!=0)
 		{
 			return -1;
 		}
@@ -2624,30 +2701,30 @@ int server_on_raw_recv(packet_info_t &info)
 
 		if(raw_mode==mode_icmp)
 		{
-			g_packet_info_send.src_port = info.src_port;;
+			send_info.src_port = recv_info.src_port;;
 		}
 
-		g_packet_info_send.src_ip=info.dst_ip;
-		g_packet_info_send.src_port=info.dst_port;
+		send_info.src_ip=recv_info.dst_ip;
+		send_info.src_port=recv_info.dst_port;
 
-		g_packet_info_send.dst_port = info.src_port;
-		g_packet_info_send.dst_ip = info.src_ip;
+		send_info.dst_port = recv_info.src_port;
+		send_info.dst_ip = recv_info.src_ip;
 
 		if(raw_mode==mode_faketcp)
 		{
-			if (!(info.syn == 1 && info.ack == 0 && data_len == 0))
+			if (!(recv_info.syn == 1 && recv_info.ack == 0 && data_len == 0))
 				return 0;
 
-			g_packet_info_send.ack_seq = info.seq + 1;
+			send_info.ack_seq = recv_info.seq + 1;
 
-			g_packet_info_send.psh = 0;
-			g_packet_info_send.syn = 1;
-			g_packet_info_send.ack = 1;
+			send_info.psh = 0;
+			send_info.syn = 1;
+			send_info.ack = 1;
 
-			g_packet_info_send.seq = get_true_random_number_nz(); //not necessary to set
+			send_info.seq = get_true_random_number_nz(); //not necessary to set
 
 			mylog(log_info,"sent syn ack\n");
-			send_bare(g_packet_info_send, 0, 0);  //////////////send
+			send_bare(send_info, 0, 0);  //////////////send
 
 			mylog(log_info,"changed state to server_syn_ack_sent\n");
 
@@ -2671,7 +2748,7 @@ int server_on_raw_recv(packet_info_t &info)
 
 			mylog(log_info,"sent half heart_beat\n");
 			//send_raw(g_packet_info_send, 0, 0);
-			send_handshake(g_packet_info_send,my_id,random(),const_id);  //////////////send
+			send_handshake(send_info,my_id,random(),const_id);  //////////////send
 
 			mylog(log_info,"changed state to server_heartbeat_sent_sent\n");
 
@@ -2682,23 +2759,23 @@ int server_on_raw_recv(packet_info_t &info)
 	}
 	else if(server_current_state==server_syn_ack_sent)
 	{
-		if(recv_bare(info,data,data_len)!=0)
+		if(recv_bare(recv_info,data,data_len)!=0)
 		{
 			return -1;
 		}
 
-		if(raw_mode==mode_faketcp&&!( info.syn==0&&info.ack==1 &&data_len==0)) return 0;
-		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
+		if(raw_mode==mode_faketcp&&!( recv_info.syn==0&&recv_info.ack==1 &&data_len==0)) return 0;
+		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
 		{
 			mylog(log_debug,"unexpected adress\n");
 			return 0;
 		}
 
-		g_packet_info_send.syn=0;
-		g_packet_info_send.ack=1;
-		g_packet_info_send.seq+=1;////////is this right?
+		send_info.syn=0;
+		send_info.ack=1;
+		send_info.seq+=1;////////is this right?
 
-		send_handshake(g_packet_info_send,my_id,0,const_id);   //////////////send
+		send_handshake(send_info,my_id,0,const_id);   //////////////send
 
 		mylog(log_info,"changed state to server_handshake_sent\n");
 
@@ -2710,14 +2787,14 @@ int server_on_raw_recv(packet_info_t &info)
 	}
 	else if(server_current_state==server_handshake_sent)//heart beat received
 	{
-		if(recv_bare(info,data,data_len)!=0)
+		if(recv_bare(recv_info,data,data_len)!=0)
 		{
 			return -1;
 		}
 
-		if(( raw_mode==mode_faketcp&& (info.syn==1||info.ack!=1)) ||data_len==0)  return 0;
+		if(( raw_mode==mode_faketcp&& (recv_info.syn==1||recv_info.ack!=1)) ||data_len==0)  return 0;
 
-		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
+		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
 		{
 			mylog(log_trace,"unexpected adress\n");
 			return 0;
@@ -2752,7 +2829,7 @@ int server_on_raw_recv(packet_info_t &info)
 
 		mylog(log_info,"received heartbeat %x %x\n",oppsite_id,tmp_session_id);
 
-		send_safer(g_packet_info_send,(char *)"h",1);/////////////send
+		send_safer(send_info,(char *)"h",1);/////////////send
 
 		//send_hb(g_packet_info_send,my_id,oppsite_id,const_id);/////////////////send
 
@@ -2767,13 +2844,13 @@ int server_on_raw_recv(packet_info_t &info)
 	}
 	else if(server_current_state==server_ready)
 	{
-		if(recv_safer(info,data,data_len)!=0)
+		if(recv_safer(recv_info,data,data_len)!=0)
 		{
 			return -1;
 		}
 
-		if( (raw_mode==mode_faketcp&&(info.syn==1||info.ack!=1)) ||data_len==0)  return 0;
-		if(info.src_ip!=g_packet_info_send.dst_ip||info.src_port!=g_packet_info_send.dst_port)
+		if( (raw_mode==mode_faketcp&&(recv_info.syn==1||recv_info.ack!=1)) ||data_len==0)  return 0;
+		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
 		{
 			mylog(log_debug,"unexpected adress\n");
 			return 0;
@@ -3212,7 +3289,7 @@ int server_event_loop()
 			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
 			{
 				iphdr *iph;tcphdr *tcph;
-				server_on_raw_recv(g_packet_info_recv);
+				server_on_raw_recv(g_packet_info_recv,g_packet_info_send);
 			}
 
 		}
