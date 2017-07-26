@@ -3536,6 +3536,46 @@ int main(int argc, char *argv[])
 	signal(SIGCHLD, handler);
 	process_arg(argc,argv);
 
+	if(program_mode==client_mode)
+	{
+		if(raw_mode==mode_faketcp)
+		{
+			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP\n",remote_address,remote_port);
+		}
+		if(raw_mode==mode_udp)
+		{
+			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p udp -m udp --sport %d -j DROP\n",remote_address,remote_port);
+		}
+		if(raw_mode==mode_icmp)
+		{
+			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p icmp -j DROP\n",remote_address);
+		}
+	}
+	if(program_mode==server_mode)
+	{
+		if(raw_mode==mode_faketcp)
+		{
+			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p tcp -m tcp --dport %d -j DROP\n",local_port);
+		}
+		if(raw_mode==mode_udp)
+		{
+			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p udp -m tcp --udp %d -j DROP\n",local_port);
+		}
+		if(raw_mode==mode_icmp)
+		{
+			if(local_address_uint32==0)
+			{
+				mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p icmp -j DROP\n");
+			}
+			else
+			{
+				mylog(log_warn,"make sure you have run once:  iptables -A INPUT -d %s/32 -p icmp -j DROP\n",local_address);
+			}
+		}
+	}
+
+
+
 	dup2(1, 2);//redirect stderr to stdout
 	srand(time(0));
 	current_time_rough=get_current_time();
