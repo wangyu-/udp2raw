@@ -2,7 +2,7 @@
 
 int log_level=log_info;
 
-int enable_log_position=1;
+int enable_log_position=0;
 int enable_log_color=1;
 
 

@@ -76,7 +76,7 @@ uint32_t source_port=0;
 int filter_port=-1;
 
 int local_port = -1, remote_port = -1;
-int epollfd ;
+
 
 typedef uint32_t id_t;
 
@@ -117,25 +117,22 @@ enum program_mode_t {unset_mode=0,client_mode,server_mode};
 program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 
 
-const int disable_encrypt=0;
-const int disable_anti_replay=0;
 
-const int disable_bpf_filter=0;  //for test only,most time no need to disable this
+
+int disable_bpf_filter=0;  //for test only,most time no need to disable this
 
 const int disable_conv_clear=0;
 
 
-const int debug_mode=0;
-int bind_fd;
 
 int first_data_packet=0;
 
-const int seq_mode=2;  //0  dont  increase /1 increase   //increase randomly,about every 5 packet
+int seq_mode=2;  //0  dont  increase /1 increase   //increase randomly,about every 5 packet
 
 const uint64_t epoll_timer_fd_sn=1;
 const uint64_t epoll_raw_recv_fd_sn=2;
-const uint64_t epoll_udp_fd_sn_begin=256;
-uint64_t epoll_udp_fd_sn=epoll_udp_fd_sn_begin;  //all udp_fd_sn >=256
+const uint64_t epoll_udp_fd_sn_begin=0xFFFFFFFFllu+1;
+uint64_t epoll_udp_fd_sn=epoll_udp_fd_sn_begin;  //all udp_fd_sn > max uint32
 
 
 enum server_current_state_t {server_nothing=0,server_syn_ack_sent,server_handshake_sent,server_ready};
@@ -149,6 +146,8 @@ int socket_buf_size=1024*1024;
 int udp_fd=-1;
 int raw_recv_fd;
 int raw_send_fd;
+int bind_fd;
+int epollfd ;
 
 enum client_current_state_t {client_nothing=0,client_syn_sent,client_ack_sent,client_handshake_sent,client_ready};
 client_current_state_t client_current_state=client_nothing;
@@ -204,6 +203,35 @@ struct sock_filter code_udp[] = {
 { 0x6, 0, 0, 0x00000000 },
 };
 int code_udp_port_index=8;
+struct sock_filter code_icmp[] = {
+{ 0x5, 0, 0, 0x00000001 },
+{ 0x5, 0, 0, 0x00000000 },
+{ 0x30, 0, 0, 0x00000009 },
+{ 0x15, 0, 1, 0x00000001 },
+{ 0x6, 0, 0, 0x0000ffff },
+{ 0x6, 0, 0, 0x00000000 },
+};
+
+/*
+
+tcpdump -i eth1  ip and icmp -d
+(000) ldh      [12]
+(001) jeq      #0x800           jt 2    jf 5
+(002) ldb      [23]
+(003) jeq      #0x1             jt 4    jf 5
+(004) ret      #65535
+(005) ret      #0
+
+tcpdump -i eth1  ip and icmp -dd
+{ 0x28, 0, 0, 0x0000000c },
+{ 0x15, 0, 3, 0x00000800 },
+{ 0x30, 0, 0, 0x00000017 },
+{ 0x15, 0, 1, 0x00000001 },
+{ 0x6, 0, 0, 0x0000ffff },
+{ 0x6, 0, 0, 0x00000000 },
+
+
+ */
 /*
   tcpdump -i eth1 ip and tcp and dst port 65534 -dd
 
@@ -235,9 +263,9 @@ int code_udp_port_index=8;
 sock_fprog bpf;
 
 
-uint16_t ip_id=1;
+//
 
-struct sockaddr_in udp_old_addr_in;
+//struct sockaddr_in udp_old_addr_in;
 
 char key_string[1000]= "secret key";
 char key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
@@ -246,7 +274,7 @@ char key2[16];
 
 //uint8_t key_oppsite[16];
 
-const int anti_replay_window_size=2000;
+const int anti_replay_window_size=1000;
 
 
 int random_number_fd=-1;
@@ -444,6 +472,7 @@ struct conv_manager_t  //TODO change map to unordered map
 		conv_to_u64.erase(conv);
 		u64_to_conv.erase(u64);
 		conv_last_active_time.erase(conv);
+		mylog(log_info,"conv %x cleared\n");
 		return 0;
 	}
 	int clean_inactive( )
@@ -515,14 +544,19 @@ int TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 ////////==========================type divider=======================================================
 
 
-
+void myexit(int a)
+{
+    if(enable_log_color)
+    	 printf(RESET);
+	exit(a);
+}
 void init_random_number_fd()
 {
 	random_number_fd=open("/dev/urandom",O_RDONLY);
 	if(random_number_fd==-1)
 	{
 		mylog(log_fatal,"error open /dev/urandom\n");
-		exit(-1);
+		myexit(-1);
 	}
 }
 uint64_t get_true_random_number_64()
@@ -568,6 +602,8 @@ uint64_t hton64(uint64_t a)
 
 int pre_send_deprecate(char * data, int &data_len)
 {
+	const int disable_encrypt=0;
+	const int disable_anti_replay=0;
 	char replay_buf[buf_len];
 	//return 0;
 	if(data_len<0) return -3;
@@ -610,6 +646,9 @@ int pre_send_deprecate(char * data, int &data_len)
 
 int pre_recv_deprecated(char * data, int &data_len)
 {
+	const int disable_encrypt=0;
+	const int disable_anti_replay=0;
+
 	char replay_buf[buf_len];
 	//return 0;
 	if(data_len<0) return -1;
@@ -692,7 +731,7 @@ void  INThandler(int sig)
 {
      if(enable_log_color)
     	 printf(RESET);
-     exit(0);
+     myexit(0);
 }
 void handler(int num) {
 	int status;
@@ -711,13 +750,13 @@ void setnonblocking(int sock) {
 	if (opts < 0) {
     	mylog(log_fatal,"fcntl(sock,GETFL)\n");
 		//perror("fcntl(sock,GETFL)");
-		exit(1);
+		myexit(1);
 	}
 	opts = opts | O_NONBLOCK;
 	if (fcntl(sock, F_SETFL, opts) < 0) {
     	mylog(log_fatal,"fcntl(sock,SETFL,opts)\n");
 		//perror("fcntl(sock,SETFL,opts)");
-		exit(1);
+		myexit(1);
 	}
 
 }
@@ -726,12 +765,12 @@ int set_buf_size(int fd)
     if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
     	mylog(log_fatal,"SO_SNDBUFFORCE fail\n");
-    	exit(1);
+    	myexit(1);
     }
     if(setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
     	mylog(log_fatal,"SO_RCVBUFFORCE fail\n");
-    	exit(1);
+    	myexit(1);
     }
 	return 0;
 }
@@ -745,13 +784,13 @@ int init_raw_socket()
     if(raw_send_fd == -1) {
     	mylog(log_fatal,"Failed to create raw_send_fd\n");
         //perror("Failed to create raw_send_fd");
-        exit(1);
+        myexit(1);
     }
 
     if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
     	mylog(log_fatal,"SO_SNDBUFFORCE fail\n");
-    	exit(1);
+    	myexit(1);
     }
 	//raw_fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
 
@@ -760,13 +799,13 @@ int init_raw_socket()
     if(raw_recv_fd == -1) {
     	mylog(log_fatal,"Failed to create raw_recv_fd\n");
         //perror("");
-        exit(1);
+        myexit(1);
     }
 
     if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
     	mylog(log_fatal,"SO_RCVBUFFORCE fail\n");
-    	exit(1);
+    	myexit(1);
     }
 
     //IP_HDRINCL to tell the kernel that headers are included in the packet
@@ -776,7 +815,7 @@ int init_raw_socket()
     if (setsockopt (raw_send_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0) {
     	mylog(log_fatal,"Error setting IP_HDRINCL %d\n",errno);
         //perror("Error setting IP_HDRINCL");
-        exit(2);
+        myexit(2);
     }
 
     setnonblocking(raw_send_fd); //not really necessary
@@ -788,7 +827,7 @@ void init_filter(int port)
 {
 	filter_port=port;
 	if(disable_bpf_filter) return;
-	if(raw_mode==mode_icmp) return ;
+	//if(raw_mode==mode_icmp) return ;
 	//code_tcp[8].k=code_tcp[10].k=port;
 	if(raw_mode==mode_faketcp)
 	{
@@ -801,6 +840,11 @@ void init_filter(int port)
 		bpf.len = sizeof(code_udp)/sizeof(code_udp[0]);
 		code_udp[code_udp_port_index].k=port;
 		bpf.filter = code_udp;
+	}
+	else if(raw_mode==mode_icmp)
+	{
+		bpf.len = sizeof(code_icmp)/sizeof(code_icmp[0]);
+		bpf.filter = code_icmp;
 	}
 
 	int dummy;
@@ -817,7 +861,7 @@ void init_filter(int port)
 	{
 		mylog(log_fatal,"error set fiter\n");
 		//perror("filter");
-		exit(-1);
+		myexit(-1);
 	}
 }
 void remove_filter()
@@ -852,14 +896,14 @@ void server_clear_function(uint64_t u64)
 	if (ret!=0)
 	{
 		mylog(log_fatal,"fd:%d epoll delete failed!!!!\n",fd);
-		exit(-1);   //this shouldnt happen
+		myexit(-1);   //this shouldnt happen
 	}
 	ret= close(fd);
 
 	if (ret!=0)
 	{
 		mylog(log_fatal,"close fd %d failed !!!!\n",fd);
-		exit(-1);  //this shouldnt happen
+		myexit(-1);  //this shouldnt happen
 	}
 }
 
@@ -1065,7 +1109,7 @@ int send_raw_udp(const packet_info_t &info, const char * payload, int payloadlen
 		mylog(log_debug,"invalid len\n");
 		return -1;
 	}
-	mylog(log_info,"udp_len:%d %d\n",udp_tot_len,udph->len);
+	mylog(log_debug,"udp_len:%d %d\n",udp_tot_len,udph->len);
 	udph->len=htons(uint16_t(udp_tot_len));
 
 	memcpy(send_raw_udp_buf+sizeof(struct pseudo_header)+sizeof(udphdr),payload,payloadlen);
@@ -1202,6 +1246,7 @@ int send_raw_tcp(const packet_info_t &info,const char * payload, int payloadlen)
 
 int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int payloadlen)
 {
+	static uint16_t ip_id=1;
 	char raw_send_buf[buf_len];
 	char raw_send_buf2[buf_len];
 
@@ -2122,7 +2167,7 @@ int client_bind_to_a_new_port()
 		}
 	}
 	mylog(log_fatal,"bind port fail\n");
-	exit(-1);
+	myexit(-1);
 	return -1;////for compiler check
 }
 
@@ -2362,7 +2407,7 @@ int set_timer(int epollfd,int &timer_fd)
 	if((timer_fd=timerfd_create(CLOCK_MONOTONIC,TFD_NONBLOCK)) < 0)
 	{
 		mylog(log_fatal,"timer_fd create error\n");
-		exit(1);
+		myexit(1);
 	}
 	its.it_interval.tv_nsec=timer_interval*1000ll*1000ll;
 	its.it_value.tv_nsec=1; //imidiately
@@ -2375,7 +2420,7 @@ int set_timer(int epollfd,int &timer_fd)
 	epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
 		mylog(log_fatal,"epoll_ctl return %d\n", ret);
-		exit(-1);
+		myexit(-1);
 	}
 	return 0;
 }
@@ -2803,6 +2848,8 @@ int server_on_raw_recv(packet_info_t &info)
 
 				conv_manager.insert_conv(tmp_conv_id,u64);
 
+				mylog(log_info,"new conv conv_id=%x, assigned fd=%d\n",tmp_conv_id,new_udp_fd);
+
 			}
 
 			uint64_t u64=conv_manager.find_u64_by_conv(tmp_conv_id);
@@ -2952,7 +2999,7 @@ int client_event_loop()
 		if(get_src_adress(source_address_uint32)!=0)
 		{
 			mylog(log_fatal,"the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
-			exit(-1);
+			myexit(-1);
 		}
 	}
 	in_addr tmp;
@@ -2964,7 +3011,7 @@ int client_event_loop()
 	if(try_to_list_and_bind(source_port)!=0)
 	{
 		mylog(log_fatal,"bind to source_port:%d fail\n ",source_port);
-		exit(-1);
+		myexit(-1);
 	}
 	g_packet_info_send.src_port=source_port;
 
@@ -3001,7 +3048,7 @@ int client_event_loop()
 	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
 		mylog(log_fatal,"socket bind error\n");
 		//perror("socket bind error");
-		exit(1);
+		myexit(1);
 	}
 	setnonblocking(udp_fd);
 	int epollfd = epoll_create1(0);
@@ -3009,7 +3056,7 @@ int client_event_loop()
 	struct epoll_event ev, events[max_events];
 	if (epollfd < 0) {
 		mylog(log_fatal,"epoll return %d\n", epollfd);
-		exit(-1);
+		myexit(-1);
 	}
 
 	ev.events = EPOLLIN;
@@ -3017,7 +3064,7 @@ int client_event_loop()
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
 	if (ret!=0) {
 		mylog(log_fatal,"add  udp_listen_fd error\n");
-		exit(-1);
+		myexit(-1);
 	}
 	ev.events = EPOLLIN;
 	ev.data.u64 = epoll_raw_recv_fd_sn;
@@ -3025,14 +3072,14 @@ int client_event_loop()
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
 		mylog(log_fatal,"add raw_fd error\n");
-		exit(-1);
+		myexit(-1);
 	}
 
 	////add_timer for fake_tcp_keep_connection_client
 
 	//sleep(10);
 
-	memset(&udp_old_addr_in,0,sizeof(sockaddr_in));
+	//memset(&udp_old_addr_in,0,sizeof(sockaddr_in));
 	int unbind=1;
 	int timer_fd;
 
@@ -3042,7 +3089,7 @@ int client_event_loop()
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
 			mylog(log_fatal,"epoll_wait return %d\n", nfds);
-			exit(-1);
+			myexit(-1);
 		}
 		int n;
 		for (n = 0; n < nfds; ++n) {
@@ -3098,9 +3145,9 @@ int client_event_loop()
 
 				if(!conv_manager.is_u64_used(u64))
 				{
-					mylog(log_debug,"new connection!!!!!!!!!!!\n");
 					conv=conv_manager.get_new_conv();
 					conv_manager.insert_conv(conv,u64);
+					mylog(log_info,"new connection from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
 				}
 				else
 				{
@@ -3149,7 +3196,7 @@ int server_event_loop()
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
     	 mylog(log_fatal,"bind fail\n");
-    	 exit(-1);
+    	 myexit(-1);
      }
 	 if(raw_mode==mode_faketcp)
 	 {
@@ -3157,7 +3204,7 @@ int server_event_loop()
 		 if(listen(bind_fd, SOMAXCONN) != 0 )
 		 {
 			 mylog(log_fatal,"listen fail\n");
-			 exit(-1);
+			 myexit(-1);
 		 }
 	 }
 
@@ -3172,7 +3219,7 @@ int server_event_loop()
 	struct epoll_event ev, events[max_events];
 	if (epollfd < 0) {
 		mylog(log_fatal,"epoll return %d\n", epollfd);
-		exit(-1);
+		myexit(-1);
 	}
 
 	ev.events = EPOLLIN;
@@ -3181,7 +3228,7 @@ int server_event_loop()
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
 		mylog(log_fatal,"add raw_fd error\n");
-		exit(-1);
+		myexit(-1);
 	}
 	int timer_fd;
 	set_timer(epollfd,timer_fd);
@@ -3190,7 +3237,7 @@ int server_event_loop()
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
 			mylog(log_fatal,"epoll_wait return %d\n", nfds);
-			exit(-1);
+			myexit(-1);
 		}
 		int n;
 		const int MTU=1440;
@@ -3282,22 +3329,35 @@ void print_help()
 	printf("    run as client : ./this_program -c -l adress:port -r adress:port  [options]\n");
 	printf("    run as server : ./this_program -s -l adress:port -r adress:port  [options]\n");
 	printf("\n");
-	printf("common options,these options must be same on both side\n");
+	printf("common options,these options must be same on both side:\n");
 	printf("    --raw-mode      <string>    avaliable values:faketcp,udp,icmp\n");
 	printf("    --key           <string>    password to gen symetric key\n");
 	printf("    --auth-mode     <string>    avaliable values:aes128cbc,xor,none\n");
 	printf("    --cipher-mode   <string>    avaliable values:md5,crc32,sum,none\n");
 	printf("\n");
-	printf("other options:\n");
+	printf("client options:\n");
 	printf("    --source-ip     <ip>        override source-ip for raw socket\n");
 	printf("    --source-port   <port>      override source-port for tcp/udp \n");
+	printf("\n");
+	printf("other options:\n");
 	printf("    --log-level     <number>    0:never print log\n");
 	printf("                                1:fatal\n");
 	printf("                                2:error\n");
 	printf("                                3:warn\n");
-	printf("                                4:info\n");
+	printf("                                4:info (default)\n");
 	printf("                                5:debug\n");
 	printf("                                6:trace\n");
+	printf("\n");
+	printf("    --disable-color             disable log color\n");
+	printf("    --log-position              enable file name,function name,line number in log\n");
+	printf("    --disable-bpf               disable the kernel space filter,most time its not necessary\n");
+	printf("                                unless you suspect there is a bug\n");
+	printf("\n");
+	printf("    --sock-buf      <number>    buf size for socket,>=1 and <=10240,unit:kbyte\n");
+	printf("    --seqmode       <number>    seq increase mode for faketcp:\n");
+	printf("                                0:dont increase\n");
+	printf("                                1:increase every packet\n");
+	printf("                                2:increase randomly, about every 5 packets (default)\n");
 	printf("\n");
 	printf("    -h,--help                   print this help message\n");
 
@@ -3316,6 +3376,11 @@ void process_arg(int argc, char *argv[])
 		{"auth-mode", required_argument,    0, 1},
 		{"cipher-mode", required_argument,    0, 1},
 		{"raw-mode", required_argument,    0, 1},
+		{"disable-color", no_argument,    0, 1},
+		{"log-position", no_argument,    0, 1},
+		{"disable-bpf", no_argument,    0, 1},
+		{"sock-buf", required_argument,    0, 1},
+		{"seq-mode", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
       };
 
@@ -3325,7 +3390,7 @@ void process_arg(int argc, char *argv[])
 		if(strcmp(argv[i],"-h")==0||strcmp(argv[i],"--help")==0)
 		{
 			print_help();
-			exit(0);
+			myexit(0);
 		}
 	}
 	for (i = 0; i < argc; i++)
@@ -3341,7 +3406,7 @@ void process_arg(int argc, char *argv[])
 				else
 				{
 					log_bare(log_fatal,"invalid log_level\n");
-					exit(-1);
+					myexit(-1);
 				}
 			}
 		}
@@ -3350,14 +3415,14 @@ void process_arg(int argc, char *argv[])
     mylog(log_info,"argc=%d ", argc);
 
 	for (i = 0; i < argc; i++) {
-		log_bare(log_info, "%s", argv[i]);
+		log_bare(log_info, "%s ", argv[i]);
 	}
 	log_bare(log_info, "\n");
 
 	if (argc == 1)
 	{
 		print_help();
-		exit(-1);
+		myexit(-1);
 	}
 
 	int no_l = 1, no_r = 1;
@@ -3391,7 +3456,7 @@ void process_arg(int argc, char *argv[])
 			else
 			{
 				mylog(log_fatal,"-s /-c has already been set,-s option conflict\n");
-				exit(-1);
+				myexit(-1);
 			}
 			break;
 		case 'c':
@@ -3402,7 +3467,7 @@ void process_arg(int argc, char *argv[])
 			else
 			{
 				mylog(log_fatal,"-s /-c has already been set,-c option conflict\n");
-				exit(-1);
+				myexit(-1);
 			}
 			break;
 		case 'h':
@@ -3428,7 +3493,7 @@ void process_arg(int argc, char *argv[])
 			}
 			else if(strcmp(long_options[option_index].name,"raw-mode")==0)
 			{
-				for(int i=0;i<mode_end;i++)
+				for(i=0;i<mode_end;i++)
 				{
 					if(strcmp(optarg,raw_mode_tostring[i].c_str())==0)
 					{
@@ -3439,12 +3504,12 @@ void process_arg(int argc, char *argv[])
 				if(i==mode_end)
 				{
 					mylog(log_fatal,"no such raw_mode %s\n",optarg);
-					exit(-1);
+					myexit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"auth-mode")==0)
 			{
-				for(int i=0;i<auth_end;i++)
+				for(i=0;i<auth_end;i++)
 				{
 					if(strcmp(optarg,auth_mode_tostring[i].c_str())==0)
 					{
@@ -3455,12 +3520,12 @@ void process_arg(int argc, char *argv[])
 				if(i==auth_end)
 				{
 					mylog(log_fatal,"no such auth_mode %s\n",optarg);
-					exit(-1);
+					myexit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"cipher-mode")==0)
 			{
-				for(int i=0;i<cipher_end;i++)
+				for(i=0;i<cipher_end;i++)
 				{
 					if(strcmp(optarg,cipher_mode_tostring[i].c_str())==0)
 					{
@@ -3471,12 +3536,49 @@ void process_arg(int argc, char *argv[])
 				if(i==cipher_end)
 				{
 					mylog(log_fatal,"no such cipher_mode %s\n",optarg);
-					exit(-1);
+					myexit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"log-level")==0)
 			{
-
+			}
+			else if(strcmp(long_options[option_index].name,"disable-color")==0)
+			{
+				enable_log_color=0;
+			}
+			else if(strcmp(long_options[option_index].name,"log-position")==0)
+			{
+				enable_log_position=1;
+			}
+			else if(strcmp(long_options[option_index].name,"disable-bpf")==0)
+			{
+				disable_bpf_filter=1;
+			}
+			else if(strcmp(long_options[option_index].name,"sock-buf")==0)
+			{
+				int tmp=-1;
+				sscanf(optarg,"%d",&tmp);
+				if(1<=tmp&&tmp<=10*1024)
+				{
+					socket_buf_size=tmp*1024;
+				}
+				else
+				{
+					mylog(log_fatal,"sock-buf value must be between 1 and 10240 (kbyte) \n");
+					myexit(-1);
+				}
+			}
+			else if(strcmp(long_options[option_index].name,"seq-mode")==0)
+			{
+				sscanf(optarg,"%d",&seq_mode);
+				if(1<=seq_mode&&seq_mode<=10*1024)
+				{
+				}
+				else
+				{
+					mylog(log_fatal,"seq_mode value must be  0,1,or 2 \n");
+					myexit(-1);
+				}
 			}
 			else
 			{
@@ -3497,7 +3599,7 @@ void process_arg(int argc, char *argv[])
 	if (no_l || no_r||program_mode==0)
 	{
 		print_help();
-		exit(-1);
+		myexit(-1);
 	}
 
 	 mylog(log_info,"important variables: ", argc);
@@ -3515,6 +3617,8 @@ void process_arg(int argc, char *argv[])
 	 log_bare(log_info,"remote_port=%d ",remote_port);
 	 log_bare(log_info,"source_ip=%s ",source_address);
 	 log_bare(log_info,"source_port=%d ",source_port);
+
+	 log_bare(log_info,"socket_buf_size=%d ",socket_buf_size);
 
 	 log_bare(log_info,"\n");
 }

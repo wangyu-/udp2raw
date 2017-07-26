@@ -13,7 +13,7 @@
 static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog use zero iv,you should make sure first block of data contains a random/nonce data
 
 extern const int max_data_len;
-extern const int buf_len;
+const int buf_len=65535;
 
 map<int, string> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_sum,"sum"}};
 map<int, string> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"}};
@@ -154,7 +154,7 @@ int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 	{
 		len= (len/16)*16+16;
 	}
-	if(len>max_data_len) return -1;
+	//if(len>max_data_len) return -1;
 
 	buf[len-2]= (unsigned char)( (uint16_t(ori_len))>>8);
 	buf[len-1]=(unsigned char)( ((uint16_t(ori_len))<<8)>>8) ;
@@ -187,8 +187,8 @@ int cipher_none_encrypt(const char *data,char *output,int &len,char * key)
 }
 int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 {
-	if(len%16 !=0) {mylog(log_trace,"len%16!=0");return -1;}
-	if(len<2) {mylog(log_trace,"len <2 ");return -1;}return -1;
+	if(len%16 !=0) {mylog(log_debug,"len%16!=0");return -1;}
+	if(len<2) {mylog(log_debug,"len <2 ");return -1;}
 	AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	len=((unsigned char)output[len-2])*256u+((unsigned char)output[len-1]);
 	return 0;
@@ -202,6 +202,7 @@ int cipher_none_decrypt(const char *data,char *output,int &len,char * key)
 
 int auth_cal(const char *data,char * output,int &len)
 {
+	mylog(log_debug,"auth:%d\n",auth_mode);
 	switch(auth_mode)
 	{
 	case auth_crc32:return auth_crc32_cal(data, output, len);
@@ -213,6 +214,7 @@ int auth_cal(const char *data,char * output,int &len)
 }
 int auth_verify(const char *data,int &len)
 {
+	mylog(log_debug,"auth:%d\n",auth_mode);
 	switch(auth_mode)
 	{
 	case auth_crc32:return auth_crc32_verify(data, len);
@@ -224,6 +226,7 @@ int auth_verify(const char *data,int &len)
 }
 int cipher_encrypt(const char *data,char *output,int &len,char * key)
 {
+	mylog(log_debug,"cipher:%d\n",cipher_mode);
 	switch(cipher_mode)
 	{
 	case cipher_aes128cbc:return cipher_aes128cbc_encrypt(data,output,len, key);
@@ -234,6 +237,7 @@ int cipher_encrypt(const char *data,char *output,int &len,char * key)
 }
 int cipher_decrypt(const char *data,char *output,int &len,char * key)
 {
+	mylog(log_debug,"cipher:%d\n",cipher_mode);
 	switch(cipher_mode)
 	{
 		case cipher_aes128cbc:return cipher_aes128cbc_decrypt(data,output,len, key);
@@ -252,8 +256,8 @@ int my_encrypt(const char *data,char *output,int &len,char * key)
 	char buf[buf_len];
 	char buf2[buf_len];
 	memcpy(buf,data,len);
-	if(auth_cal(buf,buf2,len)!=0) {mylog(log_trace,"auth_cal failed ");return -1;}
-	if(cipher_encrypt(buf2,output,len,key) !=0) {mylog(log_trace,"auth_cal failed ");return -1;}
+	if(auth_cal(buf,buf2,len)!=0) {mylog(log_debug,"auth_cal failed ");return -1;}
+	if(cipher_encrypt(buf2,output,len,key) !=0) {mylog(log_debug,"cipher_encrypt failed ");return -1;}
 	return 0;
 
 }
@@ -262,8 +266,8 @@ int my_decrypt(const char *data,char *output,int &len,char * key)
 	if(len<0) return -1;
 	if(len>max_data_len) return -1;
 
-	if(cipher_decrypt(data,output,len,key) !=0) {mylog(log_trace,"cipher_decrypt failed \n"); return -1;}
-	if(auth_verify(output,len)!=0) {mylog(log_trace,"auth_verify failed ");return -1;}
+	if(cipher_decrypt(data,output,len,key) !=0) {mylog(log_debug,"cipher_decrypt failed \n"); return -1;}
+	if(auth_verify(output,len)!=0) {mylog(log_debug,"auth_verify failed ");return -1;}
 
 	return 0;
 }
