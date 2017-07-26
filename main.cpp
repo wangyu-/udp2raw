@@ -2389,10 +2389,6 @@ int keep_connection_server()
 	mylog(log_trace,"timer!\n");
 	if(server_current_state==server_nothing)
 	{
-		if(raw_mode==mode_icmp)
-		{
-			remove_filter();
-		}
 		return 0;
 	}
 	if(server_current_state==server_syn_ack_sent &&get_current_time()-last_state_time>handshake_timeout )
