@@ -1840,29 +1840,36 @@ int send_bare(const packet_info_t &info,const char* data,int len)
 	send_raw(info,send_data_buf2,new_len);
 	return 0;
 }
-
-int recv_bare(packet_info_t &info,char* & data,int & len)
+int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow overlap
 {
 	static char recv_data_buf[buf_len];
-	if(recv_raw(info,data,len)<0)
-	{
-		//printf("recv_raw_fail in recv bare\n");
-		return -1;
-	}
 	if(len==0) //dont decrpyt zero length packet;
 	{
 		return 0;
 	}
 
-	if(my_decrypt(data,recv_data_buf,len,key)!=0)
+	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
 	{
 		mylog(log_debug,"decrypt_fail in recv bare\n");
 		return -1;
 	}
+	len=input_len;
 	data=recv_data_buf+sizeof(iv_t);
 	len-=sizeof(iv_t);
 	return 0;
 }
+int recv_bare(packet_info_t &info,char* & data,int & len)
+{
+	if(recv_raw(info,data,len)<0)
+	{
+		//printf("recv_raw_fail in recv bare\n");
+		return -1;
+	}
+	parse_bare(data,len,data,len);
+	return 0;
+}
+
+
 
 int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int len)
 {
@@ -1954,17 +1961,11 @@ int send_data_safer(packet_info_t &info,const char* data,int len,uint32_t conv_n
 	return 0;
 
 }
-int recv_safer(packet_info_t &info,char* &data,int &len)
+int parse_safer(const char * input,int input_len,char* &data,int &len)//allow overlap
 {
-
-	char * recv_data;int recv_len;
 	static char recv_data_buf[buf_len];
 
-	if(recv_raw(info,recv_data,recv_len)!=0) return -1;
-
-	//printf("1111111111111111\n");
-
-	if(my_decrypt(recv_data,recv_data_buf,recv_len,key2)!=0)
+	if(my_decrypt(input,recv_data_buf,input_len,key2)!=0)
 	{
 		//printf("decrypt fail\n");
 		return -1;
@@ -1995,7 +1996,7 @@ int recv_safer(packet_info_t &info,char* &data,int &len)
 
 	//printf("recv _len %d\n ",recv_len);
 	data=recv_data_buf+sizeof(anti_replay_seq_t)+sizeof(id_t)*2;
-	len=recv_len-(sizeof(anti_replay_seq_t)+sizeof(id_t)*2  );
+	len=input_len-(sizeof(anti_replay_seq_t)+sizeof(id_t)*2  );
 
 
 	if(len<0)
@@ -2005,6 +2006,16 @@ int recv_safer(packet_info_t &info,char* &data,int &len)
 	}
 
 	return 0;
+}
+int recv_safer(packet_info_t &info,char* &data,int &len)
+{
+
+	char * recv_data;int recv_len;
+	static char recv_data_buf[buf_len];
+
+	if(recv_raw(info,recv_data,recv_len)!=0) return -1;
+
+	return parse_safer(recv_data,recv_len,data,len);
 }
 
 /*
