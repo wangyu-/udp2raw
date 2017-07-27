@@ -241,7 +241,7 @@ tcpdump -i eth1  ip and icmp -dd
 (010) ret      #0
 
  */
-sock_fprog bpf;
+
 
 
 int VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV;
@@ -881,6 +881,8 @@ int init_raw_socket()
 }
 void init_filter(int port)
 {
+	sock_fprog bpf;
+
 	filter_port=port;
 	if(disable_bpf_filter) return;
 	//if(raw_mode==mode_icmp) return ;
