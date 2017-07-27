@@ -16,7 +16,6 @@
 #include<string>
 #include<vector>
 
-
 #include <sys/socket.h>    //for socket ofcourse
 #include <sys/types.h>
 #include <stdlib.h> //for exit(0);
@@ -66,16 +65,15 @@ using namespace std;
 #end*/
 
 enum raw_mode_t{mode_faketcp=1,mode_udp,mode_icmp,mode_end};
+
 raw_mode_t raw_mode=mode_faketcp;
+
 map<int, string> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 
 char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
 uint32_t local_address_uint32,remote_address_uint32,source_address_uint32;
-
-uint32_t source_port=0;
+int source_port=0,local_port = -1, remote_port = -1;
 int filter_port=-1;
-
-int local_port = -1, remote_port = -1;
 
 typedef uint32_t id_t;
 
@@ -85,14 +83,7 @@ typedef uint64_t anti_replay_seq_t;
 
 anti_replay_seq_t anti_replay_seq=0;
 
-id_t const_id=0;
-
-id_t oppsite_const_id=0;
-
-id_t my_id=0;
-id_t oppsite_id=0;
-
-uint32_t conv_num=0;
+id_t const_id=0,oppsite_const_id=0,my_id=0,oppsite_id=0;
 
 uint32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
 
@@ -110,6 +101,7 @@ const int RETRY_TIME=3;
 
 extern const int max_data_len=65535;
 extern const int buf_len = max_data_len+100;
+int socket_buf_size=1024*1024;
 
 enum program_mode_t {unset_mode=0,client_mode,server_mode};
 program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
@@ -117,8 +109,6 @@ program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 int disable_bpf_filter=0;  //for test only,most time no need to disable this
 
 const int disable_conv_clear=0;
-
-int first_data_packet=0;
 
 int seq_mode=2;  //0  dont  increase /1 increase   //increase randomly,about every 5 packet
 
@@ -131,11 +121,6 @@ enum server_current_state_t {server_nothing=0,server_syn_ack_sent,server_handsha
 enum client_current_state_t {client_nothing=0,client_syn_sent,client_ack_sent,client_handshake_sent,client_ready};
 
 
-//long long last_hb_recv_time=0;
-//long long last_udp_recv_time=0;
-
-int socket_buf_size=1024*1024;
-
 int udp_fd=-1;
 int raw_recv_fd=-1;
 int raw_send_fd=-1;
@@ -144,17 +129,8 @@ int epollfd=-1;
 int random_number_fd=-1;
 
 
-
-//int retry_counter=0;
-
-//long long last_state_time=0;
-
-//long long last_hb_sent_time=0;
-
 char key_string[1000]= "secret key";
-char key[]={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,   0,0,0,0};
-
-char key2[16];
+char key[16],key2[16];
 
 const int anti_replay_window_size=1000;
 
@@ -267,7 +243,6 @@ tcpdump -i eth1  ip and icmp -dd
  */
 sock_fprog bpf;
 
-//sockaddr_in g_tmp_sockaddr;  //global  sockaddr_in for efficiency,so that you wont need to create it everytime
 
 int VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV;
 ////////==============================variable divider=============================================================
@@ -3481,8 +3456,6 @@ int client_event_loop()
 
 	int i, j, k;int ret;
 	init_raw_socket();
-	//my_id=get_true_random_number_nz();
-	conv_num=get_true_random_number_nz();
 
 	//init_filter(source_port);
 	send_info.dst_ip=remote_address_uint32;
