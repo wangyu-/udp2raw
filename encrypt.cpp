@@ -13,7 +13,7 @@
 static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog use zero iv,you should make sure first block of data contains a random/nonce data
 
 extern const int max_data_len;
-const int buf_len=65535;
+extern const int buf_len;//=65535;
 
 map<int, string> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_sum,"sum"}};
 map<int, string> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"}};
@@ -277,7 +277,7 @@ int my_encrypt_old(const char *data0,char *output,int &len,char * key)
 	static const int disable_all=0;
 	static const int disable_aes=0;
 
-	char data[65535+100];
+	char data[buf_len];
 	memcpy(data,data0,len);
 
 	if(disable_all)
@@ -326,7 +326,7 @@ int my_decrypt_old(const char *data0,char *output,int &len,char * key)
 	static const int disable_all=0;
 	static const int disable_aes=0;
 
-	char data[65535+100];
+	char data[buf_len];
 	memcpy(data,data0,len);
 
 	if(disable_all)
