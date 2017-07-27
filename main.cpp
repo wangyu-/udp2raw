@@ -925,7 +925,7 @@ unsigned short csum(const unsigned short *ptr,int nbytes) {
 
 
 
-int send_raw_ip(const packet_info_t info,const char * payload,int payloadlen)
+int send_raw_ip(packet_info_t &send_info,const char * payload,int payloadlen)
 {
 	char send_raw_ip_buf[buf_len];
 
@@ -935,7 +935,7 @@ int send_raw_ip(const packet_info_t info,const char * payload,int payloadlen)
 	struct sockaddr_in sin;
     sin.sin_family = AF_INET;
     //sin.sin_port = htons(info.dst_port); //dont need this
-    sin.sin_addr.s_addr = info.dst_ip;
+    sin.sin_addr.s_addr = send_info.dst_ip;
 
     iph->ihl = sizeof(iphdr)/4;  //we dont use ip options,so the length is just sizeof(iphdr)
     iph->version = 4;
@@ -945,10 +945,10 @@ int send_raw_ip(const packet_info_t info,const char * payload,int payloadlen)
     // iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero
     iph->frag_off = htons(0x4000); //DF set,others are zero
     iph->ttl = 64;
-    iph->protocol = info.protocol;
+    iph->protocol = send_info.protocol;
     iph->check = 0; //Set to 0 before calculating checksum
-    iph->saddr = info.src_ip;    //Spoof the source ip address
-    iph->daddr = info.dst_ip;
+    iph->saddr = send_info.src_ip;    //Spoof the source ip address
+    iph->daddr = send_info.dst_ip;
 
     uint16_t ip_tot_len=sizeof (struct iphdr)+payloadlen;
    // iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
@@ -967,7 +967,7 @@ int send_raw_ip(const packet_info_t info,const char * payload,int payloadlen)
     return 0;
 }
 
-int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
+int recv_raw_ip(packet_info_t &recv_info,char * &payload,int &payloadlen)
 {
 	static char recv_raw_ip_buf[buf_len];
 
@@ -999,11 +999,11 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 
 	iph = (struct iphdr *) (ip_begin);
 
-	info.src_ip=iph->saddr;
-	info.dst_ip=iph->daddr;
-	info.protocol=iph->protocol;
+	recv_info.src_ip=iph->saddr;
+	recv_info.dst_ip=iph->daddr;
+	recv_info.protocol=iph->protocol;
 
-	if(local_address_uint32!=0 &&info.dst_ip!=local_address_uint32)
+	if(local_address_uint32!=0 &&recv_info.dst_ip!=local_address_uint32)
 	{
 		//printf(" bind adress doenst match, dropped\n");
 		return -1;
@@ -1047,7 +1047,7 @@ int recv_raw_ip(packet_info_t &info,char * &payload,int &payloadlen)
 }
 
 
-int send_raw_icmp(packet_info_t &info, const char * payload, int payloadlen)
+int send_raw_icmp(packet_info_t &send_info, const char * payload, int payloadlen)
 {
 	char send_raw_icmp_buf[buf_len];
 	icmphdr *icmph=(struct icmphdr *) (send_raw_icmp_buf);
@@ -1061,15 +1061,15 @@ int send_raw_icmp(packet_info_t &info, const char * payload, int payloadlen)
 		icmph->type=0;
 	}
 	icmph->code=0;
-	icmph->id=htons(info.src_port);
+	icmph->id=htons(send_info.src_port);
 
-	icmph->seq=htons(info.icmp_seq++);
+	icmph->seq=htons(send_info.icmp_seq++);
 
 	memcpy(send_raw_icmp_buf+sizeof(icmphdr),payload,payloadlen);
 
 	icmph->check_sum = csum( (unsigned short*) send_raw_icmp_buf, sizeof(icmphdr)+payloadlen);
 
-	if(send_raw_ip(info,send_raw_icmp_buf,sizeof(icmphdr)+payloadlen)!=0)
+	if(send_raw_ip(send_info,send_raw_icmp_buf,sizeof(icmphdr)+payloadlen)!=0)
 	{
 		return -1;
 	}
@@ -1077,7 +1077,7 @@ int send_raw_icmp(packet_info_t &info, const char * payload, int payloadlen)
 	return 0;
 }
 
-int send_raw_udp(const packet_info_t &info, const char * payload, int payloadlen)
+int send_raw_udp(packet_info_t &send_info, const char * payload, int payloadlen)
 {
 	char send_raw_udp_buf[buf_len];
 
@@ -1087,8 +1087,8 @@ int send_raw_udp(const packet_info_t &info, const char * payload, int payloadlen
 	memset(udph,0,sizeof(udphdr));
 	struct pseudo_header *psh = (struct pseudo_header *) (send_raw_udp_buf);
 
-	udph->source = htons(info.src_port);
-	udph->dest = htons(info.dst_port);
+	udph->source = htons(send_info.src_port);
+	udph->dest = htons(send_info.dst_port);
 
 	int udp_tot_len=payloadlen+sizeof(udphdr);
 
@@ -1102,8 +1102,8 @@ int send_raw_udp(const packet_info_t &info, const char * payload, int payloadlen
 
 	memcpy(send_raw_udp_buf+sizeof(struct pseudo_header)+sizeof(udphdr),payload,payloadlen);
 
-	psh->source_address = info.src_ip;
-	psh->dest_address = info.dst_ip;
+	psh->source_address = send_info.src_ip;
+	psh->dest_address = send_info.dst_ip;
 	psh->placeholder = 0;
 	psh->protocol = IPPROTO_UDP;
 	psh->tcp_length = htons(uint16_t(udp_tot_len));
@@ -1112,14 +1112,14 @@ int send_raw_udp(const packet_info_t &info, const char * payload, int payloadlen
 
 	udph->check = csum( (unsigned short*) send_raw_udp_buf, csum_size);
 
-	if(send_raw_ip(info,send_raw_udp_buf+ sizeof(struct pseudo_header),udp_tot_len)!=0)
+	if(send_raw_ip(send_info,send_raw_udp_buf+ sizeof(struct pseudo_header),udp_tot_len)!=0)
 	{
 		return -1;
 	}
 	return 0;
 }
 
-int send_raw_tcp(packet_info_t &info,const char * payload, int payloadlen) {  //TODO seq increase
+int send_raw_tcp(packet_info_t &send_info,const char * payload, int payloadlen) {  	//TODO seq increase
 
 	char send_raw_tcp_buf[buf_len];
 	struct tcphdr *tcph = (struct tcphdr *) (send_raw_tcp_buf
@@ -1131,17 +1131,17 @@ int send_raw_tcp(packet_info_t &info,const char * payload, int payloadlen) {  //
 	struct pseudo_header *psh = (struct pseudo_header *) (send_raw_tcp_buf);
 
 	//TCP Header
-	tcph->source = htons(info.src_port);
-	tcph->dest = htons(info.dst_port);
+	tcph->source = htons(send_info.src_port);
+	tcph->dest = htons(send_info.dst_port);
 
-	tcph->seq = htonl(info.seq);
-	tcph->ack_seq = htonl(info.ack_seq);
+	tcph->seq = htonl(send_info.seq);
+	tcph->ack_seq = htonl(send_info.ack_seq);
 
 	tcph->fin = 0;
-	tcph->syn = info.syn;
+	tcph->syn = send_info.syn;
 	tcph->rst = 0;
-	tcph->psh = info.psh;
-	tcph->ack = info.ack;
+	tcph->psh = send_info.psh;
+	tcph->ack = send_info.ack;
 
 	if (tcph->syn == 1) {
 		tcph->doff = 10;  //tcp header size
@@ -1164,7 +1164,7 @@ int send_raw_tcp(packet_info_t &info,const char * payload, int payloadlen) {  //
 
 		i += 4;
 
-		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(info.ts_ack);
+		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
 		i += 4;
 
 		send_raw_tcp_buf[i++] = 0x01;
@@ -1186,7 +1186,7 @@ int send_raw_tcp(packet_info_t &info,const char * payload, int payloadlen) {  //
 
 		i += 4;
 
-		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(info.ts_ack);
+		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
 		i += 4;
 	}
 
@@ -1201,8 +1201,8 @@ int send_raw_tcp(packet_info_t &info,const char * payload, int payloadlen) {  //
 
 	memcpy(tcp_data, payload, payloadlen);
 
-	psh->source_address = info.src_ip;
-	psh->dest_address = info.dst_ip;
+	psh->source_address = send_info.src_ip;
+	psh->dest_address = send_info.dst_ip;
 	psh->placeholder = 0;
 	psh->protocol = IPPROTO_TCP;
 	psh->tcp_length = htons(tcph->doff * 4 + payloadlen);
@@ -1213,25 +1213,25 @@ int send_raw_tcp(packet_info_t &info,const char * payload, int payloadlen) {  //
 
 	int tcp_totlen=tcph->doff*4 + payloadlen;
 
-	if(send_raw_ip(info,send_raw_tcp_buf+ sizeof(struct pseudo_header),tcp_totlen)!=0)
+	if(send_raw_ip(send_info,send_raw_tcp_buf+ sizeof(struct pseudo_header),tcp_totlen)!=0)
 	{
 		return -1;
 	}
-	if (info.syn == 0 && info.ack == 1
+	if (send_info.syn == 0 && send_info.ack == 1
 			&& payloadlen != 0) {
 		if (seq_mode == 0) {
 
 		} else if (seq_mode == 1) {
-			info.seq += payloadlen;
+			send_info.seq += payloadlen;
 		} else if (seq_mode == 2) {
 			if (random() % 5 == 3)
-				info.seq += payloadlen;
+				send_info.seq += payloadlen;
 		}
 	}
 
 	return 0;
 }
-
+/*
 int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int payloadlen)
 {
 	static uint16_t ip_id=1;
@@ -1399,21 +1399,21 @@ int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int p
      }
      return 0;
 }
+*/
 
-
-int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
+int recv_raw_icmp(packet_info_t &recv_info, char *&payload, int &payloadlen)
 {
 	static char recv_raw_icmp_buf[buf_len];
 
 	char * ip_payload;
 	int ip_payloadlen;
 
-	if(recv_raw_ip(info,ip_payload,ip_payloadlen)!=0)
+	if(recv_raw_ip(recv_info,ip_payload,ip_payloadlen)!=0)
 	{
 		mylog(log_debug,"recv_raw_ip error\n");
 		return -1;
 	}
-	if(info.protocol!=IPPROTO_ICMP)
+	if(recv_info.protocol!=IPPROTO_ICMP)
 	{
 		//printf("not udp protocol\n");
 		return -1;
@@ -1421,7 +1421,7 @@ int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
 
 	icmphdr *icmph=(struct icmphdr *) (ip_payload);
 
-	info.src_port=info.dst_port=ntohs(icmph->id);
+	recv_info.src_port=recv_info.dst_port=ntohs(icmph->id);
 
 
 	if(program_mode==client_mode)
@@ -1453,18 +1453,18 @@ int recv_raw_icmp(packet_info_t &info, char *&payload, int &payloadlen)
     return 0;
 }
 
-int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
+int recv_raw_udp(packet_info_t &recv_info, char *&payload, int &payloadlen)
 {
 	static char recv_raw_udp_buf[buf_len];
 	char * ip_payload;
 	int ip_payloadlen;
 
-	if(recv_raw_ip(info,ip_payload,ip_payloadlen)!=0)
+	if(recv_raw_ip(recv_info,ip_payload,ip_payloadlen)!=0)
 	{
 		mylog(log_debug,"recv_raw_ip error\n");
 		return -1;
 	}
-	if(info.protocol!=IPPROTO_UDP)
+	if(recv_info.protocol!=IPPROTO_UDP)
 	{
 		//printf("not udp protocol\n");
 		return -1;
@@ -1493,8 +1493,8 @@ int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
 
     struct pseudo_header *psh=(pseudo_header *)recv_raw_udp_buf ;
 
-    psh->source_address = info.src_ip;
-    psh->dest_address = info.dst_ip;
+    psh->source_address = recv_info.src_ip;
+    psh->dest_address = recv_info.dst_ip;
     psh->placeholder = 0;
     psh->protocol = IPPROTO_UDP;
     psh->tcp_length = htons(ip_payloadlen);
@@ -1512,8 +1512,8 @@ int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
 
     char *udp_begin=recv_raw_udp_buf+sizeof(struct pseudo_header);
 
-    info.src_port=ntohs(udph->source);
-    info.dst_port=ntohs(udph->dest);
+    recv_info.src_port=ntohs(udph->source);
+    recv_info.dst_port=ntohs(udph->dest);
 
     payloadlen = ip_payloadlen-sizeof(udphdr);
 
@@ -1522,7 +1522,7 @@ int recv_raw_udp(packet_info_t &info, char *&payload, int &payloadlen)
     return 0;
 }
 
-int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
+int recv_raw_tcp(packet_info_t &recv_info,char * &payload,int &payloadlen)
 {
 	static char recv_raw_tcp_buf[buf_len];
 
@@ -1530,13 +1530,13 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
 	int ip_payloadlen;
 
 
-	if(recv_raw_ip(info,ip_payload,ip_payloadlen)!=0)
+	if(recv_raw_ip(recv_info,ip_payload,ip_payloadlen)!=0)
 	{
 		mylog(log_debug,"recv_raw_ip error\n");
 		return -1;
 	}
 
-	if(info.protocol!=IPPROTO_TCP)
+	if(recv_info.protocol!=IPPROTO_TCP)
 	{
 		//printf("not tcp protocol\n");
 		return -1;
@@ -1563,8 +1563,8 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
 
     struct pseudo_header *psh=(pseudo_header *)recv_raw_tcp_buf ;
 
-    psh->source_address = info.src_ip;
-    psh->dest_address = info.dst_ip;
+    psh->source_address = recv_info.src_ip;
+    psh->dest_address = recv_info.dst_ip;
     psh->placeholder = 0;
     psh->protocol = IPPROTO_TCP;
     psh->tcp_length = htons(ip_payloadlen);
@@ -1584,14 +1584,14 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
 
     char *tcp_option=recv_raw_tcp_buf+sizeof(struct pseudo_header)+sizeof(tcphdr);
 
-    info.has_ts=0;
+    recv_info.has_ts=0;
     if(tcph->doff==10)
     {
     	if(tcp_option[6]==0x08 &&tcp_option[7]==0x0a)
     	{
-    		info.has_ts=1;
-    		info.ts=ntohl(*(uint32_t*)(&tcp_option[8]));
-    		info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[12]));
+    		recv_info.has_ts=1;
+    		recv_info.ts=ntohl(*(uint32_t*)(&tcp_option[8]));
+    		recv_info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[12]));
     		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[8]));
     	}
     }
@@ -1599,9 +1599,9 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
     {
     	if(tcp_option[3]==0x08 &&tcp_option[4]==0x0a)
     	{
-    		info.has_ts=1;
-    		info.ts=ntohl(*(uint32_t*)(&tcp_option[0]));
-    		info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[4]));
+    		recv_info.has_ts=1;
+    		recv_info.ts=ntohl(*(uint32_t*)(&tcp_option[0]));
+    		recv_info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[4]));
     		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[0]));
     	}
     }
@@ -1610,19 +1610,19 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
     	mylog(log_warn,"%%%%%%%%%%%%%rst==1%%%%%%%%%%%%%\n");
     }
 
-    info.ack=tcph->ack;
-    info.syn=tcph->syn;
-    info.rst=tcph->rst;
-    info.src_port=ntohs(tcph->source);
-    info.dst_port=ntohs(tcph->dest);
+    recv_info.ack=tcph->ack;
+    recv_info.syn=tcph->syn;
+    recv_info.rst=tcph->rst;
+    recv_info.src_port=ntohs(tcph->source);
+    recv_info.dst_port=ntohs(tcph->dest);
 
-    info.seq=ntohl(tcph->seq);
-    info.ack_seq=ntohl(tcph->ack_seq);
-    info.psh=tcph->psh;
+    recv_info.seq=ntohl(tcph->seq);
+    recv_info.ack_seq=ntohl(tcph->ack_seq);
+    recv_info.psh=tcph->psh;
 
-    if(info.has_ts)
+    if(recv_info.has_ts)
     {
-    	g_packet_info_send.ts_ack=info.ts;
+    	g_packet_info_send.ts_ack=recv_info.ts;
     }
 
     payloadlen = ip_payloadlen-tcphdrlen;
@@ -1630,7 +1630,7 @@ int recv_raw_tcp(packet_info_t &info,char * &payload,int &payloadlen)
     payload=tcp_begin+tcphdrlen;
     return 0;
 }
-
+/*
 int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 {
 	static char buf[buf_len];
@@ -1793,37 +1793,37 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 
 
 	return 0;
-}
+}*/
 
-int send_raw(packet_info_t &info,const char * payload,int payloadlen)
+int send_raw(packet_info_t &send_info,const char * payload,int payloadlen)
 {
 	switch(raw_mode)
 	{
-		case mode_faketcp:return send_raw_tcp(info,payload,payloadlen);
-		case mode_udp: return send_raw_udp(info,payload,payloadlen);
-		case mode_icmp: return send_raw_icmp(info,payload,payloadlen);
+		case mode_faketcp:return send_raw_tcp(send_info,payload,payloadlen);
+		case mode_udp: return send_raw_udp(send_info,payload,payloadlen);
+		case mode_icmp: return send_raw_icmp(send_info,payload,payloadlen);
 	}
 	return -1;
 }
-int recv_raw(packet_info_t &info,char * &payload,int &payloadlen)
+int recv_raw(packet_info_t &recv_info,char * &payload,int &payloadlen)
 {
 	switch(raw_mode)
 	{
-		case mode_faketcp:return recv_raw_tcp(info,payload,payloadlen);
-		case mode_udp: return recv_raw_udp(info,payload,payloadlen);
-		case mode_icmp: return recv_raw_icmp(info,payload,payloadlen);
+		case mode_faketcp:return recv_raw_tcp(recv_info,payload,payloadlen);
+		case mode_udp: return recv_raw_udp(recv_info,payload,payloadlen);
+		case mode_icmp: return recv_raw_icmp(recv_info,payload,payloadlen);
 	}
 	return -1;
 }
 
-int send_bare(packet_info_t &info,const char* data,int len)
+int send_bare(packet_info_t &send_info,const char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
 
 	if(len==0) //dont encrpyt zero length packet;
 	{
-		send_raw(info,data,len);
+		send_raw(send_info,data,len);
 		return 0;
 	}
 	//static send_bare[buf_len];
@@ -1837,7 +1837,7 @@ int send_bare(packet_info_t &info,const char* data,int len)
 	{
 		return -1;
 	}
-	send_raw(info,send_data_buf2,new_len);
+	send_raw(send_info,send_data_buf2,new_len);
 	return 0;
 }
 int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow overlap
@@ -1898,12 +1898,12 @@ int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3)
 }
 
 
-int send_handshake(packet_info_t &info,id_t id1,id_t id2,id_t id3)
+int send_handshake(packet_info_t &send_info,id_t id1,id_t id2,id_t id3)
 {
 	char * data;int len;
 	len=sizeof(id_t)*3;
 	if(numbers_to_char(id1,id2,id3,data,len)!=0) return -1;
-	if(send_bare(info,data,len)!=0) {mylog(log_warn,"send bare fail\n");return -1;}
+	if(send_bare(send_info,data,len)!=0) {mylog(log_warn,"send bare fail\n");return -1;}
 	return 0;
 }
 /*
@@ -1917,7 +1917,7 @@ int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
 	return 0;
 }*/
 
-int send_safer(packet_info_t &info,const char* data,int len)
+int send_safer(packet_info_t &send_info,const char* data,int len)
 {
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -1944,11 +1944,11 @@ int send_safer(packet_info_t &info,const char* data,int len)
 		return -1;
 	}
 
-	send_raw(info,send_data_buf2,new_len);
+	send_raw(send_info,send_data_buf2,new_len);
 
 	return 0;
 }
-int send_data_safer(packet_info_t &info,const char* data,int len,uint32_t conv_num)
+int send_data_safer(packet_info_t &send_info,const char* data,int len,uint32_t conv_num)
 {
 	char send_data_buf[buf_len];
 	send_data_buf[0]='d';
@@ -1957,7 +1957,7 @@ int send_data_safer(packet_info_t &info,const char* data,int len,uint32_t conv_n
 
 	memcpy(send_data_buf+1+sizeof(n_conv_num),data,len);
 	int new_len=len+1+sizeof(n_conv_num);
-	send_safer(info,send_data_buf,new_len);
+	send_safer(send_info,send_data_buf,new_len);
 	return 0;
 
 }
@@ -2007,13 +2007,13 @@ int parse_safer(const char * input,int input_len,char* &data,int &len)//allow ov
 
 	return 0;
 }
-int recv_safer(packet_info_t &info,char* &data,int &len)
+int recv_safer(packet_info_t &recv_info,char* &data,int &len)
 {
 
 	char * recv_data;int recv_len;
 	static char recv_data_buf[buf_len];
 
-	if(recv_raw(info,recv_data,recv_len)!=0) return -1;
+	if(recv_raw(recv_info,recv_data,recv_len)!=0) return -1;
 
 	return parse_safer(recv_data,recv_len,data,len);
 }
