@@ -564,6 +564,8 @@ struct conn_info_t
 struct conn_manager_t
 {
  unordered_map<uint64_t,conn_info_t> mp;
+ unordered_map<uint32_t,uint64_t> const_id_mp;
+
  unordered_map<uint64_t,conn_info_t>::iterator it;
  unordered_map<uint64_t,conn_info_t>::iterator clear_it;
  unordered_map<uint64_t,conn_info_t>::iterator old_it;
@@ -3196,6 +3198,8 @@ int server_on_raw_recv_multi()
 		mylog(log_info,"received handshake %x %x\n",conn_info.oppsite_id,conn_info.my_id);
 
 
+		//conn_manager.const_id_mp=
+
 		conn_info.server_current_state=server_ready;
 
 		//conn_info.last_state_time=get_current_time(); //dont change this
@@ -3799,6 +3803,8 @@ int server_event_loop()
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
 			if ((events[n].data.u64 ) == timer_fd)
 			{
+				uint64_t dummy;
+				read(timer_fd, &dummy, 8);
 				conn_manager.clean_inactive();
 			}
 			if ((events[n].data.u64 >>32u) == 2u)
@@ -4000,6 +4006,10 @@ void process_arg(int argc, char *argv[])
 				}
 			}
 		}
+		if(strcmp(argv[i],"--disable-color")==0)
+		{
+			enable_log_color=0;
+		}
 	}
 
     mylog(log_info,"argc=%d ", argc);
@@ -4134,7 +4144,7 @@ void process_arg(int argc, char *argv[])
 			}
 			else if(strcmp(long_options[option_index].name,"disable-color")==0)
 			{
-				enable_log_color=0;
+				//enable_log_color=0;
 			}
 			else if(strcmp(long_options[option_index].name,"log-position")==0)
 			{
