@@ -150,6 +150,9 @@ const int max_conv_num=10000;
 const int conv_timeout=120000; //60 second
 const int conv_clear_ratio=10;
 
+const int max_handshake_conn_num=10000;
+const int max_ready_conn_num=1000;
+
 const int conn_timeout=60000;
 const int conn_clear_ratio=10;
 uint64_t current_time_rough=0;
@@ -585,6 +588,7 @@ struct conn_info_t
 struct conn_manager_t
 {
  unordered_map<uint64_t,conn_info_t> mp;
+ int ready_num;
 
  unordered_map<int,conn_info_t *> udp_fd_mp;  //a bit dirty to used pointer,but can void unordered_map search
  unordered_map<int,conn_info_t *> timer_fd_mp;//we can use pointer here since unordered_map.rehash() uses shallow copy
@@ -593,13 +597,14 @@ struct conn_manager_t
 
  unordered_map<uint64_t,conn_info_t>::iterator clear_it;
 
- unordered_map<uint64_t,conn_info_t>::iterator it;  //moved out from function,for easier to change unordered_map to map
- unordered_map<uint64_t,conn_info_t>::iterator old_it;//
+
  //uint32_t current_ready_ip;
  //uint16_t current_ready_port;
  conn_manager_t()
  {
+	 ready_num=0;
 	 mp.reserve(10007);
+	 clear_it=mp.begin();
 	 //timer_fd_mp.reserve(10007);
 	 //udp_fd_mp.reserve(100007);
 	 //current_ready_ip=0;
@@ -634,8 +639,23 @@ struct conn_manager_t
 	 u64|=port;
 	 return mp[u64];
  }
+ int erase(unordered_map<uint64_t,conn_info_t>::iterator erase_it)
+ {
+		if(erase_it->second.state.server_current_state==server_ready)
+		{
+			ready_num--;
+			const_id_mp.erase(erase_it->second.oppsite_const_id);
+			timer_fd_mp.erase(erase_it->second.timer_fd);
+			close(erase_it->second.timer_fd);// close will auto delte it from epoll
+			mp.erase(erase_it->first);
+		}
+		return 0;
+ }
 int clear_inactive()
 {
+	 unordered_map<uint64_t,conn_info_t>::iterator it;
+	 unordered_map<uint64_t,conn_info_t>::iterator old_it;
+
 	if(disable_conn_clear) return 0;
 
 	//map<uint32_t,uint64_t>::iterator it;
@@ -668,13 +688,7 @@ int clear_inactive()
 			//mylog(log_info,"inactive conv %u cleared \n",it->first);
 			old_it=it;
 			it++;
-			timer_fd_mp.erase(old_it->second.timer_fd);
-			close(old_it->second.timer_fd);// close will auto delte it from epoll
-			if(old_it->second.oppsite_const_id!=0)
-			{
-				const_id_mp.erase(old_it->second.oppsite_const_id);
-				mp.erase(old_it->first);
-			}
+			erase(old_it);
 		}
 		cnt++;
 	}
@@ -3159,7 +3173,12 @@ int server_on_raw_recv_multi()
 		return 0;
 	}
 
-	conn_info_t & conn_info=conn_manager.find(ip,port);
+	if(conn_manager.mp.size()>=max_handshake_conn_num)
+	{
+		mylog(log_info,"reached max_handshake_conn_num,ignored new handshake\n");
+		return 0;
+	}
+	conn_info_t & conn_info=conn_manager.find(ip,port);//insert if not exist
 
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
@@ -3241,8 +3260,16 @@ int server_on_raw_recv_multi()
 		{
 			//conn_manager.const_id_mp=
 
+			if(conn_manager.ready_num>=max_ready_conn_num)
+			{
+				mylog(log_info,"max_ready_conn_num,cant turn to ready\n");
+				conn_info.state.server_current_state =server_nothing;
+				return 0;
+			}
+
 			conn_info.state.server_current_state = server_ready;
 			conn_info.oppsite_const_id=tmp_oppsite_const_id;
+			conn_manager.ready_num++;
 
 
 			//conn_info.last_state_time=get_current_time(); //dont change this!!!!!!!!!!!!!!!!!!!!!!!!!
