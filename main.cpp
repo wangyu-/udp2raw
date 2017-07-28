@@ -112,10 +112,12 @@ const int disable_conv_clear=0;
 
 int seq_mode=2;  //0  dont  increase /1 increase   //increase randomly,about every 5 packet
 
+/*
 const uint64_t epoll_timer_fd_sn=1;
 const uint64_t epoll_raw_recv_fd_sn=2;
 const uint64_t epoll_udp_fd_sn_begin=0xFFFFFFFFllu+1;
 uint64_t epoll_udp_fd_sn=epoll_udp_fd_sn_begin;  //all udp_fd_sn > max uint32
+*/
 
 enum server_current_state_t {server_nothing=0,server_syn_ack_sent,server_handshake_sent,server_ready};
 enum client_current_state_t {client_nothing=0,client_syn_sent,client_ack_sent,client_handshake_sent,client_ready};
@@ -127,6 +129,7 @@ int raw_send_fd=-1;
 int bind_fd=-1;
 int epollfd=-1;
 int random_number_fd=-1;
+int timer_fd=-1;
 
 
 char key_string[1000]= "secret key";
@@ -335,7 +338,7 @@ uint64_t get_current_time();
 
 
 
-
+void server_clear_function(uint64_t u64);
 struct conv_manager_t  //TODO change map to unordered map
 {
 	//typedef hash_map map;
@@ -349,36 +352,29 @@ struct conv_manager_t  //TODO change map to unordered map
 	unordered_map<uint32_t,uint64_t>::iterator it;
 	unordered_map<uint32_t,uint64_t>::iterator old_it;
 
-	void (*clear_function)(uint64_t u64) ;
+	//void (*clear_function)(uint64_t u64) ;
 
 
 	conv_manager_t()
 	{
 		clear_it=conv_last_active_time.begin();
-		clear_function=0;
+		//clear_function=0;
 	}
 	int get_size()
 	{
 		return conv_to_u64.size();
 	}
 
-	void set_clear_function(void (*a)(uint64_t u64))
-	{
-		clear_function=a;
-		u64_to_conv.reserve(100007);
-		conv_to_u64.reserve(100007);
-		conv_last_active_time.reserve(100007);
-	}
 	void clear()
 	{
 		if(disable_conv_clear) return ;
 
-		if(clear_function!=0)
+		if(program_mode==server_mode)
 		{
 			for(it=conv_to_u64.begin();it!=conv_to_u64.end();it++)
 			{
 				//int fd=int((it->second<<32u)>>32u);
-				clear_function(  it->second);
+				server_clear_function(  it->second);
 			}
 		}
 		u64_to_conv.clear();
@@ -428,9 +424,9 @@ struct conv_manager_t  //TODO change map to unordered map
 	{
 		if(disable_conv_clear) return 0;
 		uint64_t u64=conv_to_u64[conv];
-		if(clear_function!=0)
+		if(program_mode==server_mode)
 		{
-			clear_function(u64);
+			server_clear_function(u64);
 		}
 		conv_to_u64.erase(conv);
 		u64_to_conv.erase(u64);
@@ -1063,7 +1059,7 @@ int peek_raw(uint32_t &ip,uint16_t &port)
     		struct tcphdr *tcph=(tcphdr *)payload;
     		if(recv_len<iphdrlen+sizeof(tcphdr))
     			return -1;
-    		port=ntohs(tcph->dest);
+    		port=ntohs(tcph->source);
 			break;
     	}
     	case mode_udp:
@@ -1072,7 +1068,7 @@ int peek_raw(uint32_t &ip,uint16_t &port)
     		struct udphdr *udph=(udphdr *)payload;
     		if(recv_len<iphdrlen+sizeof(udphdr))
     			return -1;
-    		port=ntohs(udph->dest);
+    		port=ntohs(udph->source);
 			break;
     	}
     	case mode_icmp:
@@ -2611,7 +2607,7 @@ int set_timer(int epollfd,int &timer_fd)
 
 
 	ev.events = EPOLLIN;
-	ev.data.u64 = epoll_timer_fd_sn;
+	ev.data.u64 = timer_fd;
 
 	epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
@@ -2874,6 +2870,7 @@ int server_on_raw_ready()
 				mylog(log_warn, "create udp_fd error\n");
 				return -1;
 			}
+			setnonblocking(new_udp_fd);
 			set_buf_size(new_udp_fd);
 
 			mylog(log_debug, "created new udp_fd %d\n", new_udp_fd);
@@ -2886,8 +2883,7 @@ int server_on_raw_ready()
 			}
 			struct epoll_event ev;
 
-			uint64_t u64 = ((u_int64_t(tmp_conv_id)) << 32u)
-					+ (uint32_t) new_udp_fd;
+			uint64_t u64 = new_udp_fd;
 			mylog(log_trace, "u64: %ld\n", u64);
 			ev.events = EPOLLIN;
 
@@ -2905,6 +2901,8 @@ int server_on_raw_ready()
 
 			mylog(log_info, "new conv conv_id=%x, assigned fd=%d\n",
 					tmp_conv_id, new_udp_fd);
+
+
 
 		}
 
@@ -3496,14 +3494,14 @@ int client_event_loop()
 	}
 
 	ev.events = EPOLLIN;
-	ev.data.u64 = epoll_udp_fd_sn;
+	ev.data.u64 = udp_fd;
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
 	if (ret!=0) {
 		mylog(log_fatal,"add  udp_listen_fd error\n");
 		myexit(-1);
 	}
 	ev.events = EPOLLIN;
-	ev.data.u64 = epoll_raw_recv_fd_sn;
+	ev.data.u64 = raw_recv_fd;
 
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
@@ -3517,7 +3515,7 @@ int client_event_loop()
 
 	//memset(&udp_old_addr_in,0,sizeof(sockaddr_in));
 	int unbind=1;
-	int timer_fd;
+
 
 	set_timer(epollfd,timer_fd);
 
@@ -3531,26 +3529,26 @@ int client_event_loop()
 		}
 		int n;
 		for (n = 0; n < nfds; ++n) {
-			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
+			if (events[n].data.u64 == raw_recv_fd)
 			{
 				iphdr *iph;tcphdr *tcph;
 				client_on_raw_recv();
 			}
-			if(events[n].data.u64 ==epoll_timer_fd_sn)
+			if(events[n].data.u64 ==timer_fd)
 			{
 				uint64_t value;
 				read(timer_fd, &value, 8);
 				keep_connection_client();
 			}
-			if (events[n].data.u64 == epoll_udp_fd_sn)
+			if (events[n].data.u64 == udp_fd)
 			{
 
 				socklen_t recv_len;
 				struct sockaddr_in udp_new_addr_in;
 				if ((recv_len = recvfrom(udp_fd, buf, buf_len, 0,
 						(struct sockaddr *) &udp_new_addr_in, &slen)) == -1) {
-					mylog(log_error,"recv_from error\n");
-					//exit(1);
+					mylog(log_error,"recv_from error,this shouldnt happen at client\n");
+					exit(1);
 				};
 
 				mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
@@ -3614,7 +3612,6 @@ int server_event_loop()
 {
 	char buf[buf_len];
 
-	conv_manager.set_clear_function(server_clear_function);
 	int i, j, k;int ret;
 
 	//g_packet_info_send.src_ip=inet_addr(local_address);
@@ -3666,7 +3663,7 @@ int server_event_loop()
 	}
 
 	ev.events = EPOLLIN;
-	ev.data.u64 = epoll_raw_recv_fd_sn;
+	ev.data.u64 = raw_recv_fd;
 
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
@@ -3686,19 +3683,33 @@ int server_event_loop()
 		const int MTU=1440;
 		for (n = 0; n < nfds; ++n)
 		{
-			if ((events[n].data.u64 >>32u) > 0u)
+			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
+			if (events[n].data.u64 == timer_fd)
 			{
-				uint32_t conv_id=events[n].data.u64>>32u;
+				uint64_t value;
+				read(timer_fd, &value, 8);
+				keep_connection_server_multi();
+			}
+			else if (events[n].data.u64 == raw_recv_fd)
+			{
+				iphdr *iph;tcphdr *tcph;
+				server_on_raw_recv_multi();
+			}
+			else
+			//if ((events[n].data.u64 >>32u) > 0u)
+			{
+				//uint32_t conv_id=events[n].data.u64>>32u;
 
-				int fd=int((events[n].data.u64<<32u)>>32u);
+				int fd=int(events[n].data.u64);
 
 				if(!conv_manager.is_u64_used(events[n].data.u64))
 				{
-					mylog(log_debug,"conv %x no longer exists\n",conv_id);
+					mylog(log_debug,"conv no longer exists,udp fd %d\n",fd);
 					int recv_len=recv(fd,buf,buf_len,0); ///////////TODO ,delete this
 					continue;
 				}
 
+				uint32_t conv_id=conv_manager.find_conv_by_u64(fd);
 
 
 				int recv_len=recv(fd,buf,buf_len,0);
@@ -3721,18 +3732,6 @@ int server_event_loop()
 					//send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv_id);
 					mylog(log_trace,"send !!\n");
 				}
-			}
-			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
-			if (events[n].data.u64 == epoll_timer_fd_sn)
-			{
-				uint64_t value;
-				read(timer_fd, &value, 8);
-				keep_connection_server_multi();
-			}
-			if (events[n].data.u64 == epoll_raw_recv_fd_sn)
-			{
-				iphdr *iph;tcphdr *tcph;
-				server_on_raw_recv_multi();
 			}
 
 		}
