@@ -457,7 +457,7 @@ struct conv_manager_t  //TODO change map to unordered map
 		mylog(log_info,"conv %x cleared\n");
 		return 0;
 	}
-	int clean_inactive()
+	int clear_inactive()
 	{
 		if(disable_conv_clear) return 0;
 
@@ -617,7 +617,7 @@ struct conn_manager_t
 	 u64|=port;
 	 return mp[u64];
  }
-int clean_inactive()
+int clear_inactive()
 {
 	if(disable_conv_clear) return 0;
 
@@ -2420,7 +2420,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
 	current_time_rough=get_current_time();
-	conn_info.conv_manager.clean_inactive();
+	conn_info.conv_manager.clear_inactive();
 	mylog(log_trace,"timer!\n");
 	begin:
 
@@ -2575,7 +2575,7 @@ int keep_connection_server_multi(conn_info_t &conn_info)
 	mylog(log_debug,"server timer!\n");
 	raw_info_t &raw_info=conn_info.raw_info;
 	current_time_rough=get_current_time();
-	conn_info.conv_manager.clean_inactive();
+	conn_info.conv_manager.clear_inactive();
 
 	if(conn_info.server_current_state==server_ready)
 	{
@@ -3823,7 +3823,7 @@ int server_event_loop()
 			{
 				uint64_t dummy;
 				read(timer_fd, &dummy, 8);
-				conn_manager.clean_inactive();
+				conn_manager.clear_inactive();
 			}
 			if ((events[n].data.u64 >>32u) == 2u)
 			{
