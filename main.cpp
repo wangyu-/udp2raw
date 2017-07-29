@@ -50,7 +50,7 @@ struct anti_replay_t
 	{
 		disabled=0;
 		max_packet_received=0;
-		anti_replay_seq=get_true_random_number_nz();
+		anti_replay_seq=get_true_random_number();
 		//memset(window,0,sizeof(window)); //not necessary
 	}
 	void re_init()
@@ -166,7 +166,7 @@ struct conv_manager_t  //TODO change map to unordered map
 	uint32_t get_new_conv()
 	{
 		uint32_t conv=get_true_random_number_nz();
-		while(conv!=0&&conv_to_u64.find(conv)!=conv_to_u64.end())
+		while(conv_to_u64.find(conv)!=conv_to_u64.end())
 		{
 			conv=get_true_random_number_nz();
 		}
@@ -791,7 +791,7 @@ int try_to_list_and_bind(int port)
 }
 int client_bind_to_a_new_port()
 {
-	int raw_send_port=10000+get_true_random_number_nz()%(65535-10000);
+	int raw_send_port=10000+get_true_random_number()%(65535-10000);
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
 	{
 		if (try_to_list_and_bind(raw_send_port)==0)
@@ -848,7 +848,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 			mylog(log_info,"state changed from nothing to syn_sent %d\n",conn_info.state.client_current_state);
 			conn_info.retry_counter = RETRY_TIME;
 
-			send_info.seq = get_true_random_number_nz();
+			send_info.seq = get_true_random_number();
 			send_info.ack_seq = 0; //get_true_random_number();
 			send_info.ts_ack = 0;
 			send_info.ack = 0;
@@ -1497,7 +1497,7 @@ int server_on_raw_recv_multi()
 			send_info.syn = 1;
 			send_info.ack = 1;
 
-			send_info.seq = get_true_random_number_nz(); //not necessary to set
+			send_info.seq = get_true_random_number(); //not necessary to set
 
 			mylog(log_info,"sent syn ack\n");
 			send_bare(raw_info, 0, 0);  //////////////send
@@ -1514,7 +1514,7 @@ int server_on_raw_recv_multi()
 			mylog(log_info,"sent handshake\n");
 
 			conn_info.my_id=get_true_random_number_nz();
-			send_handshake(raw_info,conn_info.my_id,random(),const_id);  //////////////send
+			send_handshake(raw_info,conn_info.my_id,get_true_random_number_nz(),const_id);  //////////////send
 
 			mylog(log_info,"changed state to server_heartbeat_sent_sent\n");
 
@@ -2000,8 +2000,9 @@ int client_event_loop()
 
 	conn_info_t conn_info;
 	conn_info.my_id=get_true_random_number_nz();
-	conn_info.raw_info.send_info.ack_seq=get_true_random_number_nz();
-	conn_info.raw_info.send_info.seq=get_true_random_number_nz();
+
+	conn_info.raw_info.send_info.ack_seq=get_true_random_number();
+	conn_info.raw_info.send_info.seq=get_true_random_number();
 
 
 	conn_info.conv_manager.reserve();
@@ -2708,9 +2709,6 @@ void iptables_warn()
 int main(int argc, char *argv[])
 {
 
-	uint32_t b=0xffff;
-	int32_t a=b;
-	printf("<%d>",a);
 
 	dup2(1, 2);//redirect stderr to stdout
 	signal(SIGINT, INThandler);

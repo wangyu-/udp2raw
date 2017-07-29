@@ -119,7 +119,7 @@ char * my_ntoa(uint32_t ip);
 void myexit(int a);
 void init_random_number_fd();
 uint64_t get_true_random_number_64();
-uint32_t get_true_random_number_0();
+uint32_t get_true_random_number();
 uint32_t get_true_random_number_nz();
 uint64_t ntoh64(uint64_t a);
 uint64_t hton64(uint64_t a);

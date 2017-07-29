@@ -69,7 +69,7 @@ uint64_t get_true_random_number_64()
 	read(random_number_fd,&ret,sizeof(ret));
 	return ret;
 }
-uint32_t get_true_random_number_0()
+uint32_t get_true_random_number()
 {
 	uint32_t ret;
 	read(random_number_fd,&ret,sizeof(ret));
@@ -80,7 +80,7 @@ uint32_t get_true_random_number_nz() //nz for non-zero
 	uint32_t ret=0;
 	while(ret==0)
 	{
-		ret=get_true_random_number_0();
+		ret=get_true_random_number();
 	}
 	return ret;
 }
