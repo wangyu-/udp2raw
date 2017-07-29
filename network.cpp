@@ -514,7 +514,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
 
-	mylog(log_debug,"syn %d\n",send_info.syn);
+	//mylog(log_debug,"syn %d\n",send_info.syn);
 
 	char send_raw_tcp_buf0[buf_len];
 	char *send_raw_tcp_buf=send_raw_tcp_buf0;

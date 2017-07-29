@@ -65,32 +65,29 @@ using  namespace std;
 
 const int max_data_len=65535;
 const int buf_len=max_data_len+200;
+const uint32_t max_handshake_conn_num=10000;
+const uint32_t max_ready_conn_num=1000;
+const uint32_t anti_replay_window_size=1000;
+const int max_conv_num=10000;
 
 const uint32_t client_handshake_timeout=3000;
-const uint32_t server_handshake_timeout=10000;
+const uint32_t server_handshake_timeout=10000;// this should be much longer than clients. client retry initially ,server retry passtively
 
-const uint32_t heartbeat_timeout=10000;
-const uint32_t udp_timeout=3000;
+const int conv_clear_ratio=10;  //conv grabage collecter check 1/10 of all conv one time
+const int conn_clear_ratio=10;
+
 
 const uint32_t heartbeat_interval=1000;
 
-const uint32_t timer_interval=500;
+const uint32_t timer_interval=400;//this should be smaller than heartbeat_interval
 
 const int RETRY_TIME=3;
 
-const uint32_t anti_replay_window_size=1000;
-
-const int max_conv_num=10000;
 const uint32_t conv_timeout=120000; //60 second
-const int conv_clear_ratio=10;
 
-const uint32_t max_handshake_conn_num=10000;
-const uint32_t max_ready_conn_num=1000;
 
-const uint32_t conn_timeout=conv_timeout+60000;
-
-const int conn_clear_ratio=10;
-
+const uint32_t client_conn_timeout=10000;
+const uint32_t server_conn_timeout=conv_timeout+60000;//this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
 
 
 

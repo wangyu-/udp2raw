@@ -269,7 +269,7 @@ int my_decrypt(const char *data,char *output,int &len,char * key)
 	if(len>max_data_len) return -1;
 
 	if(cipher_decrypt(data,output,len,key) !=0) {mylog(log_debug,"cipher_decrypt failed \n"); return -1;}
-	if(auth_verify(output,len)!=0) {mylog(log_debug,"auth_verify failed ");return -1;}
+	if(auth_verify(output,len)!=0) {mylog(log_debug,"auth_verify failed\n");return -1;}
 
 	return 0;
 }
