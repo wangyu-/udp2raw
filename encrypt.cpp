@@ -200,7 +200,7 @@ int cipher_none_decrypt(const char *data,char *output,int &len,char * key)
 
 int auth_cal(const char *data,char * output,int &len)
 {
-	mylog(log_debug,"auth:%d\n",auth_mode);
+	mylog(log_trace,"auth:%d\n",auth_mode);
 	switch(auth_mode)
 	{
 	case auth_crc32:return auth_crc32_cal(data, output, len);
@@ -213,7 +213,7 @@ int auth_cal(const char *data,char * output,int &len)
 }
 int auth_verify(const char *data,int &len)
 {
-	mylog(log_debug,"auth:%d\n",auth_mode);
+	mylog(log_trace,"auth:%d\n",auth_mode);
 	switch(auth_mode)
 	{
 	case auth_crc32:return auth_crc32_verify(data, len);
@@ -226,7 +226,7 @@ int auth_verify(const char *data,int &len)
 }
 int cipher_encrypt(const char *data,char *output,int &len,char * key)
 {
-	mylog(log_debug,"cipher:%d\n",cipher_mode);
+	mylog(log_trace,"cipher:%d\n",cipher_mode);
 	switch(cipher_mode)
 	{
 	case cipher_aes128cbc:return cipher_aes128cbc_encrypt(data,output,len, key);
@@ -238,7 +238,7 @@ int cipher_encrypt(const char *data,char *output,int &len,char * key)
 }
 int cipher_decrypt(const char *data,char *output,int &len,char * key)
 {
-	mylog(log_debug,"cipher:%d\n",cipher_mode);
+	mylog(log_trace,"cipher:%d\n",cipher_mode);
 	switch(cipher_mode)
 	{
 		case cipher_aes128cbc:return cipher_aes128cbc_decrypt(data,output,len, key);

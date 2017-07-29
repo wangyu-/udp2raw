@@ -124,7 +124,24 @@ tcpdump -i eth1  ip and icmp -dd
 
  */
 
+packet_info_t::packet_info_t()
+{
+		if(raw_mode==mode_faketcp)
+		{
+			protocol=IPPROTO_TCP;
+			ack_seq=get_true_random_number();
+			seq=get_true_random_number();
+		}
+		else if(raw_mode==mode_udp)
+		{
+			protocol=IPPROTO_UDP;
+		}
+		else if(raw_mode==mode_icmp)
+		{
+			protocol=IPPROTO_ICMP;
+		}
 
+}
 
 
 int init_raw_socket()
@@ -1185,7 +1202,7 @@ int send_raw(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
-	mylog(log_debug,"send_raw : from %x %d  to %x %d\n",send_info.src_ip,send_info.src_port,send_info.dst_ip,send_info.dst_port);
+	mylog(log_trace,"send_raw : from %x %d  to %x %d\n",send_info.src_ip,send_info.src_port,send_info.dst_ip,send_info.dst_port);
 	switch(raw_mode)
 	{
 		case mode_faketcp:return send_raw_tcp(raw_info,payload,payloadlen);

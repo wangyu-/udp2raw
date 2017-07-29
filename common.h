@@ -66,7 +66,7 @@ using  namespace std;
 const int max_data_len=65535;
 const int buf_len=max_data_len+200;
 
-const uint32_t handshake_timeout=2000;
+const uint32_t client_handshake_timeout=3000;
 const uint32_t server_handshake_timeout=10000;
 
 const uint32_t heartbeat_timeout=10000;
@@ -87,7 +87,8 @@ const int conv_clear_ratio=10;
 const uint32_t max_handshake_conn_num=10000;
 const uint32_t max_ready_conn_num=1000;
 
-const uint32_t conn_timeout=60000;
+const uint32_t conn_timeout=conv_timeout+60000;
+
 const int conn_clear_ratio=10;
 
 

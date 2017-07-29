@@ -264,9 +264,8 @@ struct conn_info_t
 	id_t my_id;
 	id_t oppsite_id;
 
-
-	conv_manager_t conv_manager;
-	anti_replay_t anti_replay;
+	conv_manager_t *conv_manager;
+	anti_replay_t *anti_replay;
 	int timer_fd;
 	int retry_counter;
 	id_t oppsite_const_id;
@@ -279,16 +278,46 @@ struct conn_info_t
 			state.client_current_state=client_nothing;
 		last_state_time=0;
 		oppsite_const_id=0;
+		conv_manager=0;
+		anti_replay=0;
 	}
+	void prepare()
+	{
+		conv_manager=new conv_manager_t;
+		anti_replay=new anti_replay_t;
+	}
+	conn_info_t(const conn_info_t&b)
+	{
+		//mylog(log_error,"called!!!!!!!!!!!!!\n");
+		*this=b;
+		if(conv_manager!=0)
+		{
+			conv_manager=new conv_manager_t(*b.conv_manager);
+		}
+		if(anti_replay!=0)
+		{
+			anti_replay=new anti_replay_t(*b.anti_replay);
+		}
+	}
+	conn_info_t& operator+=(const conn_info_t& b)
+	  {
+		mylog(log_fatal,"not allowed\n");
+		myexit(-1);
+	    return *this;
+	  }
 	~conn_info_t()
 	{
+		if(conv_manager!=0)
+			delete conv_manager;
+		if(anti_replay!=0)
+			delete anti_replay;
 		//send_packet_info.protocol=g_packet_info_send.protocol;
 	}
 };//g_conn_info;
 
 struct conn_manager_t
 {
- unordered_map<uint64_t,conn_info_t> mp;
+
  uint32_t ready_num;
 
  unordered_map<int,conn_info_t *> udp_fd_mp;  //a bit dirty to used pointer,but can void unordered_map search
@@ -298,7 +327,7 @@ struct conn_manager_t
 
  unordered_map<uint64_t,conn_info_t>::iterator clear_it;
 
-
+ unordered_map<uint64_t,conn_info_t> mp; //put it at end so that it de-consturcts first
  //uint32_t current_ready_ip;
  //uint16_t current_ready_port;
  conn_manager_t()
@@ -306,8 +335,9 @@ struct conn_manager_t
 	 ready_num=0;
 	 mp.reserve(10007);
 	 clear_it=mp.begin();
-	 //timer_fd_mp.reserve(10007);
-	 //udp_fd_mp.reserve(100007);
+	 timer_fd_mp.reserve(10007);
+	 const_id_mp.reserve(10007);
+	 udp_fd_mp.reserve(100007);
 	 //current_ready_ip=0;
 	// current_ready_port=0;
  }
@@ -556,6 +586,7 @@ void server_clear_function(uint64_t u64)
 		mylog(log_fatal,"close fd %d failed !!!!\n",fd);
 		myexit(-1);  //this shouldnt happen
 	}
+	//mylog(log_fatal,"size:%d !!!!\n",conn_manager.udp_fd_mp.size());
 	conn_manager.udp_fd_mp.erase(udp_fd);
 }
 
@@ -661,7 +692,7 @@ int send_safer(conn_info_t &conn_info,const char* data,int len)
 
 	memcpy(send_data_buf+sizeof(n_tmp_id),&n_tmp_id,sizeof(n_tmp_id));
 
-	anti_replay_seq_t n_seq=hton64(conn_info.anti_replay.get_new_seq_for_send());
+	anti_replay_seq_t n_seq=hton64(conn_info.anti_replay->get_new_seq_for_send());
 
 	memcpy(send_data_buf+sizeof(n_tmp_id)*2,&n_seq,sizeof(n_seq));
 
@@ -719,7 +750,7 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &d
 		return -1;
 	}
 
-	if (conn_info.anti_replay.is_vaild(h_seq) != 1) {
+	if (conn_info.anti_replay->is_vaild(h_seq) != 1) {
 		mylog(log_warn,"dropped replay packet\n");
 		return -1;
 	}
@@ -810,13 +841,13 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
 	current_time_rough=get_current_time();
-	conn_info.conv_manager.clear_inactive();
+	conn_info.conv_manager->clear_inactive();
 	mylog(log_trace,"timer!\n");
 	//begin:
 
 	if(conn_info.state.client_current_state==client_nothing)
 	{
-		conn_info.anti_replay.re_init(); //  this is not safe
+		conn_info.anti_replay->re_init(); //  this is not safe
 
 		if(raw_mode==mode_icmp)
 		{
@@ -871,7 +902,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 		}
 		return 0;
 	}
-	if(conn_info.state.client_current_state==client_syn_sent  &&get_current_time()-conn_info.last_state_time>handshake_timeout)
+	if(conn_info.state.client_current_state==client_syn_sent  &&get_current_time()-conn_info.last_state_time>client_handshake_timeout)
 	{
 		if(conn_info.retry_counter==0)
 		{
@@ -888,7 +919,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 			conn_info.last_state_time=get_current_time();
 		}
 	}
-	if(conn_info.state.client_current_state==client_ack_sent &&get_current_time()-conn_info.last_state_time>handshake_timeout)
+	if(conn_info.state.client_current_state==client_ack_sent &&get_current_time()-conn_info.last_state_time>client_handshake_timeout)
 	{
 		if(conn_info.retry_counter==0)
 		{
@@ -913,7 +944,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 		}
 	}
 
-	if(conn_info.state.client_current_state==client_handshake_sent&&get_current_time()-conn_info.last_state_time>handshake_timeout)
+	if(conn_info.state.client_current_state==client_handshake_sent&&get_current_time()-conn_info.last_state_time>client_handshake_timeout)
 	{
 		if(conn_info.retry_counter==0)
 		{
@@ -962,10 +993,10 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 }
 int keep_connection_server_multi(conn_info_t &conn_info)
 {
-	mylog(log_debug,"server timer!\n");
+	mylog(log_trace,"server timer!\n");
 	raw_info_t &raw_info=conn_info.raw_info;
 	current_time_rough=get_current_time();
-	conn_info.conv_manager.clear_inactive();
+	conn_info.conv_manager->clear_inactive();
 
 	if(conn_info.state.server_current_state==server_ready)
 	{
@@ -1293,15 +1324,15 @@ int client_on_raw_recv(conn_info_t &conn_info)
 
 			uint32_t tmp_conv_id= ntohl(* ((uint32_t *)&data[1]));
 
-			if(!conn_info.conv_manager.is_conv_used(tmp_conv_id))
+			if(!conn_info.conv_manager->is_conv_used(tmp_conv_id))
 			{
 				mylog(log_info,"unknow conv %d,ignore\n",tmp_conv_id);
 				return 0;
 			}
 
-			conn_info.conv_manager.update_active_time(tmp_conv_id);
+			conn_info.conv_manager->update_active_time(tmp_conv_id);
 
-			uint64_t u64=conn_info.conv_manager.find_u64_by_conv(tmp_conv_id);
+			uint64_t u64=conn_info.conv_manager->find_u64_by_conv(tmp_conv_id);
 
 
 			sockaddr_in tmp_sockaddr;
@@ -1357,8 +1388,8 @@ int server_on_raw_ready(conn_info_t &conn_info)
 		conn_info.last_hb_recv_time = current_time_rough;
 
 		mylog(log_debug, "<<<<conv:%u>>>>\n", tmp_conv_id);
-		if (!conn_info.conv_manager.is_conv_used(tmp_conv_id)) {
-			if (conn_info.conv_manager.get_size() >= max_conv_num) {
+		if (!conn_info.conv_manager->is_conv_used(tmp_conv_id)) {
+			if (conn_info.conv_manager->get_size() >= max_conv_num) {
 				mylog(log_warn,
 						"ignored new conv %x connect bc max_conv_num exceed\n",
 						tmp_conv_id);
@@ -1404,7 +1435,7 @@ int server_on_raw_ready(conn_info_t &conn_info)
 				return -1;
 			}
 
-			conn_info.conv_manager.insert_conv(tmp_conv_id, new_udp_fd);
+			conn_info.conv_manager->insert_conv(tmp_conv_id, new_udp_fd);
 			conn_manager.udp_fd_mp[new_udp_fd] = &conn_info;
 
 			//pack_u64(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
@@ -1416,9 +1447,9 @@ int server_on_raw_ready(conn_info_t &conn_info)
 
 		}
 
-		uint64_t u64 = conn_info.conv_manager.find_u64_by_conv(tmp_conv_id);
+		uint64_t u64 = conn_info.conv_manager->find_u64_by_conv(tmp_conv_id);
 
-		conn_info.conv_manager.update_active_time(tmp_conv_id);
+		conn_info.conv_manager->update_active_time(tmp_conv_id);
 
 		int fd = int((u64 << 32u) >> 32u);
 
@@ -1444,10 +1475,10 @@ int server_on_raw_recv_multi()
 		struct sockaddr saddr;
 		socklen_t saddr_size;
 		recvfrom(raw_recv_fd, 0,0, 0 ,&saddr , &saddr_size);//
-		mylog(log_info,"peek_raw failed\n");
+		mylog(log_trace,"peek_raw failed\n");
 		return -1;
 	}
-	mylog(log_info,"peek_raw %s %d\n",my_ntoa(ip),port);
+	mylog(log_trace,"peek_raw %s %d\n",my_ntoa(ip),port);
 	/*if(ip==conn_manager.current_ready_ip&&port==conn_manager.current_ready_port)
 	{
 		return server_on_raw_ready();
@@ -1618,6 +1649,7 @@ int server_on_raw_recv_multi()
 				return 0;
 			}
 
+			conn_info.prepare();
 			conn_info.state.server_current_state = server_ready;
 			conn_info.oppsite_const_id=tmp_oppsite_const_id;
 			conn_manager.ready_num++;
@@ -1637,12 +1669,14 @@ int server_on_raw_recv_multi()
 			send_safer(conn_info, (char *) "h", 1);		/////////////send
 
 			mylog(log_info, "changed state to server_ready,%d %d\n", ip, port);
-			conn_info.anti_replay.re_init();
+			conn_info.anti_replay->re_init();
 
 			//g_conn_info=conn_info;
 			int new_timer_fd;
 			set_timer_server(epollfd, new_timer_fd);
 			conn_manager.timer_fd_mp[new_timer_fd] = &conn_info;//pack_u64(ip,port);
+
+
 			//timer_fd_mp[new_timer_fd]
 			/*
 			 if(oppsite_const_id!=0&&tmp_oppsite_const_id!=oppsite_const_id)  //TODO MOVE TO READY
@@ -2001,12 +2035,7 @@ int client_event_loop()
 	conn_info_t conn_info;
 	conn_info.my_id=get_true_random_number_nz();
 
-	conn_info.raw_info.send_info.ack_seq=get_true_random_number();
-	conn_info.raw_info.send_info.seq=get_true_random_number();
-
-
-	conn_info.conv_manager.reserve();
-
+	conn_info.prepare();
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
@@ -2160,23 +2189,23 @@ int client_event_loop()
 				uint64_t u64=((uint64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
 				uint32_t conv;
 
-				if(!conn_info.conv_manager.is_u64_used(u64))
+				if(!conn_info.conv_manager->is_u64_used(u64))
 				{
-					if(conn_info.conv_manager.get_size() >=max_conv_num)
+					if(conn_info.conv_manager->get_size() >=max_conv_num)
 					{
 						mylog(log_warn,"ignored new udp connect bc max_conv_num exceed\n");
 						continue;
 					}
-					conv=conn_info.conv_manager.get_new_conv();
-					conn_info.conv_manager.insert_conv(conv,u64);
+					conv=conn_info.conv_manager->get_new_conv();
+					conn_info.conv_manager->insert_conv(conv,u64);
 					mylog(log_info,"new connection from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
 				}
 				else
 				{
-					conv=conn_info.conv_manager.find_conv_by_u64(u64);
+					conv=conn_info.conv_manager->find_conv_by_u64(u64);
 				}
 
-				conn_info.conv_manager.update_active_time(conv);
+				conn_info.conv_manager->update_active_time(conv);
 
 				if(conn_info.state.client_current_state==client_ready)
 				{
@@ -2313,8 +2342,13 @@ int server_event_loop()
 					continue;
 				}
 				conn_info_t* p_conn_info=conn_manager.udp_fd_mp[fd];
+				if(p_conn_info->state.server_current_state!=server_ready)
+				{
+					continue;
+				}
 				uint32_t ip=p_conn_info->raw_info.recv_info.src_ip;
 				uint32_t port=p_conn_info->raw_info.recv_info.src_port;
+
 				/*
 				if(conn_manager.exist(ip,port)==0)
 				{
@@ -2324,14 +2358,14 @@ int server_event_loop()
 				}*/
 				conn_info_t &conn_info=*p_conn_info;
 
-				if(!conn_info.conv_manager.is_u64_used(fd))
+				if(!conn_info.conv_manager->is_u64_used(fd))
 				{
 					mylog(log_debug,"conv no longer exists,udp fd %d\n",fd);
 					int recv_len=recv(fd,buf,buf_len,0); ///////////TODO ,delete this
 					continue;
 				}
 
-				uint32_t conv_id=conn_info.conv_manager.find_conv_by_u64(fd);
+				uint32_t conv_id=conn_info.conv_manager->find_conv_by_u64(fd);
 
 
 				int recv_len=recv(fd,buf,buf_len,0);
@@ -2346,7 +2380,7 @@ int server_event_loop()
 					//return 0;
 				}
 
-				conn_info.conv_manager.update_active_time(conv_id);
+				conn_info.conv_manager->update_active_time(conv_id);
 
 				if(conn_info.state.server_current_state==server_ready)
 				{
@@ -2709,14 +2743,11 @@ void iptables_warn()
 int main(int argc, char *argv[])
 {
 
-
 	dup2(1, 2);//redirect stderr to stdout
 	signal(SIGINT, INThandler);
 	process_arg(argc,argv);
 
 	iptables_warn();
-
-
 
 	current_time_rough=get_current_time();
 

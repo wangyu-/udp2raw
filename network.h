@@ -53,32 +53,13 @@ struct packet_info_t
 	uint16_t icmp_seq;
 
 	bool has_ts;
-	packet_info_t()
-	{
-		if(raw_mode==mode_faketcp)
-		{
-			protocol=IPPROTO_TCP;
-		}
-		else if(raw_mode==mode_udp)
-		{
-			protocol=IPPROTO_UDP;
-		}
-		else if(raw_mode==mode_icmp)
-		{
-			protocol=IPPROTO_ICMP;
-		}
-	}
+	packet_info_t();
 };
 
 struct raw_info_t
 {
-//	int peek;
 	packet_info_t send_info;
 	packet_info_t recv_info;
-	raw_info_t()
-	{
-	//	peek=0;
-	}
 };//g_raw_info;
 
 
