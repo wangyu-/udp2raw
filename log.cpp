@@ -23,7 +23,7 @@ void log0(const char * file,const char * function,int line,int level,const char*
 		printf(log_color[level]);
 
 	strftime(buffer, 100, "%Y-%m-%d %H:%M:%S", tm_info);
-	printf("[%s][%s]",buffer,log_text[level],file,line);
+	printf("[%s][%s]",buffer,log_text[level]);
 
 	if(enable_log_position)printf("[%s,func:%s,line:%d]",file,function,line);
 

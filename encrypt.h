@@ -1,13 +1,10 @@
 #ifndef _ENCRYPTION_H_
 #define _ENCRYPTION_H_
-#include <aes.h>
-#include <md5.h>
-#include <string.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <map>
-#include <string>
+#include "aes.h"
+#include "md5.h"
+
+#include "common.h"
+
 using namespace std;
 int my_encrypt(const char *data,char *output,int &len,char * key);
 int my_decrypt(const char *data,char *output,int &len,char * key);

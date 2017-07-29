@@ -12,8 +12,6 @@
 
 static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog use zero iv,you should make sure first block of data contains a random/nonce data
 
-extern const int max_data_len;
-extern const int buf_len;//=65535;
 
 map<int, string> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_sum,"sum"}};
 map<int, string> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"}};
@@ -209,8 +207,9 @@ int auth_cal(const char *data,char * output,int &len)
 	case auth_md5:return auth_md5_cal(data, output, len);
 	case auth_sum:return auth_sum_cal(data, output, len);
 	case auth_none:return auth_none_cal(data, output, len);
+	default:	return auth_md5_cal(data,output,len);//default
 	}
-	return auth_md5_cal(data,output,len);//default
+
 }
 int auth_verify(const char *data,int &len)
 {
@@ -221,8 +220,9 @@ int auth_verify(const char *data,int &len)
 	case auth_md5:return auth_md5_verify(data, len);
 	case auth_sum:return auth_sum_verify(data, len);
 	case auth_none:return auth_none_verify(data, len);
+	default:	return auth_md5_verify(data,len);//default
 	}
-	return auth_md5_verify(data,len);//default
+
 }
 int cipher_encrypt(const char *data,char *output,int &len,char * key)
 {
@@ -232,8 +232,9 @@ int cipher_encrypt(const char *data,char *output,int &len,char * key)
 	case cipher_aes128cbc:return cipher_aes128cbc_encrypt(data,output,len, key);
 	case cipher_xor:return cipher_xor_encrypt(data,output,len, key);
 	case cipher_none:return cipher_none_encrypt(data,output,len, key);
+	default:return cipher_aes128cbc_encrypt(data,output,len, key);
 	}
-	return cipher_aes128cbc_encrypt(data,output,len, key);
+
 }
 int cipher_decrypt(const char *data,char *output,int &len,char * key)
 {
@@ -243,8 +244,9 @@ int cipher_decrypt(const char *data,char *output,int &len,char * key)
 		case cipher_aes128cbc:return cipher_aes128cbc_decrypt(data,output,len, key);
 		case cipher_xor:return cipher_xor_decrypt(data,output,len, key);
 		case cipher_none:return cipher_none_decrypt(data,output,len, key);
+		default:	return cipher_aes128cbc_decrypt(data,output,len,key);
 	}
-	return cipher_aes128cbc_decrypt(data,output,len,key);
+
 }
 
 
