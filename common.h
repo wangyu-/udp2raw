@@ -66,28 +66,28 @@ using  namespace std;
 const int max_data_len=65535;
 const int buf_len=max_data_len+200;
 
-const int handshake_timeout=2000;
-const int server_handshake_timeout=10000;
+const uint32_t handshake_timeout=2000;
+const uint32_t server_handshake_timeout=10000;
 
-const int heartbeat_timeout=10000;
-const int udp_timeout=3000;
+const uint32_t heartbeat_timeout=10000;
+const uint32_t udp_timeout=3000;
 
-const int heartbeat_interval=1000;
+const uint32_t heartbeat_interval=1000;
 
-const int timer_interval=500;
+const uint32_t timer_interval=500;
 
 const int RETRY_TIME=3;
 
-const int anti_replay_window_size=1000;
+const uint32_t anti_replay_window_size=1000;
 
 const int max_conv_num=10000;
-const int conv_timeout=120000; //60 second
+const uint32_t conv_timeout=120000; //60 second
 const int conv_clear_ratio=10;
 
-const int max_handshake_conn_num=10000;
-const int max_ready_conn_num=1000;
+const uint32_t max_handshake_conn_num=10000;
+const uint32_t max_ready_conn_num=1000;
 
-const int conn_timeout=60000;
+const uint32_t conn_timeout=60000;
 const int conn_clear_ratio=10;
 
 

@@ -162,7 +162,7 @@ int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 }
 int auth_crc32_verify(const char *data,int &len)
 {
-	if(len<(sizeof(unsigned int)))
+	if(len<int(sizeof(unsigned int)))
 	{
 		mylog(log_debug,"auth_crc32_verify len<16\n");
 		return -1;

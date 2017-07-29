@@ -189,7 +189,7 @@ int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len)
 
 int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3)
 {
-	if(len<sizeof(id_t)*3) return -1;
+	if(len<int(sizeof(id_t)*3)) return -1;
 	id1=ntohl(  *((id_t*)(data+0)) );
 	id2=ntohl(  *((id_t*)(data+sizeof(id_t))) );
 	id3=ntohl(  *((id_t*)(data+sizeof(id_t)*2)) );

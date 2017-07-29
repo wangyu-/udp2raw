@@ -285,7 +285,7 @@ int peek_raw(uint32_t &ip,uint16_t &port)
 	int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,buf_len, MSG_PEEK ,&saddr , &saddr_size);//change buf_len to something smaller,we only need header here
 	iphdr * iph = (struct iphdr *) (ip_begin);
 	//mylog(log_info,"recv_len %d\n",recv_len);
-	if(recv_len<sizeof(iphdr))
+	if(recv_len<int(sizeof(iphdr)))
 	{
 		return -1;
 	}
@@ -300,7 +300,7 @@ int peek_raw(uint32_t &ip,uint16_t &port)
     	{
     		if(iph->protocol!=IPPROTO_TCP) return -1;
     		struct tcphdr *tcph=(tcphdr *)payload;
-    		if(recv_len<iphdrlen+sizeof(tcphdr))
+    		if(recv_len<int( iphdrlen+sizeof(tcphdr) ))
     			return -1;
     		port=ntohs(tcph->source);
 			break;
@@ -309,7 +309,7 @@ int peek_raw(uint32_t &ip,uint16_t &port)
     	{
     		if(iph->protocol!=IPPROTO_UDP) return -1;
     		struct udphdr *udph=(udphdr *)payload;
-    		if(recv_len<iphdrlen+sizeof(udphdr))
+    		if(recv_len<int(iphdrlen+sizeof(udphdr)))
     			return -1;
     		port=ntohs(udph->source);
 			break;
@@ -318,7 +318,7 @@ int peek_raw(uint32_t &ip,uint16_t &port)
     	{
     		if(iph->protocol!=IPPROTO_ICMP) return -1;
     		struct icmphdr *icmph=(icmphdr *)payload;
-    		if(recv_len<iphdrlen+sizeof(icmphdr))
+    		if(recv_len<int( iphdrlen+sizeof(icmphdr) ))
     			return -1;
     		port=ntohs(icmph->id);
 			break;
@@ -347,7 +347,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 		mylog(log_trace,"recv_len %d\n",recv_len);
 		return -1;
 	}
-	if(recv_len<link_level_header_len)
+	if(recv_len<int(link_level_header_len))
 	{
 		mylog(log_trace,"length error\n");
 	}
@@ -383,7 +383,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 	int ip_len=ntohs(iph->tot_len);
 
-	if(recv_len-link_level_header_len <ip_len)
+	if(recv_len-int(link_level_header_len) <ip_len)
 	{
 		mylog(log_debug,"incomplete packet\n");
 		return -1;
@@ -853,7 +853,7 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 		//printf("not udp protocol\n");
 		return -1;
 	}
-	if(ip_payloadlen<sizeof(udphdr))
+	if(ip_payloadlen<int( sizeof(udphdr) ))
 	{
 		mylog(log_debug,"too short to hold udpheader\n");
 		return -1;

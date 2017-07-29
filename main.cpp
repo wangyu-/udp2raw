@@ -82,7 +82,7 @@ struct anti_replay_t
 			}
 			else
 			{
-				for (int i=max_packet_received+1;i<seq;i++)
+				for (uint32_t i=max_packet_received+1;i<seq;i++)
 					window[i%anti_replay_window_size]=0;
 				window[seq%anti_replay_window_size]=1;
 			}
@@ -289,7 +289,7 @@ struct conn_info_t
 struct conn_manager_t
 {
  unordered_map<uint64_t,conn_info_t> mp;
- int ready_num;
+ uint32_t ready_num;
 
  unordered_map<int,conn_info_t *> udp_fd_mp;  //a bit dirty to used pointer,but can void unordered_map search
  unordered_map<int,conn_info_t *> timer_fd_mp;//we can use pointer here since unordered_map.rehash() uses shallow copy
@@ -1285,7 +1285,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			conn_info.last_hb_recv_time=current_time_rough;
 			return 0;
 		}
-		else if(data_len>=sizeof(uint32_t)+1&&data[0]=='d')
+		else if(data_len>= int( sizeof(uint32_t)+1 )&&data[0]=='d')
 		{
 			mylog(log_trace,"received a data from fake tcp,len:%d\n",data_len);
 
@@ -1351,7 +1351,7 @@ int server_on_raw_ready(conn_info_t &conn_info)
 		mylog(log_debug, "received hb <%x,%x>\n", conn_info.oppsite_id, tmp);
 		conn_info.last_hb_recv_time = current_time_rough;
 		return 0;
-	} else if (data[0] == 'd' && data_len >= sizeof(uint32_t) + 1) {
+	} else if (data[0] == 'd' && data_len >=int( sizeof(uint32_t) + 1)) {
 		uint32_t tmp_conv_id = ntohl(*((uint32_t *) &data[1]));
 
 		conn_info.last_hb_recv_time = current_time_rough;
@@ -2109,21 +2109,21 @@ int client_event_loop()
 		}
 		int n;
 		for (n = 0; n < nfds; ++n) {
-			if (events[n].data.u64 == raw_recv_fd)
+			if (events[n].data.u64 == (uint64_t)raw_recv_fd)
 			{
 				iphdr *iph;tcphdr *tcph;
 				client_on_raw_recv(conn_info);
 			}
-			if(events[n].data.u64 ==timer_fd)
+			if(events[n].data.u64 ==(uint64_t)timer_fd)
 			{
 				uint64_t value;
 				read(timer_fd, &value, 8);
 				keep_connection_client(conn_info);
 			}
-			if (events[n].data.u64 == udp_fd)
+			if (events[n].data.u64 == (uint64_t)udp_fd)
 			{
 
-				socklen_t recv_len;
+				int recv_len;
 				struct sockaddr_in udp_new_addr_in;
 				if ((recv_len = recvfrom(udp_fd, buf, buf_len, 0,
 						(struct sockaddr *) &udp_new_addr_in, &slen)) == -1) {
@@ -2265,7 +2265,7 @@ int server_event_loop()
 		for (n = 0; n < nfds; ++n)
 		{
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
-			if ((events[n].data.u64 ) == timer_fd)
+			if ((events[n].data.u64 ) == (uint64_t)timer_fd)
 			{
 				uint64_t dummy;
 				read(timer_fd, &dummy, 8);
@@ -2293,7 +2293,7 @@ int server_event_loop()
 				//conn_info_t &conn_info=conn_manager.find(ip,port);
 				keep_connection_server_multi(*p_conn_info);
 			}
-			else if (events[n].data.u64 == raw_recv_fd)
+			else if (events[n].data.u64 == (uint64_t)raw_recv_fd)
 			{
 				iphdr *iph;tcphdr *tcph;
 				server_on_raw_recv_multi();
@@ -2707,6 +2707,11 @@ void iptables_warn()
 }
 int main(int argc, char *argv[])
 {
+
+	uint32_t b=0xffff;
+	int32_t a=b;
+	printf("<%d>",a);
+
 	dup2(1, 2);//redirect stderr to stdout
 	signal(SIGINT, INThandler);
 	process_arg(argc,argv);
