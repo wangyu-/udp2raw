@@ -47,13 +47,6 @@ char * my_ntoa(uint32_t ip)
 
 
 
-void myexit(int a)
-{
-    if(enable_log_color)
-    	 printf(RESET);
-	exit(a);
-}
-
 
 
 void init_random_number_fd()
@@ -62,7 +55,7 @@ void init_random_number_fd()
 	if(random_number_fd==-1)
 	{
 		mylog(log_fatal,"error open /dev/urandom\n");
-		myexit(-1);
+		exit(-1);
 	}
 }
 uint64_t get_true_random_number_64()
@@ -112,13 +105,13 @@ void setnonblocking(int sock) {
 	if (opts < 0) {
     	mylog(log_fatal,"fcntl(sock,GETFL)\n");
 		//perror("fcntl(sock,GETFL)");
-		myexit(1);
+		exit(1);
 	}
 	opts = opts | O_NONBLOCK;
 	if (fcntl(sock, F_SETFL, opts) < 0) {
     	mylog(log_fatal,"fcntl(sock,SETFL,opts)\n");
 		//perror("fcntl(sock,SETFL,opts)");
-		myexit(1);
+		exit(1);
 	}
 
 }
@@ -154,12 +147,12 @@ int set_buf_size(int fd)
     if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
     	mylog(log_fatal,"SO_SNDBUFFORCE fail\n");
-    	myexit(1);
+    	exit(1);
     }
     if(setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
     	mylog(log_fatal,"SO_RCVBUFFORCE fail\n");
-    	myexit(1);
+    	exit(1);
     }
 	return 0;
 }
@@ -168,7 +161,7 @@ void  INThandler(int sig)
 {
      if(enable_log_color)
     	 printf(RESET);
-     myexit(0);
+     exit(0);
 }
 
 int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len)

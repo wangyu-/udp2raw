@@ -303,7 +303,7 @@ struct conn_info_t
 	conn_info_t& operator=(const conn_info_t& b)
 	  {
 		mylog(log_fatal,"not allowed\n");
-		myexit(-1);
+		exit(-1);
 	    return *this;
 	  }
 	~conn_info_t();
@@ -644,7 +644,7 @@ void server_clear_function(uint64_t u64)
 	if (ret!=0)
 	{
 		mylog(log_fatal,"close fd %d failed !!!!\n",fd);
-		myexit(-1);  //this shouldnt happen
+		exit(-1);  //this shouldnt happen
 	}
 	//mylog(log_fatal,"size:%d !!!!\n",conn_manager.udp_fd_mp.size());
 	assert(conn_manager.udp_fd_mp.find(fd)!=conn_manager.udp_fd_mp.end());
@@ -892,7 +892,7 @@ int client_bind_to_a_new_port()
 		}
 	}
 	mylog(log_fatal,"bind port fail\n");
-	myexit(-1);
+	exit(-1);
 	return -1;////for compiler check
 }
 
@@ -912,7 +912,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 		if(fail_time_counter>max_fail_time)
 		{
 			mylog(log_fatal,"max_fail_time exceed");
-			myexit(-1);
+			exit(-1);
 		}
 
 		conn_info.anti_replay->re_init(); //  this is not safe
@@ -1089,7 +1089,7 @@ int keep_connection_server_multi(conn_info_t &conn_info)
 	else
 	{
 		mylog(log_fatal,"this shouldnt happen!\n");
-		myexit(-1);
+		exit(-1);
 	}
 	return 0;
 
@@ -1176,7 +1176,7 @@ int set_timer(int epollfd,int &timer_fd)
 	if((timer_fd=timerfd_create(CLOCK_MONOTONIC,TFD_NONBLOCK)) < 0)
 	{
 		mylog(log_fatal,"timer_fd create error\n");
-		myexit(1);
+		exit(1);
 	}
 	its.it_interval.tv_sec=(timer_interval/1000);
 	its.it_interval.tv_nsec=(timer_interval%1000)*1000ll*1000ll;
@@ -1190,7 +1190,7 @@ int set_timer(int epollfd,int &timer_fd)
 	ret=epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
 		mylog(log_fatal,"epoll_ctl return %d\n", ret);
-		myexit(-1);
+		exit(-1);
 	}
 	return 0;
 }
@@ -1206,7 +1206,7 @@ int set_timer_server(int epollfd,int &timer_fd)
 	if((timer_fd=timerfd_create(CLOCK_MONOTONIC,TFD_NONBLOCK)) < 0)
 	{
 		mylog(log_fatal,"timer_fd create error\n");
-		myexit(1);
+		exit(1);
 	}
 	its.it_interval.tv_sec=(timer_interval/1000);
 	its.it_interval.tv_nsec=(timer_interval%1000)*1000ll*1000ll;
@@ -1220,7 +1220,7 @@ int set_timer_server(int epollfd,int &timer_fd)
 	ret=epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
 		mylog(log_fatal,"epoll_ctl return %d\n", ret);
-		myexit(-1);
+		exit(-1);
 	}
 	return 0;
 }
@@ -1641,12 +1641,12 @@ int server_on_raw_pre_ready(conn_info_t &conn_info,char * data,int data_len)
 			if(!conn_manager.exist(ori_conn_info.raw_info.recv_info.src_ip,ori_conn_info.raw_info.recv_info.src_port))//TODO remove this
 			{
 				mylog(log_fatal,"[%s]this shouldnt happen\n",ip_port);
-				myexit(-1);
+				exit(-1);
 			}
 			if(!conn_manager.exist(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port))//TODO remove this
 			{
 				mylog(log_fatal,"[%s]this shouldnt happen2\n",ip_port);
-				myexit(-1);
+				exit(-1);
 			}
 			conn_info_t *&p_ori=conn_manager.find_insert_p(ori_conn_info.raw_info.recv_info.src_ip,ori_conn_info.raw_info.recv_info.src_port);
 			conn_info_t *&p=conn_manager.find_insert_p(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
@@ -1677,7 +1677,7 @@ int server_on_raw_pre_ready(conn_info_t &conn_info,char * data,int data_len)
 		else
 		{
 			mylog(log_fatal,"[%s]this should never happen\n",ip_port);
-			myexit(-1);
+			exit(-1);
 		}
 		return 0;
 	}
@@ -2215,7 +2215,7 @@ int client_event_loop()
 		if(get_src_adress(source_address_uint32)!=0)
 		{
 			mylog(log_fatal,"the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
-			myexit(-1);
+			exit(-1);
 		}
 	}
 	in_addr tmp;
@@ -2227,7 +2227,7 @@ int client_event_loop()
 	if(try_to_list_and_bind(source_port)!=0)
 	{
 		mylog(log_fatal,"bind to source_port:%d fail\n ",source_port);
-		myexit(-1);
+		exit(-1);
 	}
 	send_info.src_port=source_port;
 	send_info.src_ip = source_address_uint32;
@@ -2260,7 +2260,7 @@ int client_event_loop()
 	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
 		mylog(log_fatal,"socket bind error\n");
 		//perror("socket bind error");
-		myexit(1);
+		exit(1);
 	}
 	setnonblocking(udp_fd);
 	epollfd = epoll_create1(0);
@@ -2269,7 +2269,7 @@ int client_event_loop()
 	struct epoll_event ev, events[max_events];
 	if (epollfd < 0) {
 		mylog(log_fatal,"epoll return %d\n", epollfd);
-		myexit(-1);
+		exit(-1);
 	}
 
 	ev.events = EPOLLIN;
@@ -2277,7 +2277,7 @@ int client_event_loop()
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
 	if (ret!=0) {
 		mylog(log_fatal,"add  udp_listen_fd error\n");
-		myexit(-1);
+		exit(-1);
 	}
 	ev.events = EPOLLIN;
 	ev.data.u64 = raw_recv_fd;
@@ -2285,7 +2285,7 @@ int client_event_loop()
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
 		mylog(log_fatal,"add raw_fd error\n");
-		myexit(-1);
+		exit(-1);
 	}
 
 	////add_timer for fake_tcp_keep_connection_client
@@ -2304,7 +2304,7 @@ int client_event_loop()
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
 			mylog(log_fatal,"epoll_wait return %d\n", nfds);
-			myexit(-1);
+			exit(-1);
 		}
 		int idx;
 		for (idx = 0; idx < nfds; ++idx) {
@@ -2327,7 +2327,7 @@ int client_event_loop()
 				if ((recv_len = recvfrom(udp_fd, buf, buf_len, 0,
 						(struct sockaddr *) &udp_new_addr_in, &slen)) == -1) {
 					mylog(log_error,"recv_from error,this shouldnt happen at client\n");
-					myexit(1);
+					exit(1);
 				};
 
 				mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
@@ -2422,7 +2422,7 @@ int server_event_loop()
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
     	 mylog(log_fatal,"bind fail\n");
-    	 myexit(-1);
+    	 exit(-1);
      }
 
 	 if(raw_mode==mode_faketcp)
@@ -2431,7 +2431,7 @@ int server_event_loop()
 		 if(listen(bind_fd, SOMAXCONN) != 0 )
 		 {
 			 mylog(log_fatal,"listen fail\n");
-			 myexit(-1);
+			 exit(-1);
 		 }
 	 }
 
@@ -2446,7 +2446,7 @@ int server_event_loop()
 	struct epoll_event ev, events[max_events];
 	if (epollfd < 0) {
 		mylog(log_fatal,"epoll return %d\n", epollfd);
-		myexit(-1);
+		exit(-1);
 	}
 
 	ev.events = EPOLLIN;
@@ -2455,7 +2455,7 @@ int server_event_loop()
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
 		mylog(log_fatal,"add raw_fd error\n");
-		myexit(-1);
+		exit(-1);
 	}
 	int timer_fd;
 
@@ -2466,7 +2466,7 @@ int server_event_loop()
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
 			mylog(log_fatal,"epoll_wait return %d\n", nfds);
-			myexit(-1);
+			exit(-1);
 		}
 		int idx;
 		for (idx = 0; idx < nfds; ++idx)
@@ -2500,12 +2500,12 @@ int server_event_loop()
 				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
 					mylog(log_fatal,"ip port no longer exits 1!!!this shouldnt happen\n");
-					myexit(-1);
+					exit(-1);
 				}
 				if (p_conn_info->state.server_current_state != server_ready) //TODO remove this for peformance
 				{
 					mylog(log_fatal,"p_conn_info->state.server_current_state!=server_ready!!!this shouldnt happen\n");
-					myexit(-1);
+					exit(-1);
 				}
 				//conn_info_t &conn_info=conn_manager.find(ip,port);
 				keep_connection_server_multi(*p_conn_info);
@@ -2529,13 +2529,13 @@ int server_event_loop()
 				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
 					mylog(log_fatal,"ip port no longer exits 2!!!this shouldnt happen\n", nfds);
-					myexit(-1);
+					exit(-1);
 				}
 
 				if(p_conn_info->state.server_current_state!=server_ready)//TODO remove this for peformance
 				{
 					mylog(log_fatal,"p_conn_info->state.server_current_state!=server_ready!!!this shouldnt happen\n", nfds);
-					myexit(-1);
+					exit(-1);
 				}
 
 				conn_info_t &conn_info=*p_conn_info;
@@ -2643,7 +2643,7 @@ void process_arg(int argc, char *argv[])
 		if(strcmp(argv[i],"-h")==0||strcmp(argv[i],"--help")==0)
 		{
 			print_help();
-			myexit(0);
+			exit(0);
 		}
 	}
 	for (i = 0; i < argc; i++)
@@ -2659,7 +2659,7 @@ void process_arg(int argc, char *argv[])
 				else
 				{
 					log_bare(log_fatal,"invalid log_level\n");
-					myexit(-1);
+					exit(-1);
 				}
 			}
 		}
@@ -2679,7 +2679,7 @@ void process_arg(int argc, char *argv[])
 	if (argc == 1)
 	{
 		print_help();
-		myexit(-1);
+		exit(-1);
 	}
 
 	int no_l = 1, no_r = 1;
@@ -2713,7 +2713,7 @@ void process_arg(int argc, char *argv[])
 			else
 			{
 				mylog(log_fatal,"-s /-c has already been set,-s option conflict\n");
-				myexit(-1);
+				exit(-1);
 			}
 			break;
 		case 'c':
@@ -2724,7 +2724,7 @@ void process_arg(int argc, char *argv[])
 			else
 			{
 				mylog(log_fatal,"-s /-c has already been set,-c option conflict\n");
-				myexit(-1);
+				exit(-1);
 			}
 			break;
 		case 'h':
@@ -2763,7 +2763,7 @@ void process_arg(int argc, char *argv[])
 				if(i==mode_end)
 				{
 					mylog(log_fatal,"no such raw_mode %s\n",optarg);
-					myexit(-1);
+					exit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"auth-mode")==0)
@@ -2779,7 +2779,7 @@ void process_arg(int argc, char *argv[])
 				if(i==auth_end)
 				{
 					mylog(log_fatal,"no such auth_mode %s\n",optarg);
-					myexit(-1);
+					exit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"cipher-mode")==0)
@@ -2795,7 +2795,7 @@ void process_arg(int argc, char *argv[])
 				if(i==cipher_end)
 				{
 					mylog(log_fatal,"no such cipher_mode %s\n",optarg);
-					myexit(-1);
+					exit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"log-level")==0)
@@ -2824,7 +2824,7 @@ void process_arg(int argc, char *argv[])
 				else
 				{
 					mylog(log_fatal,"sock-buf value must be between 1 and 10240 (kbyte) \n");
-					myexit(-1);
+					exit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"seq-mode")==0)
@@ -2836,7 +2836,7 @@ void process_arg(int argc, char *argv[])
 				else
 				{
 					mylog(log_fatal,"seq_mode value must be  0,1,or 2 \n");
-					myexit(-1);
+					exit(-1);
 				}
 			}
 			else
@@ -2858,7 +2858,7 @@ void process_arg(int argc, char *argv[])
 	if (no_l || no_r||program_mode==0)
 	{
 		print_help();
-		myexit(-1);
+		exit(-1);
 	}
 
 	 mylog(log_info,"important variables: ", argc);
