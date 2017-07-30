@@ -81,7 +81,7 @@ const uint32_t server_conn_timeout=conv_timeout+10000;//for test
 
 
 
-enum raw_mode_t{mode_faketcp=1,mode_udp,mode_icmp,mode_end};
+enum raw_mode_t{mode_faketcp=0,mode_udp,mode_icmp,mode_end};
 extern raw_mode_t raw_mode;
 enum program_mode_t {unset_mode=0,client_mode,server_mode};
 extern program_mode_t program_mode;

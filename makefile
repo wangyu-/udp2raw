@@ -1,5 +1,5 @@
 ccmips=mips-openwrt-linux-g++
-FLAGS=-Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -O3
+FLAGS=-Wall -Wextra -Wno-unused-variable -Wno-unused-parameter
 all:
 	sudo killall udp2raw||true
 	sleep 0.2

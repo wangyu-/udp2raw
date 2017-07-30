@@ -2700,6 +2700,8 @@ void process_arg(int argc, char *argv[])
 				{
 					if(strcmp(optarg,raw_mode_tostring[i])==0)
 					{
+						printf("%d i\n",i);
+						printf("%s",raw_mode_tostring[i]);
 						raw_mode=(raw_mode_t)i;
 						break;
 					}
