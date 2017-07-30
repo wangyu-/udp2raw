@@ -272,6 +272,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
    // iph->id = htonl (ip_id++); //Id of this packet
     // iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero
     iph->frag_off = htons(0x4000); //DF set,others are zero
+   // iph->frag_off = htons(0x0000); //DF set,others are zero
     iph->ttl = 64;
     iph->protocol = send_info.protocol;
     iph->check = 0; //Set to 0 before calculating checksum
@@ -290,6 +291,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     if(ret==-1)
     {
     	mylog(log_debug,"sendto failed\n");
+    	//perror("why?");
     	return -1;
     }
     return 0;

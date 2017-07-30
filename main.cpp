@@ -402,7 +402,8 @@ struct conn_manager_t
 		}
 		else
 		{
-			assert(erase_it->second==0);
+			assert(erase_it->second->anti_replay==0);
+			assert(erase_it->second->conv_manager==0);
 			assert(erase_it->second->timer_fd ==0);
 			assert(erase_it->second->oppsite_const_id==0);
 		}
@@ -1547,7 +1548,7 @@ int server_on_raw_pre_ready(conn_info_t &conn_info,char * data,int data_len)
 
 
 	//mylog(log_debug,"!!!\n");
-	if(data_len<=int(sizeof(id_t)*3))
+	if(data_len<int(sizeof(id_t)*3))
 	{
 		mylog(log_debug,"too short to be a handshake\n");
 		return 0;
@@ -2377,7 +2378,15 @@ int client_event_loop()
 
 				if(conn_info.state.client_current_state==client_ready)
 				{
-						send_data_safer(conn_info,buf,recv_len,conv);
+					/*
+					char buf2[6000];
+					int ret1=send_raw(conn_info.raw_info,buf2,40);
+					int ret2=send_raw(conn_info.raw_info,buf2,500);
+					int ret3=send_raw(conn_info.raw_info,buf2,1000);
+					int ret4=send_raw(conn_info.raw_info,buf2,2000);
+					mylog(log_warn,"ret= %d %d %d %d\n",ret1,ret2,ret3,ret4);*/
+
+					send_data_safer(conn_info,buf,recv_len,conv);
 				}
 			}
 		}
@@ -2460,7 +2469,6 @@ int server_event_loop()
 			myexit(-1);
 		}
 		int idx;
-		const int MTU=1440;
 		for (idx = 0; idx < nfds; ++idx)
 		{
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
@@ -2822,7 +2830,7 @@ void process_arg(int argc, char *argv[])
 			else if(strcmp(long_options[option_index].name,"seq-mode")==0)
 			{
 				sscanf(optarg,"%d",&seq_mode);
-				if(1<=seq_mode&&seq_mode<=10*1024)
+				if(0<=seq_mode&&seq_mode<=2)
 				{
 				}
 				else
