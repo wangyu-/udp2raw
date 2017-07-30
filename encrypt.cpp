@@ -307,7 +307,6 @@ int my_encrypt_old(const char *data0,char *output,int &len,char * key)
 	//printf("%d %d\n",data[len-16-2],data[len-16-1]);
 	md5((unsigned char *)data,len-16,(unsigned char *)(data+len-16));
 
-	//memcpy(buf,data,len);  //not thread safe
 
 	if(disable_aes)
 	{

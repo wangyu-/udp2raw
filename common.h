@@ -56,7 +56,9 @@ const uint32_t max_ready_conn_num=1000;
 const uint32_t anti_replay_window_size=1000;
 const int max_conv_num=10000;
 
-const uint32_t client_handshake_timeout=3000;
+const uint32_t client_handshake_timeout=5000;
+const uint32_t client_retry_interval=1000;
+
 const uint32_t server_handshake_timeout=10000;// this should be much longer than clients. client retry initially ,server retry passtively
 
 const int conv_clear_ratio=10;  //conv grabage collecter check 1/10 of all conv one time
@@ -67,9 +69,7 @@ const int conn_clear_min=1;
 
 const uint32_t heartbeat_interval=1000;
 
-const uint32_t timer_interval=400;//this should be smaller than heartbeat_interval
-
-const int RETRY_TIME=3;
+const uint32_t timer_interval=400;//this should be smaller than heartbeat_interval and retry interval;
 
 //const uint32_t conv_timeout=120000; //120 second
 const uint32_t conv_timeout=20000; //for test
