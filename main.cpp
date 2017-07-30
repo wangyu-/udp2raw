@@ -26,6 +26,7 @@ int udp_fd=-1;  //for client only
 int bind_fd=-1; //bind only,never send or recv
 int epollfd=-1;
 int timer_fd=-1;
+int fail_time_counter=0;
 
 char key_string[1000]= "secret key";
 char key[16],key2[16];
@@ -906,6 +907,13 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 
 	if(conn_info.state.client_current_state==client_nothing)
 	{
+		fail_time_counter++;
+		if(fail_time_counter>max_fail_time)
+		{
+			mylog(log_fatal,"max_fail_time exceed");
+			myexit(-1);
+		}
+
 		conn_info.anti_replay->re_init(); //  this is not safe
 
 		if(raw_mode==mode_icmp)
@@ -1048,7 +1056,7 @@ int keep_connection_server_multi(conn_info_t &conn_info)
 	mylog(log_trace,"server timer!\n");
 	raw_info_t &raw_info=conn_info.raw_info;
 
-
+	assert(conn_info.state.server_current_state==server_ready);
 
 	if(conn_info.state.server_current_state==server_ready)
 	{
@@ -1075,7 +1083,7 @@ int keep_connection_server_multi(conn_info_t &conn_info)
 
 		conn_info.last_hb_sent_time=get_current_time();
 
-		mylog(log_trace,"heart beat sent<%x>\n",conn_info.my_id);
+		mylog(log_trace,"heart beat sent<%x,%x>\n",conn_info.my_id,conn_info.oppsite_id);
 	}
 	else
 	{
@@ -1348,6 +1356,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 
 		mylog(log_info,"changed state to client_ready\n");
 		conn_info.state.client_current_state=client_ready;
+		fail_time_counter=0;
 		conn_info.last_state_time=get_current_time();
 		conn_info.last_hb_recv_time=get_current_time();
 	}
@@ -1433,9 +1442,6 @@ int server_on_raw_ready(conn_info_t &conn_info)
 		return -1;
 	}
 
-	if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1))
-			|| data_len == 0)
-		return 0;
 	if (recv_info.src_ip != send_info.dst_ip
 			|| recv_info.src_port != send_info.dst_port) {
 		mylog(log_debug, "unexpected adress\n");
@@ -1541,6 +1547,11 @@ int server_on_raw_pre_ready(conn_info_t &conn_info,char * data,int data_len)
 
 
 	//mylog(log_debug,"!!!\n");
+	if(data_len<=int(sizeof(id_t)*3))
+	{
+		mylog(log_debug,"too short to be a handshake\n");
+		return 0;
+	}
 	uint32_t tmp_session_id= ntohl(* ((uint32_t *)&data[sizeof(id_t)]));
 	uint32_t tmp_oppsite_const_id=ntohl(* ((uint32_t *)&data[sizeof(id_t)*2]));
 
@@ -1701,14 +1712,14 @@ int server_on_raw_recv_multi()
 		}
 		if(raw_mode==mode_faketcp)
 		{
-			if (!(tmp_raw_info.recv_info.syn == 1 && tmp_raw_info.recv_info.ack == 0 && data_len == 0))
+			if (tmp_raw_info.recv_info.syn != 1 || tmp_raw_info.recv_info.ack != 0 || data_len != 0)
 				return 0;
 
 		}
 		else if(raw_mode==mode_udp||raw_mode==mode_icmp)
 		{
 
-			if(data_len==strlen("hello")&& memcmp((char *)"hello",data,strlen("hello"))!=0)
+			if(data_len!=strlen("hello")|| memcmp((char *)"hello",data,strlen("hello"))!=0)
 			{
 				//data[6]=0;
 				mylog(log_debug,"[%s]not a hello packet %d\n",ip_port,data,data_len);
@@ -1729,7 +1740,7 @@ int server_on_raw_recv_multi()
 
 		mylog(log_info,"[%s]send_info.src_port  %d,%d\n",ip_port,send_info.src_port,send_info.dst_port);
 
-		if(raw_mode==mode_faketcp)
+		if(raw_mode==mode_faketcp) /////////////////////////here is server nothing
 		{
 			send_info.ack_seq = recv_info.seq + 1;
 
@@ -1739,11 +1750,13 @@ int server_on_raw_recv_multi()
 
 			send_info.seq = get_true_random_number(); //not necessary to set
 
+			send_info.first_seq=send_info.seq;   //correct seq and ack_seq are import for create nat pipe.
+			send_info.first_ack_seq=send_info.ack_seq;//if someone attack you with fake data,those two value may be changed
+
 			mylog(log_info,"[%s]sent syn ack\n",ip_port);
 			send_bare(raw_info, 0, 0);  //////////////send
 
 			mylog(log_info,"[%s]changed state to server_syn_ack_sent\n",ip_port);
-
 			conn_info.state.server_current_state = server_syn_ack_sent;
 			conn_info.last_state_time = get_current_time();
 		}
@@ -1763,67 +1776,117 @@ int server_on_raw_recv_multi()
 		}
 		return 0;
 	}
-
+/////////////////////////////////////////////////////////////////////////////////////////////////////
 	if(conn_manager.mp.size()>=max_handshake_conn_num)
 	{
 		mylog(log_info,"[%s]reached max_handshake_conn_num,ignored new handshake\n",ip_port);
 		return 0;
 	}
-	conn_info_t & conn_info=conn_manager.find_insert(ip,port);//insert if not exist
 
+	conn_info_t & conn_info=conn_manager.find_insert(ip,port);//insert if not exist
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
 
 	if(conn_info.state.server_current_state==server_ready)
 	{
+		if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1))|| data_len == 0)
+			return 0;
 		return server_on_raw_ready(conn_info);
 	}
 
+/////////////////////////////////////////////////////////////////////////////////////////////////
 	if(recv_bare(conn_info.raw_info,data,data_len)<0)
 		return -1;
 
-
 	if(conn_info.state.server_current_state==server_syn_ack_sent)
 	{
-		if(raw_mode==mode_faketcp&&!( recv_info.syn==0&&recv_info.ack==1 &&data_len==0)) return 0;
+		assert(raw_mode!=mode_udp&&raw_mode!=mode_icmp);
 		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
 		{
 			mylog(log_debug,"[%s]unexpected adress\n",ip_port);
 			return 0;
 		}
-
-		send_info.syn=0;
-		send_info.ack=1;
-		send_info.seq+=1;////////is this right?
-
-		conn_info.my_id=get_true_random_number_nz();
-		send_handshake(raw_info,conn_info.my_id,0,const_id);   //////////////send
-
-		mylog(log_info,"[%s]changed state to server_handshake_sent\n",ip_port);
-
-		conn_info.state.server_current_state=server_handshake_sent;
-		conn_info.last_state_time=get_current_time();
-	}
-	else if(conn_info.state.server_current_state==server_handshake_sent)//heart beat received
-	{
-		if(( raw_mode==mode_faketcp&& (recv_info.syn==1||recv_info.ack!=1)) ||data_len==0)
+		if(raw_mode==mode_faketcp)
 		{
-			mylog(log_debug,"[%s]enexpected packet type\n",ip_port);
-			return 0;
+			if( recv_info.syn==0&&recv_info.ack==1 &&data_len==0)   //received ack as expect
+			{
+
+				send_info.syn=0;
+				send_info.ack=1;
+				send_info.seq+=1;////////is this right?
+
+				conn_info.my_id=get_true_random_number_nz();
+				send_handshake(raw_info,conn_info.my_id,0,const_id);   //////////////send
+
+				mylog(log_info,"[%s]changed state to server_handshake_sent\n",ip_port);
+
+				conn_info.state.server_current_state=server_handshake_sent;
+				conn_info.last_state_time=get_current_time();
+			}
+			else if(recv_info.syn == 1 && recv_info.ack == 0 && data_len == 0)  //received syn again,server will re-send syn ack
+			{
+				send_info.seq=send_info.first_seq;   //used saved seq and ack_seq
+				send_info.ack_seq=send_info.first_ack_seq;
+
+				send_info.psh = 0;
+				send_info.syn = 1;
+				send_info.ack = 1;
+
+				mylog(log_info,"[%s]re-sent syn ack\n",ip_port);
+				send_bare(raw_info, 0, 0);  //////////////send
+			}
 		}
+	}
+	else if(conn_info.state.server_current_state==server_handshake_sent)
+	{
 		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
 		{
 			mylog(log_trace,"[%s]unexpected adress\n",ip_port);
 			return 0;
 		}
 
-		if(conn_info.last_state_time <conn_info.last_state_time)
+		if(raw_mode==mode_faketcp)
 		{
-			mylog(log_info,"[%s]ignored handshake of older timestamp than current ready connection",ip_port);
-			return 0;
+			if(recv_info.syn==0&&recv_info.ack==1 &&data_len!=0 )   //received heandshake_response as expected
+			{
+				server_on_raw_pre_ready(conn_info,data,data_len);
+				return 0;
+
+			}
+			else if( recv_info.syn==0&&recv_info.ack==1 &&data_len==0) //received ack again,re-send handshake
+			{
+				send_info.syn=0;
+				send_info.ack=1;
+
+				conn_info.my_id=get_true_random_number_nz();
+				mylog(log_info,"[%s]re-sent handshake\n",ip_port);
+				send_handshake(raw_info,conn_info.my_id,0,const_id);
+			}
+			else
+			{
+				mylog(log_debug,"[%s]enexpected packet type\n",ip_port);
+				return 0;
+			}
 		}
-		server_on_raw_pre_ready(conn_info,data,data_len);
+		else if(raw_mode==mode_udp||raw_mode==mode_icmp)
+		{
+			if(data_len!=strlen("hello")||memcmp((char *)"hello",data,strlen("hello"))!=0)
+				////received heandshake_response as expected,likely,since its not a hello packet.lets check it in server_on_raw_pre_ready
+			{
+				server_on_raw_pre_ready(conn_info,data,data_len);
+			}
+			else
+			{
+				mylog(log_info,"[%s]got a hello packet again n",ip_port);
+				mylog(log_info,"[%s]re-sent handshake\n",ip_port);
+				send_handshake(raw_info,conn_info.my_id,get_true_random_number_nz(),const_id);  //////////////send
+				return 0;
+			}
+		}
+
+
+
 
 	}
 	return 0;

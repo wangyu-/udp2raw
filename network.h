@@ -46,6 +46,7 @@ struct packet_info_t
 	bool syn,ack,psh,rst;
 
 	uint32_t seq,ack_seq;
+	uint32_t first_seq,first_ack_seq;
 
 	uint32_t ts,ts_ack;
 

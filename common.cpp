@@ -45,6 +45,8 @@ char * my_ntoa(uint32_t ip)
 	return inet_ntoa(a);
 }
 
+
+
 void myexit(int a)
 {
     if(enable_log_color)

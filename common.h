@@ -66,6 +66,8 @@ const int conn_clear_ratio=10;
 const int conv_clear_min=5;
 const int conn_clear_min=1;
 
+const int max_fail_time=100000;
+
 
 const uint32_t heartbeat_interval=1000;
 
