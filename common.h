@@ -57,7 +57,7 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <stdarg.h>
-
+#include <assert.h>
 
 #include <unordered_map>
 
@@ -85,12 +85,13 @@ const uint32_t timer_interval=400;//this should be smaller than heartbeat_interv
 
 const int RETRY_TIME=3;
 
-const uint32_t conv_timeout=120000; //60 second
-
+//const uint32_t conv_timeout=120000; //120 second
+const uint32_t conv_timeout=20000; //for test
 
 const uint32_t client_conn_timeout=10000;
-const uint32_t server_conn_timeout=conv_timeout+60000;//this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
 
+//const uint32_t server_conn_timeout=conv_timeout+60000;//this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
+const uint32_t server_conn_timeout=conv_timeout+10000;//for test
 
 
 

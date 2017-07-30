@@ -210,7 +210,7 @@ struct conv_manager_t  //TODO change map to unordered map
 		conv_to_u64.erase(conv);
 		u64_to_conv.erase(u64);
 		conv_last_active_time.erase(conv);
-		mylog(log_info,"conv %x cleared\n");
+		mylog(log_info,"conv %x cleared\n",conv);
 		return 0;
 	}
 	int clear_inactive()
@@ -280,6 +280,7 @@ struct conn_info_t
 		oppsite_const_id=0;
 		conv_manager=0;
 		anti_replay=0;
+		timer_fd=0;
 	}
 	void prepare()
 	{
@@ -386,11 +387,24 @@ struct conn_manager_t
 		if(erase_it->second->state.server_current_state==server_ready)
 		{
 			ready_num--;
+			assert(int32_t(ready_num)!=-1);
+			assert(erase_it->second!=0);
+			assert(erase_it->second->timer_fd !=0);
+			assert(erase_it->second->oppsite_const_id!=0);
+			assert(const_id_mp.find(erase_it->second->oppsite_const_id)!=const_id_mp.end());
+			assert(timer_fd_mp.find(erase_it->second->timer_fd)!=timer_fd_mp.end());
+
 			const_id_mp.erase(erase_it->second->oppsite_const_id);
 			timer_fd_mp.erase(erase_it->second->timer_fd);
 			close(erase_it->second->timer_fd);// close will auto delte it from epoll
 			delete(erase_it->second);
 			mp.erase(erase_it->first);
+		}
+		else
+		{
+			assert(erase_it->second==0);
+			assert(erase_it->second->timer_fd ==0);
+			assert(erase_it->second->oppsite_const_id==0);
 		}
 		return 0;
  }
@@ -418,9 +432,9 @@ int clear_inactive()
 			it=mp.begin();
 		}
 
-		if(it->second->state.server_current_state==server_ready&& current_time - it->second->last_hb_recv_time  <=server_conn_timeout )
+		if(it->second->state.server_current_state==server_ready &&current_time - it->second->last_hb_recv_time  <=server_conn_timeout)
 		{
-			it++;
+				it++;
 		}
 		else if(it->second->state.server_current_state!=server_ready&& current_time - it->second->last_state_time  <=server_handshake_timeout )
 		{
@@ -428,16 +442,12 @@ int clear_inactive()
 		}
 		else if(it->second->conv_manager!=0&&it->second->conv_manager->get_size() >0)
 		{
-			if(it->second->state.server_current_state!=server_ready)
-			{
-				mylog(log_fatal,"this shouldnt happen!\n");
-				myexit(-1);
-			}
+			assert(it->second->state.server_current_state==server_ready);
 			it++;
 		}
 		else
 		{
-			//mylog(log_info,"inactive conv %u cleared \n",it->first);
+			mylog(log_info,"[%s:%d]inactive conn cleared \n",my_ntoa(it->second->raw_info.recv_info.src_ip),it->second->raw_info.recv_info.src_port);
 			old_it=it;
 			it++;
 			erase(old_it);
@@ -451,12 +461,29 @@ int clear_inactive()
 
 conn_info_t::~conn_info_t()
 {
-	if(oppsite_const_id!=0)
-		conn_manager.const_id_mp.erase(oppsite_const_id);
+	if(program_mode==server_mode)
+	{
+		if(state.server_current_state==server_ready)
+		{
+			assert(conv_manager!=0);
+			assert(anti_replay!=0);
+			assert(oppsite_const_id!=0);
+			//assert(conn_manager.const_id_mp.find(oppsite_const_id)!=conn_manager.const_id_mp.end()); // conn_manager 's deconstuction function  erases it
+		}
+		else
+		{
+			assert(conv_manager==0);
+			assert(anti_replay==0);
+			assert(oppsite_const_id==0);
+		}
+	}
+	//if(oppsite_const_id!=0)     //do this at conn_manager 's deconstuction function
+		//conn_manager.const_id_mp.erase(oppsite_const_id);
 	if(conv_manager!=0)
 		delete conv_manager;
 	if(anti_replay!=0)
 		delete anti_replay;
+
 	//send_packet_info.protocol=g_packet_info_send.protocol;
 }
 
@@ -598,7 +625,7 @@ void server_clear_function(uint64_t u64)
 {
 	int fd=int(u64);
 	int ret;
-
+	assert(fd!=0);
 	/*
 	epoll_event ev;
 
@@ -619,7 +646,8 @@ void server_clear_function(uint64_t u64)
 		myexit(-1);  //this shouldnt happen
 	}
 	//mylog(log_fatal,"size:%d !!!!\n",conn_manager.udp_fd_mp.size());
-	conn_manager.udp_fd_mp.erase(udp_fd);
+	assert(conn_manager.udp_fd_mp.find(fd)!=conn_manager.udp_fd_mp.end());
+	conn_manager.udp_fd_mp.erase(fd);
 }
 
 
@@ -1057,6 +1085,11 @@ int keep_connection_server_multi(conn_info_t &conn_info)
 
 		mylog(log_trace,"heart beat sent<%x>\n",conn_info.my_id);
 	}
+	else
+	{
+		mylog(log_fatal,"this shouldnt happen!\n");
+		myexit(-1);
+	}
 	return 0;
 
 }
@@ -1426,7 +1459,7 @@ int server_on_raw_ready(conn_info_t &conn_info)
 
 		conn_info.last_hb_recv_time = current_time_rough;
 
-		mylog(log_trace, "<<<<conv:%u>>>>\n", tmp_conv_id);
+		mylog(log_trace, "conv:%u\n", tmp_conv_id);
 		if (!conn_info.conv_manager->is_conv_used(tmp_conv_id)) {
 			if (conn_info.conv_manager->get_size() >= max_conv_num) {
 				mylog(log_warn,
@@ -1505,7 +1538,22 @@ int server_on_raw_ready(conn_info_t &conn_info)
 	}
 	return 0;
 }
-
+int server_on_raw_is_syn()
+{
+	return 1;
+}
+int server_on_raw_reply_syn()
+{
+	return 0;
+}
+int server_on_raw_is_handshake()
+{
+	return 1;
+}
+int server_on_raw_reply_handshake()
+{
+	return 0;
+}
 int server_on_raw_recv_multi()
 {
 	uint32_t ip;uint16_t port;
@@ -1530,7 +1578,11 @@ int server_on_raw_recv_multi()
 	{
 		raw_info_t tmp_raw_info;
 
-		recv_bare(tmp_raw_info,data,data_len);
+		if(recv_bare(tmp_raw_info,data,data_len)<0)
+		{
+			return 0;
+			return 0;
+		}
 		if(raw_mode==mode_faketcp)
 		{
 			if (!(tmp_raw_info.recv_info.syn == 1 && tmp_raw_info.recv_info.ack == 0 && data_len == 0))
@@ -1716,6 +1768,7 @@ int server_on_raw_recv_multi()
 			//g_conn_info=conn_info;
 			int new_timer_fd;
 			set_timer_server(epollfd, new_timer_fd);
+			conn_info.timer_fd=new_timer_fd;
 			conn_manager.timer_fd_mp[new_timer_fd] = &conn_info;//pack_u64(ip,port);
 
 
@@ -2292,16 +2345,14 @@ int server_event_loop()
 
 	int i, j, k;int ret;
 
-	bind_address_uint32=local_address_uint32;
+	bind_address_uint32=local_address_uint32;//only server has bind adress,client sets it to zero
 
-	//g_packet_info_send.src_ip=inet_addr(local_address);
-	//g_packet_info_send.src_port=local_port;
 
 	 if(raw_mode==mode_faketcp)
 	 {
 		 bind_fd=socket(AF_INET,SOCK_STREAM,0);
 	 }
-	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)
+	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)//bind an adress to avoid collision,for icmp,there is no port,just bind a udp port
 	 {
 		 bind_fd=socket(AF_INET,SOCK_DGRAM,0);
 	 }
@@ -2318,6 +2369,7 @@ int server_event_loop()
     	 mylog(log_fatal,"bind fail\n");
     	 myexit(-1);
      }
+
 	 if(raw_mode==mode_faketcp)
 	 {
 
@@ -2331,7 +2383,7 @@ int server_event_loop()
 
 
 	init_raw_socket();
-	init_filter(local_port);
+	init_filter(local_port);//bpf filter
 
 	epollfd = epoll_create1(0);
 	const int max_events = 4096;
@@ -2351,7 +2403,9 @@ int server_event_loop()
 		myexit(-1);
 	}
 	int timer_fd;
+
 	set_timer(epollfd,timer_fd);
+
 	while(1)////////////////////////
 	{
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
@@ -2371,7 +2425,11 @@ int server_event_loop()
 				current_time_rough=get_current_time();
 				conn_manager.clear_inactive();
 			}
-			if ((events[idx].data.u64 >>32u) == 2u)
+			else if (events[idx].data.u64 == (uint64_t)raw_recv_fd)
+			{
+				server_on_raw_recv_multi();
+			}
+			else if ((events[idx].data.u64 >>32u) == 2u)
 			{
 				int fd=get_u64_l(events[idx].data.u64);
 				uint64_t dummy;
@@ -2379,7 +2437,7 @@ int server_event_loop()
 
 				if(conn_manager.timer_fd_mp.find(fd)==conn_manager.timer_fd_mp.end()) //this can happen,when fd is a just closed fd
 				{
-					mylog(log_info,"timer_fd no longer exits\n", nfds);
+					mylog(log_info,"timer_fd no longer exits\n");
 					continue;
 				}
 				conn_info_t* p_conn_info=conn_manager.timer_fd_mp[fd];
@@ -2387,18 +2445,18 @@ int server_event_loop()
 				uint32_t port=p_conn_info->raw_info.recv_info.src_port;
 				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
-					mylog(log_fatal,"ip port no longer exits!!!this shouldnt happen\n", nfds);
+					mylog(log_fatal,"ip port no longer exits 1!!!this shouldnt happen\n");
+					myexit(-1);
+				}
+				if (p_conn_info->state.server_current_state != server_ready) //TODO remove this for peformance
+				{
+					mylog(log_fatal,"p_conn_info->state.server_current_state!=server_ready!!!this shouldnt happen\n");
 					myexit(-1);
 				}
 				//conn_info_t &conn_info=conn_manager.find(ip,port);
 				keep_connection_server_multi(*p_conn_info);
 			}
-			else if (events[idx].data.u64 == (uint64_t)raw_recv_fd)
-			{
-				server_on_raw_recv_multi();
-			}
-			else
-			if ((events[idx].data.u64 >>32u) == 1u)
+			else if ((events[idx].data.u64 >>32u) == 1u)
 			{
 				//uint32_t conv_id=events[n].data.u64>>32u;
 
@@ -2416,7 +2474,7 @@ int server_event_loop()
 				uint32_t port=p_conn_info->raw_info.recv_info.src_port;
 				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
-					mylog(log_fatal,"ip port no longer exits!!!this shouldnt happen\n", nfds);
+					mylog(log_fatal,"ip port no longer exits 2!!!this shouldnt happen\n", nfds);
 					myexit(-1);
 				}
 
@@ -2431,12 +2489,11 @@ int server_event_loop()
 				if(!conn_info.conv_manager->is_u64_used(fd))
 				{
 					mylog(log_debug,"conv no longer exists,udp fd %d\n",fd);
-					int recv_len=recv(fd,buf,buf_len,0); ///////////TODO ,delete this
+					int recv_len=recv(fd,0,0,0); ///////////TODO ,delete this
 					continue;
 				}
 
 				uint32_t conv_id=conn_info.conv_manager->find_conv_by_u64(fd);
-
 
 				int recv_len=recv(fd,buf,buf_len,0);
 
@@ -2444,19 +2501,17 @@ int server_event_loop()
 
 				if(recv_len<0)
 				{
-					mylog(log_trace,"continue\n");
-					//perror("wtf?");
+					mylog(log_debug,"udp fd,recv_len<0 continue\n");
 					continue;
-					//return 0;
 				}
 
-				conn_info.conv_manager->update_active_time(conv_id);
+				//conn_info.conv_manager->update_active_time(conv_id);  server dosnt update from upd side,only update from raw side.  (client updates at both side)
 
 				if(conn_info.state.server_current_state==server_ready)
 				{
 					send_data_safer(conn_info,buf,recv_len,conv_id);
 					//send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv_id);
-					mylog(log_trace,"send !!\n");
+					mylog(log_trace,"send_data_safer ,sent !!\n");
 				}
 			}
 
@@ -2812,7 +2867,7 @@ void iptables_warn()
 }
 int main(int argc, char *argv[])
 {
-
+	//assert(0==1);
 	dup2(1, 2);//redirect stderr to stdout
 	signal(SIGINT, INThandler);
 	process_arg(argc,argv);
