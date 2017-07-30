@@ -75,6 +75,8 @@ const uint32_t server_handshake_timeout=10000;// this should be much longer than
 
 const int conv_clear_ratio=10;  //conv grabage collecter check 1/10 of all conv one time
 const int conn_clear_ratio=10;
+const int conv_clear_min=5;
+const int conn_clear_min=1;
 
 
 const uint32_t heartbeat_interval=1000;

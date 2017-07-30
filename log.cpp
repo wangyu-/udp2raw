@@ -35,8 +35,8 @@ void log0(const char * file,const char * function,int line,int level,const char*
 		printf(RESET);
 
 	//printf("\n");
-	if(enable_log_color)
-		printf(log_color[level]);
+	//if(enable_log_color)
+		//printf(log_color[level]);
 
 	fflush(stdout);
 }
