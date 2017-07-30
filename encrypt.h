@@ -1,11 +1,15 @@
 #ifndef _ENCRYPTION_H_
 #define _ENCRYPTION_H_
-#include "aes.h"
-#include "md5.h"
 
+
+
+//#include "aes.h"
+//#include "md5.h"
 #include "common.h"
 
-using namespace std;
+
+//using namespace std;
+
 int my_encrypt(const char *data,char *output,int &len,char * key);
 int my_decrypt(const char *data,char *output,int &len,char * key);
 
@@ -17,13 +21,19 @@ unsigned short csum(const unsigned short *ptr,int nbytes) ;
 
 
 enum auth_mode_t {auth_none=0,auth_md5,auth_crc32,auth_sum,auth_end};
-extern map<int, string> auth_mode_tostring;
+
 
 enum cipher_mode_t {cipher_none=0,cipher_aes128cbc,cipher_xor,cipher_end};
-extern map<int, string> cipher_mode_tostring;
+
 
 extern auth_mode_t auth_mode;
 extern cipher_mode_t cipher_mode;
-//const map<int, string> auth_mode_tostring2 = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_sum,"sum"}};
+
+struct a
+{
+	char * buf[buf_len];
+};
+extern unordered_map<int, const char *> auth_mode_tostring;
+extern unordered_map<int, const char *> cipher_mode_tostring;
 
 #endif

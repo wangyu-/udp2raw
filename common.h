@@ -9,24 +9,15 @@
 #define COMMON_H_
 
 
+
 #include<stdio.h>
 #include<string.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
 #include<stdlib.h>
 #include<getopt.h>
-#include <unistd.h>
+#include<unistd.h>
 #include<errno.h>
-
-#include <fcntl.h>
-
 #include <sys/epoll.h>
 #include <sys/wait.h>
-
-#include<map>
-#include<string>
-#include<vector>
-
 #include <sys/socket.h>    //for socket ofcourse
 #include <sys/types.h>
 #include <stdlib.h> //for exit(0);
@@ -38,20 +29,13 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <byteswap.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <arpa/inet.h>
 #include <linux/if_ether.h>
 #include <linux/filter.h>
-
 #include <sys/time.h>
 #include <time.h>
-
 #include <sys/timerfd.h>
-#include <set>
-#include <encrypt.h>
 #include <inttypes.h>
-
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <net/if.h>
@@ -59,8 +43,10 @@
 #include <stdarg.h>
 #include <assert.h>
 
-#include <unordered_map>
 
+
+
+#include<unordered_map>
 using  namespace std;
 
 const int max_data_len=65535;
@@ -99,7 +85,7 @@ enum raw_mode_t{mode_faketcp=1,mode_udp,mode_icmp,mode_end};
 extern raw_mode_t raw_mode;
 enum program_mode_t {unset_mode=0,client_mode,server_mode};
 extern program_mode_t program_mode;
-extern map<int, string> raw_mode_tostring ;
+extern unordered_map<int, const char*> raw_mode_tostring ;
 extern int socket_buf_size;
 
 typedef uint32_t id_t;

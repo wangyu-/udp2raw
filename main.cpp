@@ -1,7 +1,7 @@
 #include "common.h"
 #include "network.h"
 #include "log.h"
-
+#include "md5.h"
 
 char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
 uint32_t local_address_uint32,remote_address_uint32,source_address_uint32;
@@ -2698,7 +2698,7 @@ void process_arg(int argc, char *argv[])
 			{
 				for(i=0;i<mode_end;i++)
 				{
-					if(strcmp(optarg,raw_mode_tostring[i].c_str())==0)
+					if(strcmp(optarg,raw_mode_tostring[i])==0)
 					{
 						raw_mode=(raw_mode_t)i;
 						break;
@@ -2714,7 +2714,7 @@ void process_arg(int argc, char *argv[])
 			{
 				for(i=0;i<auth_end;i++)
 				{
-					if(strcmp(optarg,auth_mode_tostring[i].c_str())==0)
+					if(strcmp(optarg,auth_mode_tostring[i])==0)
 					{
 						auth_mode=(auth_mode_t)i;
 						break;
@@ -2730,7 +2730,7 @@ void process_arg(int argc, char *argv[])
 			{
 				for(i=0;i<cipher_end;i++)
 				{
-					if(strcmp(optarg,cipher_mode_tostring[i].c_str())==0)
+					if(strcmp(optarg,cipher_mode_tostring[i])==0)
 					{
 						cipher_mode=(cipher_mode_t)i;
 						break;
@@ -2808,9 +2808,9 @@ void process_arg(int argc, char *argv[])
 	 mylog(log_info,"important variables: ", argc);
 
 	 log_bare(log_info,"log_level=%d:%s ",log_level,log_text[log_level]);
-	 log_bare(log_info,"raw_mode=%s ",raw_mode_tostring[raw_mode].c_str());
-	 log_bare(log_info,"cipher_mode=%s ",cipher_mode_tostring[cipher_mode].c_str());
-	 log_bare(log_info,"auth_mode=%s ",auth_mode_tostring[auth_mode].c_str());
+	 log_bare(log_info,"raw_mode=%s ",raw_mode_tostring[raw_mode]);
+	 log_bare(log_info,"cipher_mode=%s ",cipher_mode_tostring[cipher_mode]);
+	 log_bare(log_info,"auth_mode=%s ",auth_mode_tostring[auth_mode]);
 
 	 log_bare(log_info,"key=%s ",key_string);
 

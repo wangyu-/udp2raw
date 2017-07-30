@@ -10,7 +10,7 @@
 
 
 raw_mode_t raw_mode=mode_faketcp;
-map<int, string> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
+unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 int socket_buf_size=1024*1024;
 static int random_number_fd=-1;
 
