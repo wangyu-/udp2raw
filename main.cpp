@@ -2481,8 +2481,8 @@ int server_event_loop()
 
 	set_timer(epollfd,timer_fd);
 
-	long int begin_time;
-	long int end_time;
+	long int begin_time=0;
+	long int end_time=0;
 
 	while(1)////////////////////////
 	{

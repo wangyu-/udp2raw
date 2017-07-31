@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <encrypt.h>
-
+#include <common.h>
 #include "log.h"
 
 //static uint64_t seq=1;
@@ -42,6 +42,7 @@ unsigned int crc32h(unsigned char *message,int len) {
    return ~crc;
 }
 
+
  void sum(const unsigned  char *data,int len,unsigned char*  res) {
    memset(res,0,sizeof(int));
    for(int i=0,j=0;i<len;i++,j++)
@@ -49,6 +50,7 @@ unsigned int crc32h(unsigned char *message,int len) {
 	   if(j==4) j=0;
 	   res[j]+=data[i];
    }
+
    return ;
 }
 
@@ -253,7 +255,7 @@ int cipher_decrypt(const char *data,char *output,int &len,char * key)
 int my_encrypt(const char *data,char *output,int &len,char * key)
 {
 	if(len<0) {mylog(log_trace,"len<0");return -1;}
-	if(len>max_data_len) {mylog(log_trace,"len>max_data_len");return -1;}
+	if(len>max_data_len) {mylog(log_warn,"len>max_data_len");return -1;}
 
 	char buf[buf_len];
 	char buf2[buf_len];
@@ -266,7 +268,7 @@ int my_encrypt(const char *data,char *output,int &len,char * key)
 int my_decrypt(const char *data,char *output,int &len,char * key)
 {
 	if(len<0) return -1;
-	if(len>max_data_len) return -1;
+	if(len>max_data_len) {mylog(log_warn,"len>max_data_len");return -1;}
 
 	if(cipher_decrypt(data,output,len,key) !=0) {mylog(log_debug,"cipher_decrypt failed \n"); return -1;}
 	if(auth_verify(output,len)!=0) {mylog(log_debug,"auth_verify failed\n");return -1;}
