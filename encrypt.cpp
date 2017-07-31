@@ -298,7 +298,7 @@ int my_encrypt_old(const char *data0,char *output,int &len,char * key)
 		len= (len/16)*16+16;
 	}
 
-	if(len>65535) return -1;
+	if(len>max_data_len) return -1;
 
 	data[len-16-2]= (unsigned char)( (uint16_t(ori_len))>>8);
 	data[len-16-1]=(unsigned char)( ((uint16_t(ori_len))<<8)>>8) ;
@@ -336,7 +336,7 @@ int my_decrypt_old(const char *data0,char *output,int &len,char * key)
 		return 0;
 	}
 	uint8_t md5_res[16];
-	if(len>65535) return -1;
+	if(len>max_data_len) return -1;
 	if(len<32) return -1;
 	if(len%16 !=0) return -1;
 

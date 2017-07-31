@@ -27,6 +27,7 @@ int bind_fd=-1; //bind only,never send or recv
 int epollfd=-1;
 int timer_fd=-1;
 int fail_time_counter=0;
+int epoll_trigger_counter=0;
 
 char key_string[1000]= "secret key";
 char key[16],key2[16];
@@ -1443,6 +1444,12 @@ int server_on_raw_ready(conn_info_t &conn_info)
 		return -1;
 	}
 
+	if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1))|| data_len == 0)
+	{
+		//recv(raw_recv_fd, 0,0, 0  );//
+		return 0;
+	}
+
 	if (recv_info.src_ip != send_info.dst_ip
 			|| recv_info.src_port != send_info.dst_port) {
 		mylog(log_debug, "unexpected adress\n");
@@ -1685,12 +1692,14 @@ int server_on_raw_pre_ready(conn_info_t &conn_info,char * data,int data_len)
 }
 int server_on_raw_recv_multi()
 {
+	char dummy_buf[buf_len];
 	uint32_t ip;uint16_t port;
 	if(peek_raw(ip,port)<0)
 	{
-		struct sockaddr saddr;
-		socklen_t saddr_size;
-		recvfrom(raw_recv_fd, 0,0, 0 ,&saddr , &saddr_size);//
+		recv(raw_recv_fd, 0,0, 0  );//
+		//struct sockaddr saddr;
+		//socklen_t saddr_size;
+		///recvfrom(raw_recv_fd, 0,0, 0 ,&saddr , &saddr_size);//
 		mylog(log_trace,"peek_raw failed\n");
 		return -1;
 	}
@@ -1781,6 +1790,7 @@ int server_on_raw_recv_multi()
 	if(conn_manager.mp.size()>=max_handshake_conn_num)
 	{
 		mylog(log_info,"[%s]reached max_handshake_conn_num,ignored new handshake\n",ip_port);
+		recv(raw_recv_fd, 0,0, 0  );//
 		return 0;
 	}
 
@@ -1791,8 +1801,6 @@ int server_on_raw_recv_multi()
 
 	if(conn_info.state.server_current_state==server_ready)
 	{
-		if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1))|| data_len == 0)
-			return 0;
 		return server_on_raw_ready(conn_info);
 	}
 
@@ -2301,6 +2309,7 @@ int client_event_loop()
 	mylog(log_debug,"send_raw : from %x %d  to %x %d\n",send_info.src_ip,send_info.src_port,send_info.dst_ip,send_info.dst_port);
 	while(1)////////////////////////
 	{
+		epoll_trigger_counter++;
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
 			mylog(log_fatal,"epoll_wait return %d\n", nfds);
@@ -2313,13 +2322,16 @@ int client_event_loop()
 				iphdr *iph;tcphdr *tcph;
 				client_on_raw_recv(conn_info);
 			}
-			if(events[idx].data.u64 ==(uint64_t)timer_fd)
+			else if(events[idx].data.u64 ==(uint64_t)timer_fd)
 			{
 				uint64_t value;
 				read(timer_fd, &value, 8);
 				keep_connection_client(conn_info);
+
+				mylog(log_debug,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
+				epoll_trigger_counter=0;
 			}
-			if (events[idx].data.u64 == (uint64_t)udp_fd)
+			else if (events[idx].data.u64 == (uint64_t)udp_fd)
 			{
 
 				int recv_len;
@@ -2388,6 +2400,11 @@ int client_event_loop()
 
 					send_data_safer(conn_info,buf,recv_len,conv);
 				}
+			}
+			else
+			{
+				mylog(log_fatal,"unknown fd,this should never happen\n");
+				exit(-1);
 			}
 		}
 	}
@@ -2463,6 +2480,7 @@ int server_event_loop()
 
 	while(1)////////////////////////
 	{
+
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
 			mylog(log_fatal,"epoll_wait return %d\n", nfds);
@@ -2471,20 +2489,35 @@ int server_event_loop()
 		int idx;
 		for (idx = 0; idx < nfds; ++idx)
 		{
+			//mylog(log_debug,"ndfs:  %d \n",nfds);
+			epoll_trigger_counter++;
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
 			if ((events[idx].data.u64 ) == (uint64_t)timer_fd)
 			{
 				uint64_t dummy;
 				read(timer_fd, &dummy, 8);
 				current_time_rough=get_current_time();
+
+				long int begin=get_current_time();
 				conn_manager.clear_inactive();
+				long int end=get_current_time()-begin;
+
+				if(end>1)mylog(log_debug,"%lld,conn_manager.clear_inactive();,%lld  \n",begin,end);
+
+				mylog(log_debug,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
+				epoll_trigger_counter=0;
+
 			}
 			else if (events[idx].data.u64 == (uint64_t)raw_recv_fd)
 			{
+				long int begin=get_current_time();
 				server_on_raw_recv_multi();
+				long int end=get_current_time()-begin;
+				if(end>1)mylog(log_debug,"%lld,server_on_raw_recv_multi(),%lld  \n",begin,end);
 			}
 			else if ((events[idx].data.u64 >>32u) == 2u)
 			{
+				long int begin=get_current_time();
 				int fd=get_u64_l(events[idx].data.u64);
 				uint64_t dummy;
 				read(fd, &dummy, 8);
@@ -2509,10 +2542,15 @@ int server_event_loop()
 				}
 				//conn_info_t &conn_info=conn_manager.find(ip,port);
 				keep_connection_server_multi(*p_conn_info);
+
+				long int end=get_current_time()-begin;
+				if(end>1)mylog(log_debug,"%lld,keep_connection_server_multi,%lld  \n",begin,end);
 			}
 			else if ((events[idx].data.u64 >>32u) == 1u)
 			{
 				//uint32_t conv_id=events[n].data.u64>>32u;
+
+				long int begin=get_current_time();
 
 				int fd=int((events[idx].data.u64<<32u)>>32u);
 
@@ -2567,6 +2605,14 @@ int server_event_loop()
 					//send_data(g_packet_info_send,buf,recv_len,my_id,oppsite_id,conv_id);
 					mylog(log_trace,"send_data_safer ,sent !!\n");
 				}
+
+				long int end=get_current_time()-begin;
+				if(end>1) mylog(log_debug,"%lld,send_data_safer,%lld  \n",begin,end);
+			}
+			else
+			{
+				mylog(log_fatal,"unknown fd,this should never happen\n");
+				exit(-1);
 			}
 
 		}
