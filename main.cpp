@@ -1462,7 +1462,9 @@ int server_on_raw_ready(conn_info_t &conn_info)
 		mylog(log_debug,"[%s][hb]received hb \n",ip_port);
 		conn_info.last_hb_recv_time = current_time_rough;
 		return 0;
-	} else if (data[0] == 'd' && data_len >=int( sizeof(uint32_t) + 1)) {
+	} else if (data[0] == 'd' && data_len >=int( sizeof(uint32_t) + 1))
+	{
+
 		uint32_t tmp_conv_id = ntohl(*((uint32_t *) &data[1]));
 
 		conn_info.last_hb_recv_time = current_time_rough;

@@ -49,7 +49,7 @@
 #include<unordered_map>
 using  namespace std;
 
-const int max_data_len=800;
+const int max_data_len=1600;
 const int buf_len=max_data_len+200;
 const uint32_t max_handshake_conn_num=10000;
 const uint32_t max_ready_conn_num=1000;
