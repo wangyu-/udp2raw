@@ -1061,6 +1061,11 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     payloadlen = ip_payloadlen-tcphdrlen;
 
     payload=tcp_begin+tcphdrlen;
+
+	if (recv_info.syn == 0 && recv_info.ack == 1&& payloadlen != 0)   //only modify   send_info when the packet is not part of handshake
+	{
+		send_info.ack_seq=recv_info.seq;
+	}
     return 0;
 }
 /*
