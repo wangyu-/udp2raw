@@ -958,6 +958,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 			send_info.syn = 1;
 			send_info.psh = 0;
 
+
 			send_bare(raw_info, 0, 0);   /////////////send
 		}
 		else if(raw_mode==mode_udp||raw_mode==mode_icmp)
@@ -987,6 +988,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 		{
 			mylog(log_info,"retry send sync\n");
 			send_info.seq=send_info.first_seq;
+			send_info.ts_ack = 0;
 			send_bare(raw_info,0,0); /////////////send
 			conn_info.last_hb_sent_time=get_current_time();
 		}
@@ -2366,7 +2368,7 @@ int client_event_loop()
 				read(timer_fd, &value, 8);
 				keep_connection_client(conn_info);
 
-				mylog(log_debug,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
+				mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
 				epoll_trigger_counter=0;
 			}
 			else if (events[idx].data.u64 == (uint64_t)udp_fd)
@@ -2546,7 +2548,7 @@ int server_event_loop()
 					mylog(log_debug,"conn_manager.clear_inactive(),%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
 				}
 
-				mylog(log_debug,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
+				mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
 				epoll_trigger_counter=0;
 
 			}

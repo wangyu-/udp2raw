@@ -498,7 +498,7 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 		mylog(log_debug,"invalid len\n");
 		return -1;
 	}
-	mylog(log_debug,"udp_len:%d %d\n",udp_tot_len,udph->len);
+	mylog(log_trace,"udp_len:%d %d\n",udp_tot_len,udph->len);
 	udph->len=htons(uint16_t(udp_tot_len));
 
 	memcpy(send_raw_udp_buf+sizeof(struct pseudo_header)+sizeof(udphdr),payload,payloadlen);
@@ -876,7 +876,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 
 	payload=ip_payload+sizeof(icmphdr);
 	payloadlen=ip_payloadlen-sizeof(icmphdr);
-	mylog(log_debug,"get a packet len=%d\n",payloadlen);
+	mylog(log_trace,"get a packet len=%d\n",payloadlen);
 
     return 0;
 }
