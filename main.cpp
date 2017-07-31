@@ -28,6 +28,7 @@ int epollfd=-1;
 int timer_fd=-1;
 int fail_time_counter=0;
 int epoll_trigger_counter=0;
+int debug_flag=0;
 
 char key_string[1000]= "secret key";
 char key[16],key2[16];
@@ -2478,6 +2479,9 @@ int server_event_loop()
 
 	set_timer(epollfd,timer_fd);
 
+	long int begin_time;
+	long int end_time;
+
 	while(1)////////////////////////
 	{
 
@@ -2494,15 +2498,16 @@ int server_event_loop()
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
 			if ((events[idx].data.u64 ) == (uint64_t)timer_fd)
 			{
+				if(debug_flag)begin_time=get_current_time();
+				conn_manager.clear_inactive();
 				uint64_t dummy;
 				read(timer_fd, &dummy, 8);
 				current_time_rough=get_current_time();
-
-				long int begin=get_current_time();
-				conn_manager.clear_inactive();
-				long int end=get_current_time()-begin;
-
-				if(end>1)mylog(log_debug,"%lld,conn_manager.clear_inactive();,%lld  \n",begin,end);
+				if(debug_flag)
+				{
+					end_time=get_current_time()-begin_time;
+					mylog(log_debug,"conn_manager.clear_inactive(),%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+				}
 
 				mylog(log_debug,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
 				epoll_trigger_counter=0;
@@ -2510,14 +2515,17 @@ int server_event_loop()
 			}
 			else if (events[idx].data.u64 == (uint64_t)raw_recv_fd)
 			{
-				long int begin=get_current_time();
+				if(debug_flag)begin_time=get_current_time();
 				server_on_raw_recv_multi();
-				long int end=get_current_time()-begin;
-				if(end>1)mylog(log_debug,"%lld,server_on_raw_recv_multi(),%lld  \n",begin,end);
+				if(debug_flag)
+				{
+					end_time=get_current_time()-begin_time;
+					mylog(log_debug,"conn_manager.clear_inactive(),%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+				}
 			}
 			else if ((events[idx].data.u64 >>32u) == 2u)
 			{
-				long int begin=get_current_time();
+				if(debug_flag)begin_time=get_current_time();
 				int fd=get_u64_l(events[idx].data.u64);
 				uint64_t dummy;
 				read(fd, &dummy, 8);
@@ -2543,14 +2551,17 @@ int server_event_loop()
 				//conn_info_t &conn_info=conn_manager.find(ip,port);
 				keep_connection_server_multi(*p_conn_info);
 
-				long int end=get_current_time()-begin;
-				if(end>1)mylog(log_debug,"%lld,keep_connection_server_multi,%lld  \n",begin,end);
+				if(debug_flag)
+				{
+					end_time=get_current_time()-begin_time;
+					mylog(log_debug,"conn_manager.clear_inactive(),%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+				}
 			}
 			else if ((events[idx].data.u64 >>32u) == 1u)
 			{
 				//uint32_t conv_id=events[n].data.u64>>32u;
 
-				long int begin=get_current_time();
+				if(debug_flag)begin_time=get_current_time();
 
 				int fd=int((events[idx].data.u64<<32u)>>32u);
 
@@ -2606,8 +2617,11 @@ int server_event_loop()
 					mylog(log_trace,"send_data_safer ,sent !!\n");
 				}
 
-				long int end=get_current_time()-begin;
-				if(end>1) mylog(log_debug,"%lld,send_data_safer,%lld  \n",begin,end);
+				if(debug_flag)
+				{
+					end_time=get_current_time()-begin_time;
+				    mylog(log_debug,"conn_manager.clear_inactive(),%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+				}
 			}
 			else
 			{
@@ -2678,6 +2692,7 @@ void process_arg(int argc, char *argv[])
 		{"disable-color", no_argument,    0, 1},
 		{"log-position", no_argument,    0, 1},
 		{"disable-bpf", no_argument,    0, 1},
+		{"debug", no_argument,    0, 1},
 		{"sock-buf", required_argument,    0, 1},
 		{"seq-mode", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
@@ -2849,6 +2864,11 @@ void process_arg(int argc, char *argv[])
 			}
 			else if(strcmp(long_options[option_index].name,"disable-color")==0)
 			{
+				//enable_log_color=0;
+			}
+			else if(strcmp(long_options[option_index].name,"debug")==0)
+			{
+				debug_flag=1;
 				//enable_log_color=0;
 			}
 			else if(strcmp(long_options[option_index].name,"log-position")==0)
