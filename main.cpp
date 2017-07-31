@@ -951,6 +951,8 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 
 			send_info.seq = get_true_random_number();
 			send_info.ack_seq = get_true_random_number();
+			send_info.first_seq=send_info.seq;
+			//send_info.first_ack_seq=send_info.ack_seq
 			send_info.ts_ack = 0;
 			send_info.ack = 0;
 			send_info.syn = 1;
@@ -1518,6 +1520,8 @@ int server_on_raw_ready(conn_info_t &conn_info)
 			}
 
 			conn_info.conv_manager->insert_conv(tmp_conv_id, new_udp_fd);
+			assert(conn_manager.udp_fd_mp.find(new_udp_fd)==conn_manager.udp_fd_mp.end());
+
 			conn_manager.udp_fd_mp[new_udp_fd] = &conn_info;
 
 			//pack_u64(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
@@ -1551,8 +1555,8 @@ int server_on_raw_ready(conn_info_t &conn_info)
 int server_on_raw_pre_ready(conn_info_t &conn_info,char * data,int data_len)
 {
 	uint32_t ip;uint16_t port;
-	ip=conn_info.raw_info.send_info.src_ip;
-	port=conn_info.raw_info.send_info.src_ip;
+	ip=conn_info.raw_info.recv_info.src_ip;
+	port=conn_info.raw_info.recv_info.src_port;
 	char ip_port[40];
 	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
 
@@ -1622,6 +1626,7 @@ int server_on_raw_pre_ready(conn_info_t &conn_info,char * data,int data_len)
 		int new_timer_fd;
 		set_timer_server(epollfd, new_timer_fd);
 		conn_info.timer_fd=new_timer_fd;
+		assert(conn_manager.timer_fd_mp.find(new_timer_fd)==conn_manager.timer_fd_mp.end());
 		conn_manager.timer_fd_mp[new_timer_fd] = &conn_info;//pack_u64(ip,port);
 
 
@@ -1718,6 +1723,7 @@ int server_on_raw_recv_multi()
 	if(!conn_manager.exist(ip,port))
 	{
 		raw_info_t tmp_raw_info;
+		tmp_raw_info.send_info.src_port=tmp_raw_info.send_info.dst_port=port;
 
 		if(recv_bare(tmp_raw_info,data,data_len)<0)
 		{
@@ -2996,7 +3002,10 @@ int main(int argc, char *argv[])
 	signal(SIGINT, INThandler);
 	process_arg(argc,argv);
 
-	iptables_warn();
+	local_address_uint32=inet_addr(local_address);
+	remote_address_uint32=inet_addr(remote_address);
+	source_address_uint32=inet_addr(source_address);
+
 
 	current_time_rough=get_current_time();
 
@@ -3005,10 +3014,6 @@ int main(int argc, char *argv[])
 	const_id=get_true_random_number_nz();
 
 	mylog(log_info,"const_id:%x\n",const_id);
-
-	local_address_uint32=inet_addr(local_address);
-	remote_address_uint32=inet_addr(remote_address);
-	source_address_uint32=inet_addr(source_address);
 
 	char tmp[1000]="";
 
@@ -3026,6 +3031,7 @@ int main(int argc, char *argv[])
 
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);
 
+	iptables_warn();
 	if(program_mode==client_mode)
 	{
 		client_event_loop();

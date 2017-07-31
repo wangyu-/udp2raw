@@ -126,20 +126,22 @@ tcpdump -i eth1  ip and icmp -dd
 
 packet_info_t::packet_info_t()
 {
-		if(raw_mode==mode_faketcp)
-		{
-			protocol=IPPROTO_TCP;
-			ack_seq=get_true_random_number();
-			seq=get_true_random_number();
-		}
-		else if(raw_mode==mode_udp)
-		{
-			protocol=IPPROTO_UDP;
-		}
-		else if(raw_mode==mode_icmp)
-		{
-			protocol=IPPROTO_ICMP;
-		}
+	src_port=0;
+	dst_port=0;
+	if (raw_mode == mode_faketcp)
+	{
+		protocol = IPPROTO_TCP;
+		ack_seq = get_true_random_number();
+		seq = get_true_random_number();
+	}
+	else if (raw_mode == mode_udp)
+	{
+		protocol = IPPROTO_UDP;
+	}
+	else if (raw_mode == mode_icmp)
+	{
+		protocol = IPPROTO_ICMP;
+	}
 
 }
 
@@ -195,8 +197,10 @@ int init_raw_socket()
 void init_filter(int port)
 {
 	sock_fprog bpf;
-
-	filter_port=port;
+	if(raw_mode==mode_faketcp||raw_mode==mode_udp)
+	{
+		filter_port=port;
+	}
 	if(disable_bpf_filter) return;
 	//if(raw_mode==mode_icmp) return ;
 	//code_tcp[8].k=code_tcp[10].k=port;
@@ -451,7 +455,8 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	icmph->code=0;
 	icmph->id=htons(send_info.src_port);
 
-	icmph->seq=htons(send_info.icmp_seq++);   /////////////modify
+
+	icmph->seq=htons(send_info.icmp_seq);   /////////////modify
 
 	memcpy(send_raw_icmp_buf+sizeof(icmphdr),payload,payloadlen);
 
@@ -460,6 +465,11 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	if(send_raw_ip(raw_info,send_raw_icmp_buf,sizeof(icmphdr)+payloadlen)!=0)
 	{
 		return -1;
+	}
+
+	if(program_mode==client_mode)
+	{
+		send_info.icmp_seq++;
 	}
 
 	return 0;
@@ -805,7 +815,7 @@ int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int p
 
 int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 {
-	const packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
 	static char recv_raw_icmp_buf[buf_len];
 
@@ -825,7 +835,13 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 
 	icmphdr *icmph=(struct icmphdr *) (ip_payload);
 
+	if(ntohs(icmph->id)!=send_info.src_port)
+	{
+		return -1;
+	}
+
 	recv_info.src_port=recv_info.dst_port=ntohs(icmph->id);
+
 
 
 	if(program_mode==client_mode)
@@ -837,6 +853,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	{
 		if(icmph->type!=8)
 			return -1;
+
 	}
 
 	if(icmph->code!=0)
@@ -848,6 +865,13 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	{
 		mylog(log_debug,"icmp checksum fail %x\n",check);
 		return -1;
+	}
+	//mylog(log_info,"program_mode=%d\n",program_mode);
+
+	if(program_mode==server_mode)
+	{
+		send_info.icmp_seq=ntohs(icmph->seq);
+		//mylog(log_info,"send_info.seq=%d\n",send_info.seq);
 	}
 
 	payload=ip_payload+sizeof(icmphdr);

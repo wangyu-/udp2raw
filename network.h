@@ -32,7 +32,7 @@ struct pseudo_header {
     u_int16_t tcp_length;
 };
 
-struct packet_info_t
+struct packet_info_t  //todo change this to union
 {
 	uint8_t protocol;
 	//ip_part:
