@@ -408,6 +408,8 @@ struct conn_manager_t
 			assert(erase_it->second->conv_manager==0);
 			assert(erase_it->second->timer_fd ==0);
 			assert(erase_it->second->oppsite_const_id==0);
+			delete(erase_it->second);
+			mp.erase(erase_it->first);
 		}
 		return 0;
  }
@@ -424,7 +426,11 @@ int clear_inactive()
 	int size=mp.size();
 	int num_to_clean=size/conn_clear_ratio+conn_clear_min;   //clear 1/10 each time,to avoid latency glitch
 
+	mylog(log_trace,"mp.size() %d\n",mp.size());
+
+	num_to_clean=min(num_to_clean,(int)mp.size());
 	uint64_t current_time=get_current_time();
+
 	for(;;)
 	{
 		if(cnt>=num_to_clean) break;
@@ -1301,6 +1307,11 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			return -1;
 		}
 
+		if(data_len<int( 3*sizeof(id_t)))
+		{
+			mylog(log_debug,"too short to be a handshake\n");
+			return -1;
+		}
 		if(raw_mode==mode_faketcp&& (recv_info.syn==1||recv_info.ack!=1 ||data_len==0))
 		{
 			mylog(log_debug,"unexpected syn ack or other zero lenght packet\n");
@@ -1594,7 +1605,7 @@ int server_on_raw_pre_ready(conn_info_t &conn_info,char * data,int data_len)
 
 	if(tmp_session_id!=conn_info.my_id)
 	{
-		mylog(log_debug,"[%s]%x %x auth fail!!\n",tmp_session_id,conn_info.my_id,ip_port);
+		mylog(log_debug,"[%s] my_id mis match,my id is %x,received %d\n",ip_port,conn_info.my_id,tmp_session_id);
 		return 0;
 	}
 
@@ -1803,7 +1814,7 @@ int server_on_raw_recv_multi()
 			conn_info.my_id=get_true_random_number_nz();
 			send_handshake(raw_info,conn_info.my_id,get_true_random_number_nz(),const_id);  //////////////send
 
-			mylog(log_info,"[%s]changed state to server_heartbeat_sent_sent\n",ip_port);
+			mylog(log_info,"[%s]changed state to server_heartbeat_sent_sent,my_id is %x\n",ip_port,conn_info.my_id);
 
 			conn_info.state.server_current_state = server_handshake_sent;
 			conn_info.last_state_time = get_current_time();
