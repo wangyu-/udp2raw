@@ -31,7 +31,7 @@ int epoll_trigger_counter=0;
 int debug_flag=0;
 
 char key_string[1000]= "secret key";
-char key[16],key2[16];
+char key[16];//,key2[16];
 
 uint64_t current_time_rough=0;
 
@@ -677,11 +677,15 @@ int send_bare(raw_info_t &raw_info,const char* data,int len)
 	}
 	//static send_bare[buf_len];
 	iv_t iv=get_true_random_number_64();
+	padding_t padding=get_true_random_number_64();
 
-	memcpy(send_data_buf,&iv,sizeof(iv_t));
-	memcpy(send_data_buf+sizeof(iv_t),data,len);
+	memcpy(send_data_buf,&iv,sizeof(iv));
+	memcpy(send_data_buf+sizeof(iv),&padding,sizeof(padding));
 
-	int new_len=len+sizeof(iv_t);
+	send_data_buf[sizeof(iv)+sizeof(padding)]='b';
+	memcpy(send_data_buf+sizeof(iv)+sizeof(padding)+1,data,len);
+	int new_len=len+sizeof(iv)+sizeof(padding)+1;
+
 	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
 	{
 		return -1;
@@ -702,9 +706,14 @@ int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow 
 		mylog(log_debug,"decrypt_fail in recv bare\n");
 		return -1;
 	}
+	if(recv_data_buf[sizeof(iv_t)+sizeof(padding_t)]!='b')
+	{
+		mylog(log_debug,"not a bare packet\n");
+		return -1;
+	}
 	len=input_len;
-	data=recv_data_buf+sizeof(iv_t);
-	len-=sizeof(iv_t);
+	data=recv_data_buf+sizeof(iv_t)+sizeof(padding_t)+1;
+	len-=sizeof(iv_t)+sizeof(padding_t)+1;
 	return 0;
 }
 int recv_bare(raw_info_t &raw_info,char* & data,int & len)
@@ -749,6 +758,13 @@ int send_safer(conn_info_t &conn_info,const char* data,int len)
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
+	if(data[0]!='h'&&data[0]!='d')
+	{
+		mylog(log_warn,"first byte is not h or d  ,%x\n",data[0]);
+		return -1;
+	}
+
+
 
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
@@ -770,7 +786,7 @@ int send_safer(conn_info_t &conn_info,const char* data,int len)
 
 	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2;
 
-	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key2)!=0)
+	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
 	{
 		return -1;
 	}
@@ -800,11 +816,13 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &d
 	 static char recv_data_buf0[buf_len];
 
 	 char *recv_data_buf=recv_data_buf0; //fix strict alias warning
-	if(my_decrypt(input,recv_data_buf,input_len,key2)!=0)
+	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
 	{
 		//printf("decrypt fail\n");
 		return -1;
 	}
+
+
 
 	//char *a=recv_data_buf;
 	id_t h_oppiste_id= ntohl (  *((id_t * )(recv_data_buf)) );
@@ -828,6 +846,12 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &d
 	data=recv_data_buf+sizeof(anti_replay_seq_t)+sizeof(id_t)*2;
 	len=input_len-(sizeof(anti_replay_seq_t)+sizeof(id_t)*2  );
 
+
+	if(data[0]!='h'&&data[0]!='d')
+	{
+		mylog(log_warn,"first byte is not h or d  ,%x\n",data[0]);
+		return -1;
+	}
 
 	if(len<0)
 	{
@@ -3065,13 +3089,14 @@ int main(int argc, char *argv[])
 
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key);
 
+	/*
 	tmp[0]=0;
 
 	strcat(tmp,key_string);
 
 	strcat(tmp,"key2");
 
-	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);
+	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);*/
 
 	iptables_warn();
 	if(program_mode==client_mode)

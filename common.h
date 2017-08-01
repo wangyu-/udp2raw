@@ -94,6 +94,8 @@ typedef uint32_t id_t;
 
 typedef uint64_t iv_t;
 
+typedef uint64_t padding_t;
+
 typedef uint64_t anti_replay_seq_t;
 
 uint64_t get_current_time();
