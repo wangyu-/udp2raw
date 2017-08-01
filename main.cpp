@@ -927,8 +927,39 @@ int client_bind_to_a_new_port()
 	exit(-1);
 	return -1;////for compiler check
 }
-
 int keep_connection_client(conn_info_t &conn_info) //for client
+{
+	packet_info_t &send_info=conn_info.raw_info.send_info;
+	packet_info_t &recv_info=conn_info.raw_info.recv_info;
+	raw_info_t &raw_info=conn_info.raw_info;
+	current_time_rough=get_current_time();
+	conn_info.conv_manager->clear_inactive();
+	mylog(log_trace,"timer!\n");
+	if(conn_info.state.client_current_state==client_nothing)
+	{
+		conn_info.anti_replay->re_init();
+		if(raw_mode==mode_icmp)
+		{
+			remove_filter();
+		}
+		if(source_port==0)
+		{
+			send_info.src_port = client_bind_to_a_new_port();
+		}
+		else
+		{
+			send_info.src_port=source_port;
+		}
+
+		if(raw_mode==mode_icmp)
+		{
+			send_info.dst_port =send_info.src_port ;
+		}
+		mylog(log_info,"using port %d\n", send_info.src_port);
+
+	}
+}
+int keep_connection_client0(conn_info_t &conn_info) //for client
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
@@ -981,7 +1012,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 
 			send_info.seq = get_true_random_number();
 			send_info.ack_seq = get_true_random_number();
-			send_info.first_seq=send_info.seq;
+			raw_info.first_seq=send_info.seq;
 			//send_info.first_ack_seq=send_info.ack_seq
 			send_info.ts_ack = 0;
 			send_info.ack = 0;
@@ -1017,7 +1048,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 		else if(get_current_time()-conn_info.last_hb_sent_time>client_retry_interval)
 		{
 			mylog(log_info,"retry send sync\n");
-			send_info.seq=send_info.first_seq;
+			send_info.seq=raw_info.first_seq;
 			send_info.ts_ack = 0;
 			send_bare(raw_info,0,0); /////////////send
 			conn_info.last_hb_sent_time=get_current_time();
@@ -1036,8 +1067,8 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 		{
 			if(raw_mode==mode_faketcp)
 			{
-				send_info.seq=send_info.first_seq+1;
-				send_info.ack_seq=send_info.first_ack_seq;
+				send_info.seq=raw_info.first_seq+1;
+				send_info.ack_seq=raw_info.first_ack_seq;
 				send_bare(raw_info,0,0);/////////////send
 			}
 			else if(raw_mode==mode_udp||raw_mode==mode_icmp)
@@ -1298,14 +1329,14 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			return 0;
 		}
 
-		if(recv_info.ack_seq!=send_info.first_seq+1)
+		if(recv_info.ack_seq!=raw_info.first_seq+1)
 		{
-			mylog(log_info,"unexpected  ack_seq:%d   ,should be %d\n",recv_info.ack_seq,send_info.first_seq+1);
+			mylog(log_info,"unexpected  ack_seq:%d   ,should be %d\n",recv_info.ack_seq,raw_info.first_seq+1);
 			return 0;
 		}
 
 		send_info.ack_seq=recv_info.seq+1;
-		send_info.first_ack_seq=send_info.ack_seq;
+		raw_info.first_ack_seq=send_info.ack_seq;
 
 		send_info.psh=0;
 		send_info.syn=0;
@@ -1353,8 +1384,8 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			printf("not a heartbeat\n");
 			return 0;
 		}*/
-		send_info.seq=send_info.first_seq+1;
-		send_info.ack_seq=send_info.first_ack_seq;
+		send_info.seq=raw_info.first_seq+1;
+		send_info.ack_seq=raw_info.first_ack_seq;
 
 		conn_info.oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
 
@@ -1819,8 +1850,8 @@ int server_on_raw_recv_multi()
 
 			send_info.seq = get_true_random_number(); //not necessary to set
 
-			send_info.first_seq=send_info.seq;   //correct seq and ack_seq are import for create nat pipe.
-			send_info.first_ack_seq=send_info.ack_seq;//if someone attack you with fake data,those two value may be changed
+			raw_info.first_seq=send_info.seq;   //correct seq and ack_seq are import for create nat pipe.
+			raw_info.first_ack_seq=send_info.ack_seq;//if someone attack you with fake data,those two value may be changed
 
 			mylog(log_info,"[%s]sent syn ack\n",ip_port);
 			send_bare(raw_info, 0, 0);  //////////////send
@@ -1880,22 +1911,22 @@ int server_on_raw_recv_multi()
 			if( recv_info.syn==0&&recv_info.ack==1 &&data_len==0)   //received ack as expect
 			{
 
-				if(recv_info.ack_seq!=send_info.first_seq+1)
+				if(recv_info.ack_seq!=raw_info.first_seq+1)
 				{
-					mylog(log_info,"[%s]unexpect ack_seq  %d,should be\n",ip_port,recv_info.ack_seq,send_info.first_seq+1);
+					mylog(log_info,"[%s]unexpect ack_seq  %d,should be\n",ip_port,recv_info.ack_seq,raw_info.first_seq+1);
 					return 0;
 				}
-				if(recv_info.seq!=send_info.first_ack_seq)
+				if(recv_info.seq!=raw_info.first_ack_seq)
 				{
-					mylog(log_info,"[%s]unexpect seq  %d,should be\n",ip_port,recv_info.seq,send_info.first_ack_seq);
+					mylog(log_info,"[%s]unexpect seq  %d,should be\n",ip_port,recv_info.seq,raw_info.first_ack_seq);
 					return 0;
 				}
 				send_info.syn=0;
 				send_info.ack=1;
 				//send_info.seq+=1;////////is this right?
 
-				send_info.seq=send_info.first_seq+1;
-				send_info.ack_seq=send_info.first_ack_seq;
+				send_info.seq=raw_info.first_seq+1;
+				send_info.ack_seq=raw_info.first_ack_seq;
 
 				conn_info.my_id=get_true_random_number_nz();
 				send_handshake(raw_info,conn_info.my_id,0,const_id);   //////////////send
@@ -1907,8 +1938,8 @@ int server_on_raw_recv_multi()
 			}
 			else if(recv_info.syn == 1 && recv_info.ack == 0 && data_len == 0)  //received syn again,server will re-send syn ack
 			{
-				send_info.seq=send_info.first_seq;   //used saved seq and ack_seq
-				send_info.ack_seq=send_info.first_ack_seq;
+				send_info.seq=raw_info.first_seq;   //used saved seq and ack_seq
+				send_info.ack_seq=raw_info.first_ack_seq;
 
 				send_info.psh = 0;
 				send_info.syn = 1;
@@ -1940,8 +1971,8 @@ int server_on_raw_recv_multi()
 				send_info.syn=0;
 				send_info.ack=1;
 
-				send_info.seq=send_info.first_seq+1;
-				send_info.ack_seq=send_info.first_ack_seq;
+				send_info.seq=raw_info.first_seq+1;
+				send_info.ack_seq=raw_info.first_ack_seq;
 
 				conn_info.my_id=get_true_random_number_nz();
 				mylog(log_info,"[%s]re-sent handshake\n",ip_port);

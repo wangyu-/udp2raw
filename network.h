@@ -46,7 +46,7 @@ struct packet_info_t  //todo change this to union
 	bool syn,ack,psh,rst;
 
 	uint32_t seq,ack_seq;
-	uint32_t first_seq,first_ack_seq;
+
 
 	uint32_t ts,ts_ack;
 
@@ -61,6 +61,8 @@ struct raw_info_t
 {
 	packet_info_t send_info;
 	packet_info_t recv_info;
+	uint32_t first_seq,first_ack_seq;
+
 };//g_raw_info;
 
 
