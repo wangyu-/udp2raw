@@ -82,6 +82,7 @@ int auth_sum_cal(const char *data,char * output,int &len)
 }
 int auth_sum_verify(const char *data,int &len)
 {
+	if(len<4) return -1;
 	unsigned char res[4];
 	len-=4;
 	sum((unsigned char *)data,len,res);
@@ -187,8 +188,8 @@ int cipher_none_encrypt(const char *data,char *output,int &len,char * key)
 }
 int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 {
-	if(len%16 !=0) {mylog(log_debug,"len%16!=0");return -1;}
-	if(len<2) {mylog(log_debug,"len <2 ");return -1;}
+	if(len%16 !=0) {mylog(log_debug,"len%16!=0\n");return -1;}
+	if(len<2) {mylog(log_debug,"len <2\n");return -1;}
 	AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	len=((unsigned char)output[len-2])*256u+((unsigned char)output[len-1]);
 	return 0;

@@ -285,7 +285,10 @@ struct conn_info_t
 	anti_replay_t *anti_replay;
 	int timer_fd;
 	id_t oppsite_const_id;
-
+/*
+	const uint32_t &ip=raw_info.recv_info.src_ip;
+	const uint16_t &port=raw_info.recv_info.src_port;
+*/
 	conn_info_t()
 	{
 		//send_packet_info.protocol=g_packet_info_send.protocol;
@@ -527,7 +530,7 @@ int TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 ////////==========================type divider=======================================================
 
 
-int server_on_raw_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_const_id);
+int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_const_id);
 int server_on_raw_recv_ready(conn_info_t &conn_info);
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
 ////////////////=======================declear divider=============================
@@ -695,6 +698,11 @@ void server_clear_function(uint64_t u64)
 
 int send_bare(raw_info_t &raw_info,const char* data,int len)
 {
+	if(len<0)
+	{
+		mylog(log_debug,"input_len <0");
+		return -1;
+	}
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
 
@@ -724,6 +732,11 @@ int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow 
 {
 	static char recv_data_buf[buf_len];
 
+	if(input_len<0)
+	{
+		mylog(log_debug,"input_len <0");
+		return -1;
+	}
 	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
 	{
 		mylog(log_debug,"decrypt_fail in recv bare\n");
@@ -737,6 +750,11 @@ int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow 
 	len=input_len;
 	data=recv_data_buf+sizeof(iv_t)+sizeof(padding_t)+1;
 	len-=sizeof(iv_t)+sizeof(padding_t)+1;
+	if(len<0)
+	{
+		mylog(log_debug,"len <0");
+		return -1;
+	}
 	return 0;
 }
 int recv_bare(raw_info_t &raw_info,char* & data,int & len)
@@ -754,8 +772,7 @@ int recv_bare(raw_info_t &raw_info,char* & data,int & len)
 		mylog(log_debug,"unexpect packet type recv_info.syn=%d recv_info.ack=%d \n",recv_info.syn,recv_info.ack);
 		return -1;
 	}
-	parse_bare(data,len,data,len);
-	return 0;
+	return parse_bare(data,len,data,len);
 }
 
 int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3)
@@ -1020,7 +1037,7 @@ int set_timer_server(int epollfd,int &timer_fd)
 }
 
 
-int keep_connection_client(conn_info_t &conn_info) //for client
+int client_on_timer(conn_info_t &conn_info) //for client
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
@@ -1178,7 +1195,7 @@ int keep_connection_client(conn_info_t &conn_info) //for client
 	}
 	return 0;
 }
-int keep_connection_server_multi(conn_info_t &conn_info)
+int server_on_timer_multi(conn_info_t &conn_info)
 {
 	mylog(log_trace,"server timer!\n");
 	raw_info_t &raw_info=conn_info.raw_info;
@@ -1256,7 +1273,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			conn_info.state.client_current_state = client_handshake1;
 			conn_info.last_state_time = get_current_time();
 			conn_info.last_resent_time=0;
-			keep_connection_client(conn_info);
+			client_on_timer(conn_info);
 			return 0;
 		}
 		else
@@ -1299,7 +1316,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 		conn_info.state.client_current_state = client_handshake2;
 		conn_info.last_state_time = get_current_time();
 		conn_info.last_resent_time=0;
-		keep_connection_client(conn_info);
+		client_on_timer(conn_info);
 
 		return 0;
 	}
@@ -1478,12 +1495,25 @@ int server_on_raw_recv_multi()
 		raw_info_t &raw_info=conn_info.raw_info;
 
 		id_t tmp_oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
-		mylog(log_info,"handshake received %x\n",conn_info.oppsite_id);
+		mylog(log_info,"handshake received %x\n",tmp_oppsite_id);
+/*
+		for(int i=0;i<data_len;i++)
+		{
+			printf("<%d>",data[i]);
+		}
+		printf("<%d>\n",data_len);*/
 
 		conn_info.my_id=get_true_random_number_nz();
+
+		if(raw_mode==mode_faketcp)
+		{
+			send_info.seq=raw_info.first_seq+1;
+			send_info.ack=raw_info.first_ack_seq;
+		}
 		send_handshake(raw_info,conn_info.my_id,tmp_oppsite_id,const_id);  //////////////send
 
 		mylog(log_info,"[%s]changed state to server_handshake1,my_id is %x\n",ip_port,conn_info.my_id);
+
 
 
 		conn_info.state.server_current_state = server_handshake1;
@@ -1505,7 +1535,7 @@ int server_on_raw_recv_multi()
 		}
 		if(data_len<int( 3*sizeof(id_t)))
 		{
-			mylog(log_debug,"[%s]too short to be a handshake\n",ip_port);
+			mylog(log_debug,"[%s] data_len=%d too short to be a handshake\n",ip_port,data_len);
 			return -1;
 		}
 		id_t tmp_oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
@@ -1520,7 +1550,7 @@ int server_on_raw_recv_multi()
 		{
 			conn_info.oppsite_id=tmp_oppsite_id;
 			id_t tmp_oppsite_const_id=ntohl(* ((uint32_t *)&data[sizeof(id_t)*2]));
-			server_on_raw_pre_ready(conn_info,tmp_oppsite_const_id);
+			server_on_raw_recv_pre_ready(conn_info,tmp_oppsite_const_id);
 		}
 		else
 		{
@@ -1652,7 +1682,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 	return 0;
 }
 
-int server_on_raw_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_const_id)
+int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_const_id)
 {
 	uint32_t ip;uint16_t port;
 	ip=conn_info.raw_info.recv_info.src_ip;
@@ -1662,6 +1692,7 @@ int server_on_raw_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_const_id
 
 	mylog(log_info,"[%s]received handshake oppsite_id:%x  my_id:%x\n",ip_port,conn_info.oppsite_id,conn_info.my_id);
 
+	mylog(log_info,"[%s]oppsite const_id:%x \n",ip_port,tmp_oppsite_const_id);
 	if(conn_manager.const_id_mp.find(tmp_oppsite_const_id)==conn_manager.const_id_mp.end())
 	{
 		//conn_manager.const_id_mp=
@@ -1933,7 +1964,7 @@ int client_event_loop()
 			{
 				uint64_t value;
 				read(timer_fd, &value, 8);
-				keep_connection_client(conn_info);
+				client_on_timer(conn_info);
 
 				mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
 				epoll_trigger_counter=0;
@@ -2155,7 +2186,7 @@ int server_event_loop()
 					exit(-1);
 				}
 				//conn_info_t &conn_info=conn_manager.find(ip,port);
-				keep_connection_server_multi(*p_conn_info);
+				server_on_timer_multi(*p_conn_info);
 
 				if(debug_flag)
 				{
