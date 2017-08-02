@@ -134,6 +134,8 @@ packet_info_t::packet_info_t()
 		ack_seq = get_true_random_number();
 		seq = get_true_random_number();
 		has_ts=0;
+		syn=0;
+		ack=1;
 	}
 	else if (raw_mode == mode_udp)
 	{

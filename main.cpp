@@ -528,7 +528,7 @@ int TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 
 
 int server_on_raw_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_const_id);
-int server_on_raw_ready(conn_info_t &conn_info);
+int server_on_raw_recv_ready(conn_info_t &conn_info);
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
 ////////////////=======================declear divider=============================
 /*
@@ -701,11 +701,7 @@ int send_bare(raw_info_t &raw_info,const char* data,int len)
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
 
-	if(len==0) //dont encrpyt zero length packet;
-	{
-		send_raw(raw_info,data,len);
-		return 0;
-	}
+
 	//static send_bare[buf_len];
 	iv_t iv=get_true_random_number_64();
 	padding_t padding=get_true_random_number_64();
@@ -727,10 +723,6 @@ int send_bare(raw_info_t &raw_info,const char* data,int len)
 int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow overlap
 {
 	static char recv_data_buf[buf_len];
-	if(len==0) //dont decrpyt zero length packet;
-	{
-		return 0;
-	}
 
 	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
 	{
@@ -755,6 +747,11 @@ int recv_bare(raw_info_t &raw_info,char* & data,int & len)
 	if(recv_raw(raw_info,data,len)<0)
 	{
 		//printf("recv_raw_fail in recv bare\n");
+		return -1;
+	}
+	if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1)))
+	{
+		mylog(log_debug,"unexpect packet type recv_info.syn=%d recv_info.ack=%d \n",recv_info.syn,recv_info.ack);
 		return -1;
 	}
 	parse_bare(data,len,data,len);
@@ -1483,13 +1480,11 @@ int server_on_raw_recv_multi()
 		id_t tmp_oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
 		mylog(log_info,"handshake received %x\n",conn_info.oppsite_id);
 
-
-
-
 		conn_info.my_id=get_true_random_number_nz();
 		send_handshake(raw_info,conn_info.my_id,tmp_oppsite_id,const_id);  //////////////send
 
 		mylog(log_info,"[%s]changed state to server_handshake1,my_id is %x\n",ip_port,conn_info.my_id);
+
 
 		conn_info.state.server_current_state = server_handshake1;
 		conn_info.last_state_time = get_current_time();
@@ -1535,13 +1530,13 @@ int server_on_raw_recv_multi()
 	}
 	if(conn_info.state.server_current_state==server_ready)
 	{
-		return server_on_raw_ready(conn_info);
+		return server_on_raw_recv_ready(conn_info);
 	}
 	return 0;
 }
 
 
-int server_on_raw_ready(conn_info_t &conn_info)
+int server_on_raw_recv_ready(conn_info_t &conn_info)
 {
 	int data_len; char *data;
 
@@ -1555,11 +1550,7 @@ int server_on_raw_ready(conn_info_t &conn_info)
 		return -1;
 	}
 
-	if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1))|| data_len == 0)
-	{
-		//recv(raw_recv_fd, 0,0, 0  );//
-		return 0;
-	}
+
 
 	if (recv_info.src_ip != send_info.dst_ip
 			|| recv_info.src_port != send_info.dst_port) {
