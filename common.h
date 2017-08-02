@@ -66,6 +66,10 @@ const int conn_clear_ratio=10;
 const int conv_clear_min=5;
 const int conn_clear_min=1;
 
+const uint32_t conv_clear_interval=1000;
+const uint32_t conn_clear_interval=1000;
+
+
 const int max_fail_time=100000;
 
 

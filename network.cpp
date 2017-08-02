@@ -133,6 +133,7 @@ packet_info_t::packet_info_t()
 		protocol = IPPROTO_TCP;
 		ack_seq = get_true_random_number();
 		seq = get_true_random_number();
+		has_ts=0;
 	}
 	else if (raw_mode == mode_udp)
 	{
@@ -141,6 +142,7 @@ packet_info_t::packet_info_t()
 	else if (raw_mode == mode_icmp)
 	{
 		protocol = IPPROTO_ICMP;
+		icmp_seq=0;
 	}
 
 }
@@ -837,6 +839,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 
 	if(ntohs(icmph->id)!=send_info.src_port)
 	{
+		mylog(log_debug,"icmp id mis-match,ignored\n");
 		return -1;
 	}
 
