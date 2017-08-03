@@ -267,33 +267,28 @@ struct conv_manager_t  //TODO change map to unordered map
 		return 0;
 	}
 };//g_conv_manager;
-struct blob_t
-{
-	raw_info_t raw_info;
-	long long last_hb_sent_time;  //client re-use this for retry
-	long long last_hb_recv_time;
-	id_t oppsite_id;
-	conv_manager_t conv_manager;
-	anti_replay_t anti_replay;
 
-	int timer_fd;
-	id_t oppsite_const_id;
-	blob_t()
-	{
-		oppsite_const_id=0;
-	}
-};
 struct conn_info_t
 {
 	current_state_t state;
 
+	raw_info_t raw_info;
 	long long last_state_time;
-
+	long long last_hb_sent_time;  //client re-use this for retry
+	long long last_hb_recv_time;
 	long long last_resent_time;
 
 	id_t my_id;
+	id_t oppsite_id;
 
-	blob_t *blob;
+	conv_manager_t *conv_manager;
+	anti_replay_t *anti_replay;
+	int timer_fd;
+	id_t oppsite_const_id;
+/*
+	const uint32_t &ip=raw_info.recv_info.src_ip;
+	const uint16_t &port=raw_info.recv_info.src_port;
+*/
 	conn_info_t()
 	{
 		//send_packet_info.protocol=g_packet_info_send.protocol;
@@ -302,24 +297,27 @@ struct conn_info_t
 		else
 			state.client_current_state=client_idle;
 		last_state_time=0;
-
-		//conv_manager=0;
-		//anti_replay=0;
+		oppsite_const_id=0;
+		conv_manager=0;
+		anti_replay=0;
 		timer_fd=0;
-
-		blob=-;
 	}
 	void prepare()
 	{
-		blob=new blob_t;
+		conv_manager=new conv_manager_t;
+		anti_replay=new anti_replay_t;
 	}
 	conn_info_t(const conn_info_t&b)
 	{
 		//mylog(log_error,"called!!!!!!!!!!!!!\n");
 		*this=b;
-		if(blob!=0)
+		if(conv_manager!=0)
 		{
-			blob=new conv_manager_t(*b.blob);
+			conv_manager=new conv_manager_t(*b.conv_manager);
+		}
+		if(anti_replay!=0)
+		{
+			anti_replay=new anti_replay_t(*b.anti_replay);
 		}
 	}
 	conn_info_t& operator=(const conn_info_t& b)
