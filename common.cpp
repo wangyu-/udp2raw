@@ -51,23 +51,37 @@ char * my_ntoa(uint32_t ip)
 
 void init_random_number_fd()
 {
+
 	random_number_fd=open("/dev/urandom",O_RDONLY);
+
 	if(random_number_fd==-1)
 	{
 		mylog(log_fatal,"error open /dev/urandom\n");
 		exit(-1);
 	}
+	setnonblocking(random_number_fd);
 }
 uint64_t get_true_random_number_64()
 {
 	uint64_t ret;
-	read(random_number_fd,&ret,sizeof(ret));
+	int size=read(random_number_fd,&ret,sizeof(ret));
+	if(size!=sizeof(ret))
+	{
+		mylog(log_fatal,"get random number failed\n",size);
+		exit(-1);
+	}
+
 	return ret;
 }
 uint32_t get_true_random_number()
 {
 	uint32_t ret;
-	read(random_number_fd,&ret,sizeof(ret));
+	int size=read(random_number_fd,&ret,sizeof(ret));
+	if(size!=sizeof(ret))
+	{
+		mylog(log_fatal,"get random number failed\n",size);
+		exit(-1);
+	}
 	return ret;
 }
 uint32_t get_true_random_number_nz() //nz for non-zero

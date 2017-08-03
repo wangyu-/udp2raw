@@ -54,7 +54,7 @@ struct anti_replay_t
 	{
 		disabled=0;
 		max_packet_received=0;
-		anti_replay_seq=get_true_random_number();
+		anti_replay_seq=get_true_random_number_64()/10;//random first seq
 		//memset(window,0,sizeof(window)); //not necessary
 	}
 	void re_init()
@@ -86,7 +86,7 @@ struct anti_replay_t
 			}
 			else
 			{
-				for (uint32_t i=max_packet_received+1;i<seq;i++)
+				for (uint64_t i=max_packet_received+1;i<seq;i++)
 					window[i%anti_replay_window_size]=0;
 				window[seq%anti_replay_window_size]=1;
 			}
@@ -881,7 +881,7 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &d
 	}
 
 	if (conn_info.blob->anti_replay.is_vaild(h_seq) != 1) {
-		mylog(log_warn,"dropped replay packet\n");
+		mylog(log_debug,"dropped replay packet\n");
 		return -1;
 	}
 
@@ -1086,10 +1086,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 		{
 			conn_info.state.client_current_state=client_tcp_handshake;
 			mylog(log_info,"state changed from client_idle to client_tcp_handshake\n");
-			send_info.psh = 0;
-			send_info.syn = 1;
-			send_info.ack = 0;
-			send_info.ts_ack =0;
+
 		}
 		conn_info.last_state_time=get_current_time();
 		conn_info.last_resent_time=0;
@@ -1112,8 +1109,12 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			{
 				if (conn_info.last_resent_time == 0)
 				{
-					send_info.ack_seq = recv_info.seq + 1;
-					//send_info.ts_ack = recv_info.ts;
+					send_info.psh = 0;
+					send_info.syn = 1;
+					send_info.ack = 0;
+					send_info.ts_ack =0;
+					send_info.seq=get_true_random_number();
+					send_info.ack_seq=get_true_random_number();
 				}
 			}
 
@@ -1283,7 +1284,7 @@ int server_on_timer_multi(conn_info_t &conn_info)
 
 		conn_info.last_hb_sent_time=get_current_time();
 
-		mylog(log_trace,"heart beat sent<%x,%x>\n",conn_info.my_id,conn_info.oppsite_id);
+		mylog(log_debug,"heart beat sent<%x,%x>\n",conn_info.my_id,conn_info.oppsite_id);
 	}
 	else
 	{
@@ -1513,6 +1514,7 @@ int server_on_raw_recv_multi()
 				send_info.psh = 0;
 				send_info.syn = 1;
 				send_info.ack = 1;
+				send_info.ts_ack=recv_info.ts;
 
 				mylog(log_info,"received syn,sent syn ack back\n");
 				send_raw0(raw_info, 0, 0);
