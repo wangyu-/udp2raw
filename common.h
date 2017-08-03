@@ -8,8 +8,8 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-
-
+//#define __STDC_FORMAT_MACROS 1
+#include <inttypes.h>
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
@@ -35,7 +35,6 @@
 #include <sys/time.h>
 #include <time.h>
 #include <sys/timerfd.h>
-#include <inttypes.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <net/if.h>

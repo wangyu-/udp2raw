@@ -96,9 +96,9 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen);
 
 int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen);
 
-int send_raw(raw_info_t &raw_info,const char * payload,int payloadlen);
+//int send_raw(raw_info_t &raw_info,const char * payload,int payloadlen);
 
-int recv_raw(raw_info_t &raw_info,char * &payload,int &payloadlen);
+//int recv_raw(raw_info_t &raw_info,char * &payload,int &payloadlen);
 
 int send_raw0(raw_info_t &raw_info,const char * payload,int payloadlen);
 

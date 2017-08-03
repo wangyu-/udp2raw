@@ -85,6 +85,8 @@ extern int enable_log_color;
 
 #define mylog(...) log0(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
 
+//#define mylog(__first_argu__dummy_abcde__,...) printf(__VA_ARGS__)
+
 void log0(const char * file,const char * function,int line,int level,const char* str, ...);
 
 void log_bare(int level,const char* str, ...);

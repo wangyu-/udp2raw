@@ -137,6 +137,8 @@ packet_info_t::packet_info_t()
 		ts_ack=0;
 		syn=0;
 		ack=1;
+
+		//mylog(log_info,"<cons ,ts_ack= %u>\n",ts_ack);
 	}
 	else if (raw_mode == mode_udp)
 	{
@@ -571,13 +573,15 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		send_raw_tcp_buf[i++] = 0x04; //sack ok
 		send_raw_tcp_buf[i++] = 0x02; //sack ok
 
-		send_raw_tcp_buf[i++] = 0x08;   //ts
-		send_raw_tcp_buf[i++] = 0x0a;
+		send_raw_tcp_buf[i++] = 0x08;   //ts   i=6
+		send_raw_tcp_buf[i++] = 0x0a;   //i=7
 
 		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(
 				(uint32_t) get_current_time());
 
 		i += 4;
+
+		//mylog(log_info,"[syn]<send_info.ts_ack= %u>\n",send_info.ts_ack);
 
 		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
 		i += 4;
@@ -593,13 +597,15 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		send_raw_tcp_buf[i++] = 0x01;
 		send_raw_tcp_buf[i++] = 0x01;
 
-		send_raw_tcp_buf[i++] = 0x08;  //ts
-		send_raw_tcp_buf[i++] = 0x0a;
+		send_raw_tcp_buf[i++] = 0x08;  //ts   //i=2
+		send_raw_tcp_buf[i++] = 0x0a; 		  //i=3;
 
 		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(
 				(uint32_t) get_current_time());
 
 		i += 4;
+
+		//mylog(log_info,"<send_info.ts_ack= %u>\n",send_info.ts_ack);
 
 		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
 		i += 4;
@@ -827,6 +833,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 		return -1;
 	}
 
+
 	icmphdr *icmph=(struct icmphdr *) (ip_payload);
 
 	if(ntohs(icmph->id)!=send_info.src_port)
@@ -836,7 +843,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	}
 
 	recv_info.src_port=recv_info.dst_port=ntohs(icmph->id);
-
+	recv_info.icmp_seq=ntohs(icmph->seq);
 
 
 	if(program_mode==client_mode)
@@ -975,7 +982,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     unsigned short tcphdrlen = tcph->doff*4;
 
-    if (!(tcph->doff > 0 && tcph->doff <=60)) {
+    if (!(tcphdrlen > 0 && tcphdrlen <=60)) {
     	mylog(log_debug,"tcph error\n");
     	return 0;
     }
@@ -1013,6 +1020,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     char *tcp_option=recv_raw_tcp_buf+sizeof(struct pseudo_header)+sizeof(tcphdr);
 
     recv_info.has_ts=0;
+    recv_info.ts=0;
     if(tcph->doff==10)
     {
     	if(tcp_option[6]==0x08 &&tcp_option[7]==0x0a)
@@ -1022,16 +1030,28 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     		recv_info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[12]));
     		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[8]));
     	}
+    	else
+    	{
+    		mylog(log_info,"???\n",tcph->doff);
+    	}
     }
     else if(tcph->doff==8)
     {
-    	if(tcp_option[3]==0x08 &&tcp_option[4]==0x0a)
+    	if(tcp_option[2]==0x08 &&tcp_option[3]==0x0a)
     	{
     		recv_info.has_ts=1;
-    		recv_info.ts=ntohl(*(uint32_t*)(&tcp_option[0]));
-    		recv_info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[4]));
+    		recv_info.ts=ntohl(*(uint32_t*)(&tcp_option[4]));
+    		recv_info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[8]));
     		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[0]));
     	}
+    	else
+    	{
+    		mylog(log_info,"!!!\n",tcph->doff);
+    	}
+    }
+    else
+    {
+    	mylog(log_info,"tcph->doff= %u\n",tcph->doff);
     }
     if(tcph->rst==1)
     {
@@ -1311,11 +1331,12 @@ int after_recv_raw0(raw_info_t &raw_info)
 	return 0;
 }
 
+/*
 int send_raw(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
-	int ret=send_raw(raw_info,payload,payloadlen);
+	int ret=send_raw0(raw_info,payload,payloadlen);
 	if(ret<0) return ret;
 	else
 	{
@@ -1328,12 +1349,12 @@ int recv_raw(raw_info_t &raw_info,char *& payload,int & payloadlen)
 {
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
-	int ret=recv_raw(raw_info,payload,payloadlen);
+	int ret=recv_raw0(raw_info,payload,payloadlen);
 	if(ret<0) return ret;
 	else
 	{
 		after_recv_raw0(raw_info);
 		return ret;
 	}
-}
+}*/
 

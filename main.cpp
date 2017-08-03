@@ -267,7 +267,11 @@ struct conv_manager_t  //TODO change map to unordered map
 		return 0;
 	}
 };//g_conv_manager;
-
+struct blob_t
+{
+	conv_manager_t conv_manager;
+	anti_replay_t anti_replay;
+};
 struct conn_info_t
 {
 	current_state_t state;
@@ -281,10 +285,11 @@ struct conn_info_t
 	id_t my_id;
 	id_t oppsite_id;
 
-	conv_manager_t *conv_manager;
-	anti_replay_t *anti_replay;
+
 	int timer_fd;
 	id_t oppsite_const_id;
+
+	blob_t *blob;
 /*
 	const uint32_t &ip=raw_info.recv_info.src_ip;
 	const uint16_t &port=raw_info.recv_info.src_port;
@@ -298,26 +303,21 @@ struct conn_info_t
 			state.client_current_state=client_idle;
 		last_state_time=0;
 		oppsite_const_id=0;
-		conv_manager=0;
-		anti_replay=0;
+		blob=0;
 		timer_fd=0;
 	}
 	void prepare()
 	{
-		conv_manager=new conv_manager_t;
-		anti_replay=new anti_replay_t;
+		blob=new blob_t;
+
 	}
 	conn_info_t(const conn_info_t&b)
 	{
 		//mylog(log_error,"called!!!!!!!!!!!!!\n");
 		*this=b;
-		if(conv_manager!=0)
+		if(blob!=0)
 		{
-			conv_manager=new conv_manager_t(*b.conv_manager);
-		}
-		if(anti_replay!=0)
-		{
-			anti_replay=new anti_replay_t(*b.anti_replay);
+			blob=new blob_t(*b.blob);
 		}
 	}
 	conn_info_t& operator=(const conn_info_t& b)
@@ -425,8 +425,7 @@ struct conn_manager_t
 		}
 		else
 		{
-			assert(erase_it->second->anti_replay==0);
-			assert(erase_it->second->conv_manager==0);
+			assert(erase_it->second->blob==0);
 			assert(erase_it->second->timer_fd ==0);
 			assert(erase_it->second->oppsite_const_id==0);
 			delete(erase_it->second);
@@ -479,7 +478,7 @@ int clear_inactive0()
 		{
 			it++;
 		}
-		else if(it->second->conv_manager!=0&&it->second->conv_manager->get_size() >0)
+		else if(it->second->blob!=0&&it->second->blob->conv_manager.get_size() >0)
 		{
 			assert(it->second->state.server_current_state==server_ready);
 			it++;
@@ -504,24 +503,20 @@ conn_info_t::~conn_info_t()
 	{
 		if(state.server_current_state==server_ready)
 		{
-			assert(conv_manager!=0);
-			assert(anti_replay!=0);
+			assert(blob!=0);
 			assert(oppsite_const_id!=0);
 			//assert(conn_manager.const_id_mp.find(oppsite_const_id)!=conn_manager.const_id_mp.end()); // conn_manager 's deconstuction function  erases it
 		}
 		else
 		{
-			assert(conv_manager==0);
-			assert(anti_replay==0);
+			assert(blob==0);
 			assert(oppsite_const_id==0);
 		}
 	}
 	//if(oppsite_const_id!=0)     //do this at conn_manager 's deconstuction function
 		//conn_manager.const_id_mp.erase(oppsite_const_id);
-	if(conv_manager!=0)
-		delete conv_manager;
-	if(anti_replay!=0)
-		delete anti_replay;
+	if(blob!=0)
+		delete blob;
 
 	//send_packet_info.protocol=g_packet_info_send.protocol;
 }
@@ -823,7 +818,7 @@ int send_safer(conn_info_t &conn_info,const char* data,int len)
 
 	memcpy(send_data_buf+sizeof(n_tmp_id),&n_tmp_id,sizeof(n_tmp_id));
 
-	anti_replay_seq_t n_seq=hton64(conn_info.anti_replay->get_new_seq_for_send());
+	anti_replay_seq_t n_seq=hton64(conn_info.blob->anti_replay.get_new_seq_for_send());
 
 	memcpy(send_data_buf+sizeof(n_tmp_id)*2,&n_seq,sizeof(n_seq));
 
@@ -837,7 +832,9 @@ int send_safer(conn_info_t &conn_info,const char* data,int len)
 		return -1;
 	}
 
-	send_raw(conn_info.raw_info,send_data_buf2,new_len);
+	if(send_raw0(conn_info.raw_info,send_data_buf2,new_len)!=0) return -1;
+
+	if(after_send_raw0(conn_info.raw_info)!=0) return -1;
 
 	return 0;
 }
@@ -883,7 +880,7 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &d
 		return -1;
 	}
 
-	if (conn_info.anti_replay->is_vaild(h_seq) != 1) {
+	if (conn_info.blob->anti_replay.is_vaild(h_seq) != 1) {
 		mylog(log_warn,"dropped replay packet\n");
 		return -1;
 	}
@@ -905,7 +902,7 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &d
 		return -1;
 	}
 
-	after_recv_raw0(conn_info.raw_info);
+	if(after_recv_raw0(conn_info.raw_info)!=0) return -1;
 
 	return 0;
 }
@@ -1045,8 +1042,11 @@ int client_on_timer(conn_info_t &conn_info) //for client
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
-	conn_info.conv_manager->clear_inactive();
+	conn_info.blob->conv_manager.clear_inactive();
 	mylog(log_trace,"timer!\n");
+
+	mylog(log_trace,"<client_on_timer,send_info.ts_ack= %u>\n",send_info.ts_ack);
+
 	if(conn_info.state.client_current_state==client_idle)
 	{
 		fail_time_counter++;
@@ -1056,7 +1056,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			exit(-1);
 		}
 
-		conn_info.anti_replay->re_init();
+		conn_info.blob->anti_replay.re_init();
 		conn_info.my_id = get_true_random_number_nz(); ///todo no need to do this everytime
 
 		if (source_port == 0)
@@ -1089,6 +1089,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			send_info.psh = 0;
 			send_info.syn = 1;
 			send_info.ack = 0;
+			send_info.ts_ack =0;
 		}
 		conn_info.last_state_time=get_current_time();
 		conn_info.last_resent_time=0;
@@ -1111,13 +1112,12 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			{
 				if (conn_info.last_resent_time == 0)
 				{
-					send_info.seq++;
 					send_info.ack_seq = recv_info.seq + 1;
-					send_info.ts_ack = recv_info.ts;
+					//send_info.ts_ack = recv_info.ts;
 				}
 			}
 
-			send_raw(raw_info, 0, 0);
+			send_raw0(raw_info, 0, 0);
 
 			conn_info.last_resent_time = get_current_time();
 			mylog(log_info, "(re)sent tcp syn\n");
@@ -1145,6 +1145,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			{
 				if(conn_info.last_resent_time==0)
 				{
+					send_info.seq++;
 					send_info.ack_seq=recv_info.seq+1;
 					send_info.ts_ack=recv_info.ts;
 					raw_info.reserved_seq=send_info.seq;
@@ -1153,7 +1154,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 				send_info.psh = 0;
 				send_info.syn = 0;
 				send_info.ack = 1;
-				send_raw(raw_info, 0, 0);
+				send_raw0(raw_info, 0, 0);
 
 				send_handshake(raw_info,conn_info.my_id,0,const_id);
 
@@ -1161,9 +1162,10 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			}
 			else
 			{
+
+				send_handshake(raw_info,conn_info.my_id,0,const_id);
 				if(raw_mode==mode_icmp)
 					send_info.icmp_seq++;
-				send_handshake(raw_info,conn_info.my_id,0,const_id);
 			}
 
 			conn_info.last_resent_time=get_current_time();
@@ -1190,7 +1192,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			{
 				if(conn_info.last_resent_time==0)
 				{
-					send_info.ack_seq=recv_info.seq+1;
+					send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
 					send_info.ts_ack=recv_info.ts;
 					raw_info.reserved_seq=send_info.seq;
 				}
@@ -1201,9 +1203,10 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			}
 			else
 			{
+
+				send_handshake(raw_info,conn_info.my_id,conn_info.oppsite_id,const_id);
 				if(raw_mode==mode_icmp)
 					send_info.icmp_seq++;
-				send_handshake(raw_info,conn_info.my_id,conn_info.oppsite_id,const_id);
 			}
 			conn_info.last_resent_time=get_current_time();
 			mylog(log_info,"(re)sent handshake2\n");
@@ -1257,7 +1260,7 @@ int server_on_timer_multi(conn_info_t &conn_info)
 
 	if(conn_info.state.server_current_state==server_ready)
 	{
-		conn_info.conv_manager->clear_inactive();
+		conn_info.blob->conv_manager.clear_inactive();
 		/*
 		if( get_current_time()-conn_info.last_hb_recv_time>heartbeat_timeout )
 		{
@@ -1298,6 +1301,8 @@ int client_on_raw_recv(conn_info_t &conn_info)
 
 	raw_info_t &raw_info=conn_info.raw_info;
 
+	mylog(log_trace,"<client_on_raw_recv,send_info.ts_ack= %u>\n",send_info.ts_ack);
+
 	if(conn_info.state.client_current_state==client_idle )
 	{
 		recv(raw_recv_fd, 0,0, 0  );
@@ -1305,7 +1310,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 	else if(conn_info.state.client_current_state==client_tcp_handshake)//received syn ack
 	{
 		assert(raw_mode==mode_faketcp);
-		if(recv_raw(raw_info,data,data_len)<0)
+		if(recv_raw0(raw_info,data,data_len)<0)
 		{
 			return -1;
 		}
@@ -1362,6 +1367,20 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			return -1;
 		}
 
+
+		if(raw_mode==mode_faketcp)
+		{
+			if(recv_info.ack_seq!=send_info.seq)
+			{
+				mylog(log_debug,"seq ack_seq mis match\n");
+							return -1;
+			}
+			if(recv_info.seq!=send_info.ack_seq)
+			{
+				mylog(log_debug,"seq ack_seq mis match\n");
+							return -1;
+			}
+		}
 		conn_info.oppsite_id=tmp_oppsite_id;
 
 		mylog(log_info,"changed state from to client_handshake1 to client_handshake2,my_id is %x,oppsite id is %x\n",conn_info.my_id,conn_info.oppsite_id);
@@ -1405,15 +1424,15 @@ int client_on_raw_recv(conn_info_t &conn_info)
 
 			uint32_t tmp_conv_id= ntohl(* ((uint32_t *)&data[1]));
 
-			if(!conn_info.conv_manager->is_conv_used(tmp_conv_id))
+			if(!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id))
 			{
 				mylog(log_info,"unknow conv %d,ignore\n",tmp_conv_id);
 				return 0;
 			}
 
-			conn_info.conv_manager->update_active_time(tmp_conv_id);
+			conn_info.blob->conv_manager.update_active_time(tmp_conv_id);
 
-			uint64_t u64=conn_info.conv_manager->find_u64_by_conv(tmp_conv_id);
+			uint64_t u64=conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
 
 
 			sockaddr_in tmp_sockaddr;
@@ -1474,7 +1493,7 @@ int server_on_raw_recv_multi()
 		if(!conn_manager.exist(ip,port)||conn_manager.find_insert(ip,port).state.server_current_state!=server_ready)
 		{
 			raw_info_t tmp_raw_info;
-			if(recv_raw(tmp_raw_info,data,data_len)<0)
+			if(recv_raw0(tmp_raw_info,data,data_len)<0)
 			{
 				return 0;
 			}
@@ -1496,7 +1515,7 @@ int server_on_raw_recv_multi()
 				send_info.ack = 1;
 
 				mylog(log_info,"received syn,sent syn ack back\n");
-				send_raw(raw_info, 0, 0);
+				send_raw0(raw_info, 0, 0);
 				return 0;
 			}
 		}
@@ -1513,6 +1532,11 @@ int server_on_raw_recv_multi()
 
 		raw_info_t tmp_raw_info;
 
+
+		if(raw_mode==mode_icmp)
+		{
+			tmp_raw_info.send_info.dst_port=tmp_raw_info.send_info.src_port=port;
+		}
 		if(recv_bare(tmp_raw_info,data,data_len)<0)
 		{
 			return 0;
@@ -1637,6 +1661,7 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id )
 		send_info.icmp_seq=recv_info.icmp_seq;
 	}
 	send_handshake(raw_info,conn_info.my_id,tmp_oppsite_id,const_id);  //////////////send
+
 	return 0;
 }
 int server_on_raw_recv_ready(conn_info_t &conn_info)
@@ -1674,8 +1699,8 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 		conn_info.last_hb_recv_time = get_current_time();
 
 		mylog(log_trace, "conv:%u\n", tmp_conv_id);
-		if (!conn_info.conv_manager->is_conv_used(tmp_conv_id)) {
-			if (conn_info.conv_manager->get_size() >= max_conv_num) {
+		if (!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id)) {
+			if (conn_info.blob->conv_manager.get_size() >= max_conv_num) {
 				mylog(log_warn,
 						"ignored new conv %x connect bc max_conv_num exceed\n",
 						tmp_conv_id);
@@ -1721,7 +1746,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 				return -1;
 			}
 
-			conn_info.conv_manager->insert_conv(tmp_conv_id, new_udp_fd);
+			conn_info.blob->conv_manager.insert_conv(tmp_conv_id, new_udp_fd);
 			assert(conn_manager.udp_fd_mp.find(new_udp_fd)==conn_manager.udp_fd_mp.end());
 
 			conn_manager.udp_fd_mp[new_udp_fd] = &conn_info;
@@ -1735,9 +1760,9 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 
 		}
 
-		uint64_t u64 = conn_info.conv_manager->find_u64_by_conv(tmp_conv_id);
+		uint64_t u64 = conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
 
-		conn_info.conv_manager->update_active_time(tmp_conv_id);
+		conn_info.blob->conv_manager.update_active_time(tmp_conv_id);
 
 		int fd = int((u64 << 32u) >> 32u);
 
@@ -1798,7 +1823,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_con
 		send_safer(conn_info, (char *) "h", 1);		/////////////send
 
 		mylog(log_info, "[%s]changed state to server_ready\n",ip_port);
-		conn_info.anti_replay->re_init();
+		conn_info.blob->anti_replay.re_init();
 
 		//g_conn_info=conn_info;
 		int new_timer_fd;
@@ -1859,7 +1884,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_con
 			ori_conn_info.my_id=conn_info.my_id;
 			ori_conn_info.oppsite_id=conn_info.oppsite_id;
 			send_safer(ori_conn_info, (char *) "h", 1);
-			ori_conn_info.anti_replay->re_init();
+			ori_conn_info.blob->anti_replay.re_init();
 
 
 
@@ -2081,23 +2106,23 @@ int client_event_loop()
 				uint64_t u64=((uint64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
 				uint32_t conv;
 
-				if(!conn_info.conv_manager->is_u64_used(u64))
+				if(!conn_info.blob->conv_manager.is_u64_used(u64))
 				{
-					if(conn_info.conv_manager->get_size() >=max_conv_num)
+					if(conn_info.blob->conv_manager.get_size() >=max_conv_num)
 					{
 						mylog(log_warn,"ignored new udp connect bc max_conv_num exceed\n");
 						continue;
 					}
-					conv=conn_info.conv_manager->get_new_conv();
-					conn_info.conv_manager->insert_conv(conv,u64);
+					conv=conn_info.blob->conv_manager.get_new_conv();
+					conn_info.blob->conv_manager.insert_conv(conv,u64);
 					mylog(log_info,"new connection from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
 				}
 				else
 				{
-					conv=conn_info.conv_manager->find_conv_by_u64(u64);
+					conv=conn_info.blob->conv_manager.find_conv_by_u64(u64);
 				}
 
-				conn_info.conv_manager->update_active_time(conv);
+				conn_info.blob->conv_manager.update_active_time(conv);
 
 				if(conn_info.state.client_current_state==client_ready)
 				{
@@ -2299,14 +2324,14 @@ int server_event_loop()
 
 				conn_info_t &conn_info=*p_conn_info;
 
-				if(!conn_info.conv_manager->is_u64_used(fd))
+				if(!conn_info.blob->conv_manager.is_u64_used(fd))
 				{
 					mylog(log_debug,"conv no longer exists,udp fd %d\n",fd);
 					int recv_len=recv(fd,0,0,0); ///////////TODO ,delete this
 					continue;
 				}
 
-				uint32_t conv_id=conn_info.conv_manager->find_conv_by_u64(fd);
+				uint32_t conv_id=conn_info.blob->conv_manager.find_conv_by_u64(fd);
 
 				int recv_len=recv(fd,buf,buf_len,0);
 
