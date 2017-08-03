@@ -280,7 +280,7 @@ struct conn_info_t
 	long long last_state_time;
 	long long last_hb_sent_time;  //client re-use this for retry
 	long long last_hb_recv_time;
-	long long last_resent_time;
+	//long long last_resent_time;
 
 	id_t my_id;
 	id_t oppsite_id;
@@ -293,7 +293,18 @@ struct conn_info_t
 /*
 	const uint32_t &ip=raw_info.recv_info.src_ip;
 	const uint16_t &port=raw_info.recv_info.src_port;
+
 */
+	 void recover(const conn_info_t &conn_info)
+	 {
+			raw_info=conn_info.raw_info;
+			last_state_time=conn_info.last_state_time;
+			last_hb_recv_time=conn_info.last_hb_recv_time;
+			last_hb_sent_time=conn_info.last_hb_sent_time;
+			my_id=conn_info.my_id;
+			oppsite_id=conn_info.oppsite_id;
+			blob->anti_replay.re_init();
+	 }
 	conn_info_t()
 	{
 		//send_packet_info.protocol=g_packet_info_send.protocol;
@@ -1089,7 +1100,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 
 		}
 		conn_info.last_state_time=get_current_time();
-		conn_info.last_resent_time=0;
+		conn_info.last_hb_sent_time=0;
 		//dont return;
 	}
 	if(conn_info.state.client_current_state==client_tcp_handshake)  //send and resend syn
@@ -1102,12 +1113,12 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			return 0;
 
 		}
-		else if (get_current_time() - conn_info.last_resent_time > client_retry_interval)
+		else if (get_current_time() - conn_info.last_hb_sent_time > client_retry_interval)
 		{
 
 			if (raw_mode == mode_faketcp)
 			{
-				if (conn_info.last_resent_time == 0)
+				if (conn_info.last_hb_sent_time == 0)
 				{
 					send_info.psh = 0;
 					send_info.syn = 1;
@@ -1120,7 +1131,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 
 			send_raw0(raw_info, 0, 0);
 
-			conn_info.last_resent_time = get_current_time();
+			conn_info.last_hb_sent_time = get_current_time();
 			mylog(log_info, "(re)sent tcp syn\n");
 			return 0;
 		}
@@ -1139,12 +1150,12 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			return 0;
 
 		}
-		else if(get_current_time()-conn_info.last_resent_time>client_retry_interval)
+		else if(get_current_time()-conn_info.last_hb_sent_time>client_retry_interval)
 		{
 
 			if(raw_mode==mode_faketcp)
 			{
-				if(conn_info.last_resent_time==0)
+				if(conn_info.last_hb_sent_time==0)
 				{
 					send_info.seq++;
 					send_info.ack_seq=recv_info.seq+1;
@@ -1169,7 +1180,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 					send_info.icmp_seq++;
 			}
 
-			conn_info.last_resent_time=get_current_time();
+			conn_info.last_hb_sent_time=get_current_time();
 			mylog(log_info,"(re)sent handshake1\n");
 			return 0;
 		}
@@ -1187,11 +1198,11 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			mylog(log_info,"state back to client_idle from client_handshake2\n");
 			return 0;
 		}
-		else if(get_current_time()-conn_info.last_resent_time>client_retry_interval)
+		else if(get_current_time()-conn_info.last_hb_sent_time>client_retry_interval)
 		{
 			if(raw_mode==mode_faketcp)
 			{
-				if(conn_info.last_resent_time==0)
+				if(conn_info.last_hb_sent_time==0)
 				{
 					send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
 					send_info.ts_ack=recv_info.ts;
@@ -1209,7 +1220,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 				if(raw_mode==mode_icmp)
 					send_info.icmp_seq++;
 			}
-			conn_info.last_resent_time=get_current_time();
+			conn_info.last_hb_sent_time=get_current_time();
 			mylog(log_info,"(re)sent handshake2\n");
 			return 0;
 
@@ -1331,7 +1342,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			conn_info.state.client_current_state = client_handshake1;
 			mylog(log_info,"state changed from client_tcp_handshake to client_handshake1\n");
 			conn_info.last_state_time = get_current_time();
-			conn_info.last_resent_time=0;
+			conn_info.last_hb_sent_time=0;
 			client_on_timer(conn_info);
 			return 0;
 		}
@@ -1389,7 +1400,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 		//send_handshake(raw_info,conn_info.my_id,conn_info.oppsite_id,const_id);  //////////////send
 		conn_info.state.client_current_state = client_handshake2;
 		conn_info.last_state_time = get_current_time();
-		conn_info.last_resent_time=0;
+		conn_info.last_hb_sent_time=0;
 		client_on_timer(conn_info);
 
 		return 0;
@@ -1410,6 +1421,9 @@ int client_on_raw_recv(conn_info_t &conn_info)
 		{
 			mylog(log_info,"changed state from to client_handshake2 to client_ready\n");
 			conn_info.state.client_current_state=client_ready;
+			conn_info.last_hb_sent_time=0;
+			conn_info.last_hb_recv_time=get_current_time();
+			client_on_timer(conn_info);
 		}
 		if(data_len==1&&data[0]=='h')
 		{
@@ -1879,14 +1893,10 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_con
 
 
 			//ori_conn_info.state.server_current_state=server_ready;
-			ori_conn_info.raw_info=conn_info.raw_info;
-			ori_conn_info.last_state_time=conn_info.last_state_time;
-			ori_conn_info.last_hb_recv_time=conn_info.last_hb_recv_time;
-			ori_conn_info.last_hb_sent_time=conn_info.last_hb_sent_time;
-			ori_conn_info.my_id=conn_info.my_id;
-			ori_conn_info.oppsite_id=conn_info.oppsite_id;
+			ori_conn_info.recover(conn_info);
+
 			send_safer(ori_conn_info, (char *) "h", 1);
-			ori_conn_info.blob->anti_replay.re_init();
+			//ori_conn_info.blob->anti_replay.re_init();
 
 
 
@@ -2117,7 +2127,7 @@ int client_event_loop()
 					}
 					conv=conn_info.blob->conv_manager.get_new_conv();
 					conn_info.blob->conv_manager.insert_conv(conv,u64);
-					mylog(log_info,"new connection from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
+					mylog(log_info,"new packet from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
 				}
 				else
 				{
