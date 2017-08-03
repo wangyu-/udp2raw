@@ -134,6 +134,7 @@ packet_info_t::packet_info_t()
 		ack_seq = get_true_random_number();
 		seq = get_true_random_number();
 		has_ts=0;
+		ts_ack=0;
 		syn=0;
 		ack=1;
 	}
@@ -304,7 +305,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     }
     return 0;
 }
-int peek_raw(uint32_t &ip,uint16_t &port)
+int peek_raw(packet_info_t &peek_info)
 {	static char peek_raw_buf[buf_len];
 	char *ip_begin=peek_raw_buf+link_level_header_len;
 	struct sockaddr saddr;
@@ -316,7 +317,7 @@ int peek_raw(uint32_t &ip,uint16_t &port)
 	{
 		return -1;
 	}
-	ip=iph->saddr;
+	peek_info.src_ip=iph->saddr;
     unsigned short iphdrlen =iph->ihl*4;
     char *payload=ip_begin+iphdrlen;
 
@@ -329,7 +330,8 @@ int peek_raw(uint32_t &ip,uint16_t &port)
     		struct tcphdr *tcph=(tcphdr *)payload;
     		if(recv_len<int( iphdrlen+sizeof(tcphdr) ))
     			return -1;
-    		port=ntohs(tcph->source);
+    		peek_info.src_port=ntohs(tcph->source);
+    		peek_info.syn=tcph->syn;
 			break;
     	}
     	case mode_udp:
@@ -338,7 +340,7 @@ int peek_raw(uint32_t &ip,uint16_t &port)
     		struct udphdr *udph=(udphdr *)payload;
     		if(recv_len<int(iphdrlen+sizeof(udphdr)))
     			return -1;
-    		port=ntohs(udph->source);
+    		peek_info.src_port=ntohs(udph->source);
 			break;
     	}
     	case mode_icmp:
@@ -347,7 +349,7 @@ int peek_raw(uint32_t &ip,uint16_t &port)
     		struct icmphdr *icmph=(icmphdr *)payload;
     		if(recv_len<int( iphdrlen+sizeof(icmphdr) ))
     			return -1;
-    		port=ntohs(icmph->id);
+    		peek_info.src_port=ntohs(icmph->id);
 			break;
     	}
     	default:return -1;
@@ -442,7 +444,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 {
-	packet_info_t &send_info=raw_info.send_info;
+	const packet_info_t &send_info=raw_info.send_info;
 	const packet_info_t &recv_info=raw_info.recv_info;
 
 	char send_raw_icmp_buf[buf_len];
@@ -471,10 +473,10 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 		return -1;
 	}
 
-	if(program_mode==client_mode)
+	/*if(program_mode==client_mode)
 	{
 		send_info.icmp_seq++;
-	}
+	}*/
 
 	return 0;
 }
@@ -527,8 +529,8 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	//TODO seq increase
 
 
-	packet_info_t &send_info=raw_info.send_info;
-	packet_info_t &recv_info=raw_info.recv_info;
+	const packet_info_t &send_info=raw_info.send_info;
+	const packet_info_t &recv_info=raw_info.recv_info;
 
 	//mylog(log_debug,"syn %d\n",send_info.syn);
 
@@ -630,21 +632,9 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 	{
 		return -1;
 	}
-	if (send_info.syn == 0 && send_info.ack == 1&& payloadlen != 0)   //only modify   send_info when the packet is not part of handshake
-	{
-		if (seq_mode == 0)
-		{
 
-		} else if (seq_mode == 1)
-		{
-			send_info.seq += payloadlen;    //////////////////modify
-		} else if (seq_mode == 2)
-		{
-			if (random() % 5 == 3)
-				send_info.seq += payloadlen; //////////////////modify
-		}
-	}
 
+	raw_info.last_send_len=payloadlen;
 	return 0;
 }
 /*
@@ -819,7 +809,7 @@ int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int p
 
 int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 {
-	packet_info_t &send_info=raw_info.send_info;
+	const packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
 	static char recv_raw_icmp_buf[buf_len];
 
@@ -872,12 +862,12 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 		return -1;
 	}
 	//mylog(log_info,"program_mode=%d\n",program_mode);
-
+/*
 	if(program_mode==server_mode)
 	{
 		send_info.icmp_seq=ntohs(icmph->seq);
 		//mylog(log_info,"send_info.seq=%d\n",send_info.seq);
-	}
+	}*/
 
 	payload=ip_payload+sizeof(icmphdr);
 	payloadlen=ip_payloadlen-sizeof(icmphdr);
@@ -959,7 +949,7 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 
 int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 {
-	packet_info_t &send_info=raw_info.send_info;
+	const packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
 
 	static char recv_raw_tcp_buf[buf_len];
@@ -1058,19 +1048,20 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     recv_info.ack_seq=ntohl(tcph->ack_seq);
     recv_info.psh=tcph->psh;
 
-    if(recv_info.has_ts)
+   /* if(recv_info.has_ts)
     {
     	send_info.ts_ack=recv_info.ts;   //////////////////////////////////////////////modify
-    }
+    }*/
 
     payloadlen = ip_payloadlen-tcphdrlen;
 
     payload=tcp_begin+tcphdrlen;
 
-	if (recv_info.syn == 0 && recv_info.ack == 1&& payloadlen != 0)   //only modify   send_info when the packet is not part of handshake
+	/*if (recv_info.syn == 0 && recv_info.ack == 1&& payloadlen != 0)   //only modify   send_info when the packet is not part of handshake
 	{
 		send_info.ack_seq=recv_info.seq;
-	}
+	}*/
+    raw_info.last_recv_len=payloadlen;
     return 0;
 }
 /*
@@ -1237,7 +1228,7 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 
 	return 0;
 }*/
-int send_raw(raw_info_t &raw_info,const char * payload,int payloadlen)
+int send_raw0(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
@@ -1251,7 +1242,7 @@ int send_raw(raw_info_t &raw_info,const char * payload,int payloadlen)
 	}
 
 }
-int recv_raw(raw_info_t &raw_info,char * &payload,int &payloadlen)
+int recv_raw0(raw_info_t &raw_info,char * &payload,int &payloadlen)
 {
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
@@ -1265,7 +1256,84 @@ int recv_raw(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 }
 
+int after_send_raw0(raw_info_t &raw_info)
+{
+	packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &recv_info=raw_info.recv_info;
 
+	if(raw_mode==mode_faketcp)
+	{
+		if (send_info.syn == 0 && send_info.ack == 1&& raw_info.last_send_len != 0)   //only modify   send_info when the packet is not part of handshake
+		{
+			if (seq_mode == 0)
+			{
 
+			} else if (seq_mode == 1)
+			{
+				send_info.seq += raw_info.last_send_len;    //////////////////modify
+			} else if (seq_mode == 2)
+			{
+				if (random() % 5 == 3)
+					send_info.seq += raw_info.last_send_len; //////////////////modify
+			}
+		}
+	}
+	if(raw_mode==mode_icmp)
+	{
+		if(program_mode==client_mode)
+		{
+			send_info.icmp_seq++;
+		}
+	}
+	return 0;
+}
+int after_recv_raw0(raw_info_t &raw_info)
+{
+	packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &recv_info=raw_info.recv_info;
 
+	if(raw_mode==mode_faketcp)
+	{
+		if(recv_info.has_ts)
+			send_info.ts_ack=recv_info.ts;
+		if (recv_info.syn == 0 && recv_info.ack == 1 && raw_info.last_recv_len != 0) //only modify   send_info when the packet is not part of handshake
+		{
+			send_info.ack_seq = recv_info.seq+raw_info.last_recv_len;//TODO only update if its larger
+		}
+	}
+	if(raw_mode==mode_icmp)
+	{
+		if(program_mode==server_mode)
+		{
+			send_info.icmp_seq = recv_info.icmp_seq;  //TODO only update if its larger
+		}
+	}
+	return 0;
+}
+
+int send_raw(raw_info_t &raw_info,const char * payload,int payloadlen)
+{
+	packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &recv_info=raw_info.recv_info;
+	int ret=send_raw(raw_info,payload,payloadlen);
+	if(ret<0) return ret;
+	else
+	{
+		after_send_raw0(raw_info);
+		return ret;
+	}
+}
+
+int recv_raw(raw_info_t &raw_info,char *& payload,int & payloadlen)
+{
+	packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &recv_info=raw_info.recv_info;
+	int ret=recv_raw(raw_info,payload,payloadlen);
+	if(ret<0) return ret;
+	else
+	{
+		after_recv_raw0(raw_info);
+		return ret;
+	}
+}
 

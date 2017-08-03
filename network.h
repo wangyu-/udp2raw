@@ -61,7 +61,12 @@ struct raw_info_t
 {
 	packet_info_t send_info;
 	packet_info_t recv_info;
-	uint32_t first_seq,first_ack_seq;
+
+	int last_send_len;
+	int last_recv_len;
+
+	uint32_t reserved_seq;
+	//uint32_t first_seq,first_ack_seq;
 
 };//g_raw_info;
 
@@ -75,7 +80,7 @@ void remove_filter();
 
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen);
 
-int peek_raw(uint32_t &ip,uint16_t &port);
+int peek_raw(packet_info_t &peek_info);
 
 int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen);
 
@@ -95,7 +100,13 @@ int send_raw(raw_info_t &raw_info,const char * payload,int payloadlen);
 
 int recv_raw(raw_info_t &raw_info,char * &payload,int &payloadlen);
 
+int send_raw0(raw_info_t &raw_info,const char * payload,int payloadlen);
 
+int recv_raw0(raw_info_t &raw_info,char * &payload,int &payloadlen);
+
+int after_send_raw0(raw_info_t &raw_info);
+
+int after_recv_raw0(raw_info_t &raw_info);
 
 
 #endif /* NETWORK_H_ */
