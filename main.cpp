@@ -2763,6 +2763,7 @@ void iptables_warn()
 }
 int main(int argc, char *argv[])
 {
+	//printf("%d %d %d %d",larger_than_u32(1,2),larger_than_u32(2,1),larger_than_u32(0xeeaaeebb,2),larger_than_u32(2,0xeeaaeebb));
 	//assert(0==1);
 	dup2(1, 2);//redirect stderr to stdout
 	signal(SIGINT, INThandler);

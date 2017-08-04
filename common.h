@@ -117,7 +117,8 @@ uint32_t get_true_random_number();
 uint32_t get_true_random_number_nz();
 uint64_t ntoh64(uint64_t a);
 uint64_t hton64(uint64_t a);
-
+bool larger_than_u16(uint16_t a,uint16_t b);
+bool larger_than_u32(uint32_t a,uint32_t b);
 void setnonblocking(int sock);
 int set_buf_size(int fd);
 

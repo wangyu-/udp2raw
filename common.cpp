@@ -14,6 +14,7 @@ unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, 
 int socket_buf_size=1024*1024;
 static int random_number_fd=-1;
 char iptables_rule[200];
+program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 
 uint64_t get_current_time()
 {
@@ -218,5 +219,64 @@ int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3)
 	return 0;
 }
 
+bool larger_than_u32(uint32_t a,uint32_t b)
+{
 
-program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
+	uint32_t smaller,bigger;
+	smaller=min(a,b);//smaller in normal sense
+	bigger=max(a,b);
+	uint32_t distance=min(bigger-smaller,smaller+(0xffffffff-bigger+1));
+	if(distance==bigger-smaller)
+	{
+		if(bigger==a)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	else
+	{
+		if(smaller==b)
+		{
+			return 0;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+}
+
+bool larger_than_u16(uint16_t a,uint16_t b)
+{
+
+	uint16_t smaller,bigger;
+	smaller=min(a,b);//smaller in normal sense
+	bigger=max(a,b);
+	uint16_t distance=min(bigger-smaller,smaller+(0xffff-bigger+1));
+	if(distance==bigger-smaller)
+	{
+		if(bigger==a)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	else
+	{
+		if(smaller==b)
+		{
+			return 0;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+}

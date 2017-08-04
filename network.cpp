@@ -1318,14 +1318,16 @@ int after_recv_raw0(raw_info_t &raw_info)
 			send_info.ts_ack=recv_info.ts;
 		if (recv_info.syn == 0 && recv_info.ack == 1 && raw_info.last_recv_len != 0) //only modify   send_info when the packet is not part of handshake
 		{
-			send_info.ack_seq = recv_info.seq+raw_info.last_recv_len;//TODO only update if its larger
+			if(larger_than_u32(recv_info.seq+raw_info.last_recv_len,send_info.ack_seq))
+				send_info.ack_seq = recv_info.seq+raw_info.last_recv_len;//TODO only update if its larger
 		}
 	}
 	if(raw_mode==mode_icmp)
 	{
 		if(program_mode==server_mode)
 		{
-			send_info.icmp_seq = recv_info.icmp_seq;  //TODO only update if its larger
+			if(larger_than_u16(recv_info.icmp_seq,send_info.icmp_seq))
+				send_info.icmp_seq = recv_info.icmp_seq;  //TODO only update if its larger
 		}
 	}
 	return 0;
