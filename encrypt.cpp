@@ -20,6 +20,9 @@ auth_mode_t auth_mode=auth_sum;
 cipher_mode_t cipher_mode=cipher_xor;
 
 
+/*
+ *  this function comes from  http://www.hackersdelight.org/hdcodetxt/crc.c.txt
+ */
 unsigned int crc32h(unsigned char *message,int len) {
    int i, crc;
    unsigned int byte, c;
