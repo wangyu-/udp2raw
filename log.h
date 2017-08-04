@@ -83,9 +83,13 @@ extern int enable_log_position;
 extern int enable_log_color;
 
 
-#define mylog(...) log0(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#ifdef MY_DEBUG
+#define mylog(__first_argu__dummy_abcde__,...) printf(__VA_ARGS__)
 
-//#define mylog(__first_argu__dummy_abcde__,...) printf(__VA_ARGS__)
+#else
+#define mylog(...) log0(__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#endif
+
 
 //#define mylog(__first_argu__dummy_abcde__,...) {;}
 

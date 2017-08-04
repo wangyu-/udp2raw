@@ -213,7 +213,7 @@ int cipher_none_encrypt(const char *data,char *output,int &len,char * key)
 int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 {
 
-	if(len%16 !=0) {mylog(log_debug,"len%16!=0\n");return -1;}
+	if(len%16 !=0) {mylog(log_debug,"len%%16!=0\n");return -1;}
 	//if(len<0) {mylog(log_debug,"len <0\n");return -1;}
 	AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	if(de_padding(output,len,16)<0) return -1;

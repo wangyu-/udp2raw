@@ -10,7 +10,7 @@
 
 int raw_recv_fd=-1;
 int raw_send_fd=-1;
-uint32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+u32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
 
 int seq_mode=2;
 
@@ -18,7 +18,7 @@ int filter_port=-1;
 
 int disable_bpf_filter=0;  //for test only,most time no need to disable this
 
-uint32_t bind_address_uint32=0;
+u32_t bind_address_uint32=0;
 
 
 
@@ -422,7 +422,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     unsigned short iphdrlen =iph->ihl*4;
 
-    uint32_t ip_chk=csum ((unsigned short *) ip_begin, iphdrlen);
+    u32_t ip_chk=csum ((unsigned short *) ip_begin, iphdrlen);
 
     if(ip_chk!=0)
      {
@@ -576,14 +576,14 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		send_raw_tcp_buf[i++] = 0x08;   //ts   i=6
 		send_raw_tcp_buf[i++] = 0x0a;   //i=7
 
-		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(
-				(uint32_t) get_current_time());
+		*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(
+				(u32_t) get_current_time());
 
 		i += 4;
 
 		//mylog(log_info,"[syn]<send_info.ts_ack= %u>\n",send_info.ts_ack);
 
-		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
+		*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
 		i += 4;
 
 		send_raw_tcp_buf[i++] = 0x01;
@@ -600,14 +600,14 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		send_raw_tcp_buf[i++] = 0x08;  //ts   //i=2
 		send_raw_tcp_buf[i++] = 0x0a; 		  //i=3;
 
-		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(
-				(uint32_t) get_current_time());
+		*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(
+				(u32_t) get_current_time());
 
 		i += 4;
 
 		//mylog(log_info,"<send_info.ts_ack= %u>\n",send_info.ts_ack);
 
-		*(uint32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
+		*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
 		i += 4;
 	}
 
@@ -1026,13 +1026,13 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     	if(tcp_option[6]==0x08 &&tcp_option[7]==0x0a)
     	{
     		recv_info.has_ts=1;
-    		recv_info.ts=ntohl(*(uint32_t*)(&tcp_option[8]));
-    		recv_info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[12]));
+    		recv_info.ts=ntohl(*(u32_t*)(&tcp_option[8]));
+    		recv_info.ts_ack=ntohl(*(u32_t*)(&tcp_option[12]));
     		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[8]));
     	}
     	else
     	{
-    		mylog(log_info,"???\n",tcph->doff);
+    	//	mylog(log_info,"\n");
     	}
     }
     else if(tcph->doff==8)
@@ -1040,13 +1040,13 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     	if(tcp_option[2]==0x08 &&tcp_option[3]==0x0a)
     	{
     		recv_info.has_ts=1;
-    		recv_info.ts=ntohl(*(uint32_t*)(&tcp_option[4]));
-    		recv_info.ts_ack=ntohl(*(uint32_t*)(&tcp_option[8]));
+    		recv_info.ts=ntohl(*(u32_t*)(&tcp_option[4]));
+    		recv_info.ts_ack=ntohl(*(u32_t*)(&tcp_option[8]));
     		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[0]));
     	}
     	else
     	{
-    		mylog(log_info,"!!!\n",tcph->doff);
+    		//mylog(log_info,"!!!\n");
     	}
     }
     else
@@ -1055,7 +1055,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     }
     if(tcph->rst==1)
     {
-    	mylog(log_warn,"%%%%%%%%%%%%%rst==1%%%%%%%%%%%%%\n");
+    	mylog(log_error,"rst==1\n");
     }
 
     recv_info.ack=tcph->ack;

@@ -7,13 +7,14 @@
 
 #ifndef COMMON_H_
 #define COMMON_H_
-
-//#define __STDC_FORMAT_MACROS 1
+#define __STDC_FORMAT_MACROS 1
 #include <inttypes.h>
+
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
 #include<getopt.h>
+
 #include<unistd.h>
 #include<errno.h>
 #include <sys/epoll.h>
@@ -48,41 +49,49 @@
 #include<unordered_map>
 using  namespace std;
 
+
+typedef unsigned long long u64_t;   //this works on most platform,avoid using the PRId64
+typedef long long i64_t;
+
+typedef unsigned int u32_t;
+typedef int i32_t;
+
+
 const int max_data_len=1600;
 const int buf_len=max_data_len+200;
-const uint32_t max_handshake_conn_num=10000;
-const uint32_t max_ready_conn_num=1000;
-const uint32_t anti_replay_window_size=1000;
+const u32_t max_handshake_conn_num=10000;
+const u32_t max_ready_conn_num=1000;
+const u32_t anti_replay_window_size=1000;
 const int max_conv_num=10000;
 
-const uint32_t client_handshake_timeout=5000;
-const uint32_t client_retry_interval=1000;
+const u32_t client_handshake_timeout=5000;
+const u32_t client_retry_interval=1000;
 
-const uint32_t server_handshake_timeout=10000;// this should be much longer than clients. client retry initially ,server retry passtively
+const u32_t server_handshake_timeout=10000;// this should be much longer than clients. client retry initially ,server retry passtively
 
 const int conv_clear_ratio=10;  //conv grabage collecter check 1/10 of all conv one time
 const int conn_clear_ratio=10;
 const int conv_clear_min=5;
 const int conn_clear_min=1;
 
-const uint32_t conv_clear_interval=1000;
-const uint32_t conn_clear_interval=1000;
+const u32_t conv_clear_interval=1000;
+const u32_t conn_clear_interval=1000;
 
 
 const int max_fail_time=100000;
 
 
-const uint32_t heartbeat_interval=1000;
+const u32_t heartbeat_interval=1000;
 
-const uint32_t timer_interval=400;//this should be smaller than heartbeat_interval and retry interval;
+const u32_t timer_interval=400;//this should be smaller than heartbeat_interval and retry interval;
 
 //const uint32_t conv_timeout=120000; //120 second
-const uint32_t conv_timeout=30000; //for test
+const u32_t conv_timeout=30000; //for test
 
-const uint32_t client_conn_timeout=10000;
+const u32_t client_conn_timeout=10000;
 
 //const uint32_t server_conn_timeout=conv_timeout+60000;//this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
-const uint32_t server_conn_timeout=conv_timeout+10000;//for test
+const u32_t server_conn_timeout=conv_timeout+10000;//for test
 
 
 
@@ -93,32 +102,32 @@ extern program_mode_t program_mode;
 extern unordered_map<int, const char*> raw_mode_tostring ;
 extern int socket_buf_size;
 
-typedef uint32_t id_t;
+typedef u32_t id_t;
 
-typedef uint64_t iv_t;
+typedef u64_t iv_t;
 
-typedef uint64_t padding_t;
+typedef u64_t padding_t;
 
-typedef uint64_t anti_replay_seq_t;
+typedef u64_t anti_replay_seq_t;
 
-uint64_t get_current_time();
-uint64_t pack_u64(uint32_t a,uint32_t b);
+u64_t get_current_time();
+u64_t pack_u64(u32_t a,u32_t b);
 
-uint32_t get_u64_h(uint64_t a);
+u32_t get_u64_h(u64_t a);
 
-uint32_t get_u64_l(uint64_t a);
+u32_t get_u64_l(u64_t a);
 
-char * my_ntoa(uint32_t ip);
+char * my_ntoa(u32_t ip);
 
 void myexit(int a);
 void init_random_number_fd();
-uint64_t get_true_random_number_64();
-uint32_t get_true_random_number();
-uint32_t get_true_random_number_nz();
-uint64_t ntoh64(uint64_t a);
-uint64_t hton64(uint64_t a);
+u64_t get_true_random_number_64();
+u32_t get_true_random_number();
+u32_t get_true_random_number_nz();
+u64_t ntoh64(u64_t a);
+u64_t hton64(u64_t a);
 bool larger_than_u16(uint16_t a,uint16_t b);
-bool larger_than_u32(uint32_t a,uint32_t b);
+bool larger_than_u32(u32_t a,u32_t b);
 void setnonblocking(int sock);
 int set_buf_size(int fd);
 
@@ -129,5 +138,9 @@ int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len);
 int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3);
 
 void myexit(int a);
+
+int add_iptables_rule(char *);
+
+int clear_iptables_rule();
 
 #endif /* COMMON_H_ */

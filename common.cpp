@@ -9,37 +9,39 @@
 #include "log.h"
 
 
+
+
 raw_mode_t raw_mode=mode_faketcp;
 unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 int socket_buf_size=1024*1024;
 static int random_number_fd=-1;
-char iptables_rule[200];
+char iptables_rule[200]="";
 program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 
-uint64_t get_current_time()
+u64_t get_current_time()
 {
 	timespec tmp_time;
 	clock_gettime(CLOCK_MONOTONIC, &tmp_time);
 	return tmp_time.tv_sec*1000+tmp_time.tv_nsec/(1000*1000l);
 }
 
-uint64_t pack_u64(uint32_t a,uint32_t b)
+u64_t pack_u64(u32_t a,u32_t b)
 {
-	uint64_t ret=a;
+	u64_t ret=a;
 	ret<<=32u;
 	ret+=b;
 	return ret;
 }
-uint32_t get_u64_h(uint64_t a)
+u32_t get_u64_h(u64_t a)
 {
 	return a>>32u;
 }
-uint32_t get_u64_l(uint64_t a)
+u32_t get_u64_l(u64_t a)
 {
 	return (a<<32u)>>32u;
 }
 
-char * my_ntoa(uint32_t ip)
+char * my_ntoa(u32_t ip)
 {
 	in_addr a;
 	a.s_addr=ip;
@@ -47,13 +49,31 @@ char * my_ntoa(uint32_t ip)
 }
 
 
-int add_iptables_rule(char *)
+int add_iptables_rule(char * s)
 {
+	strcpy(iptables_rule,s);
+	char buf[300]="iptables -A ";
+	strcat(buf,s);
+	if(system(buf)==0)
+	{
+		mylog(log_warn,"auto added iptables rule by:  %s\n",buf);
+	}
+	else
+	{
+		mylog(log_fatal,"auto added iptables failed by: %s\n",buf);
+		myexit(-1);
+	}
 	return 0;
 }
 
-int remove_iptables_rule(char *)
+int clear_iptables_rule()
 {
+	if(iptables_rule[0]!=0)
+	{
+		char buf[300]="iptables -D ";
+		strcat(buf,iptables_rule);
+		system(buf);
+	}
 	return 0;
 }
 
@@ -70,39 +90,39 @@ void init_random_number_fd()
 	}
 	setnonblocking(random_number_fd);
 }
-uint64_t get_true_random_number_64()
+u64_t get_true_random_number_64()
 {
-	uint64_t ret;
+	u64_t ret;
 	int size=read(random_number_fd,&ret,sizeof(ret));
 	if(size!=sizeof(ret))
 	{
-		mylog(log_fatal,"get random number failed\n",size);
+		mylog(log_fatal,"get random number failed %d\n",size);
 		myexit(-1);
 	}
 
 	return ret;
 }
-uint32_t get_true_random_number()
+u32_t get_true_random_number()
 {
-	uint32_t ret;
+	u32_t ret;
 	int size=read(random_number_fd,&ret,sizeof(ret));
 	if(size!=sizeof(ret))
 	{
-		mylog(log_fatal,"get random number failed\n",size);
+		mylog(log_fatal,"get random number failed %d\n",size);
 		myexit(-1);
 	}
 	return ret;
 }
-uint32_t get_true_random_number_nz() //nz for non-zero
+u32_t get_true_random_number_nz() //nz for non-zero
 {
-	uint32_t ret=0;
+	u32_t ret=0;
 	while(ret==0)
 	{
 		ret=get_true_random_number();
 	}
 	return ret;
 }
-uint64_t ntoh64(uint64_t a)
+u64_t ntoh64(u64_t a)
 {
 	if(__BYTE_ORDER == __LITTLE_ENDIAN)
 	{
@@ -111,7 +131,7 @@ uint64_t ntoh64(uint64_t a)
 	else return a;
 
 }
-uint64_t hton64(uint64_t a)
+u64_t hton64(u64_t a)
 {
 	if(__BYTE_ORDER == __LITTLE_ENDIAN)
 	{
@@ -183,7 +203,8 @@ int set_buf_size(int fd)
 void myexit(int a)
 {
     if(enable_log_color)
-   	 printf(RESET);
+   	 puts(RESET);
+    clear_iptables_rule();
 	exit(a);
 }
 void  INThandler(int sig)
@@ -219,13 +240,13 @@ int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3)
 	return 0;
 }
 
-bool larger_than_u32(uint32_t a,uint32_t b)
+bool larger_than_u32(u32_t a,u32_t b)
 {
 
-	uint32_t smaller,bigger;
+	u32_t smaller,bigger;
 	smaller=min(a,b);//smaller in normal sense
 	bigger=max(a,b);
-	uint32_t distance=min(bigger-smaller,smaller+(0xffffffff-bigger+1));
+	u32_t distance=min(bigger-smaller,smaller+(0xffffffff-bigger+1));
 	if(distance==bigger-smaller)
 	{
 		if(bigger==a)

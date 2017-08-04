@@ -12,7 +12,7 @@ extern int raw_recv_fd;
 extern int raw_send_fd;
 extern int seq_mode;
 extern int filter_port;
-extern uint32_t bind_address_uint32;
+extern u32_t bind_address_uint32;
 extern int disable_bpf_filter;
 
 struct icmphdr
@@ -36,19 +36,19 @@ struct packet_info_t  //todo change this to union
 {
 	uint8_t protocol;
 	//ip_part:
-	uint32_t src_ip;
+	u32_t src_ip;
 	uint16_t src_port;
 
-	uint32_t dst_ip;
+	u32_t dst_ip;
 	uint16_t dst_port;
 
 	//tcp_part:
 	bool syn,ack,psh,rst;
 
-	uint32_t seq,ack_seq;
+	u32_t seq,ack_seq;
 
 
-	uint32_t ts,ts_ack;
+	u32_t ts,ts_ack;
 
 
 	uint16_t icmp_seq;
@@ -65,7 +65,7 @@ struct raw_info_t
 	int last_send_len;
 	int last_recv_len;
 
-	uint32_t reserved_seq;
+	u32_t reserved_seq;
 	//uint32_t first_seq,first_ack_seq;
 
 };//g_raw_info;

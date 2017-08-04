@@ -4,7 +4,7 @@
 #include "md5.h"
 
 char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
-uint32_t local_address_uint32,remote_address_uint32,source_address_uint32;
+u32_t local_address_uint32,remote_address_uint32,source_address_uint32;
 int source_port=0,local_port = -1, remote_port = -1;
 
 id_t const_id=0;
@@ -30,8 +30,9 @@ int fail_time_counter=0;
 int epoll_trigger_counter=0;
 int debug_flag=0;
 int auto_add_iptables_rule=0;
-//int debug_resend=0;
 
+int debug_resend=0;
+int disable_anti_replay=0;
 char key_string[1000]= "secret key";
 char key[16];//,key2[16];
 
@@ -43,7 +44,7 @@ int VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
 
 struct anti_replay_t
 {
-	uint64_t max_packet_received;
+	u64_t max_packet_received;
 	char window[anti_replay_window_size];
 	char disabled;
 	anti_replay_seq_t anti_replay_seq;
@@ -53,14 +54,14 @@ struct anti_replay_t
 	}
 	anti_replay_t()
 	{
-		disabled=0;
+		disabled=disable_anti_replay;
 		max_packet_received=0;
 		anti_replay_seq=get_true_random_number_64()/10;//random first seq
 		//memset(window,0,sizeof(window)); //not necessary
 	}
 	void re_init()
 	{
-		disabled=0;
+		disabled=disable_anti_replay;
 		max_packet_received=0;
 		//memset(window,0,sizeof(window));
 	}
@@ -73,7 +74,7 @@ struct anti_replay_t
 		disabled=0;
 	}
 
-	int is_vaild(uint64_t seq)
+	int is_vaild(u64_t seq)
 	{
 		//if(disabled) return 0;
 
@@ -87,7 +88,7 @@ struct anti_replay_t
 			}
 			else
 			{
-				for (uint64_t i=max_packet_received+1;i<seq;i++)
+				for (u64_t i=max_packet_received+1;i<seq;i++)
 					window[i%anti_replay_window_size]=0;
 				window[seq%anti_replay_window_size]=1;
 			}
@@ -113,19 +114,19 @@ struct anti_replay_t
 	}
 };//anti_replay;
 
-void server_clear_function(uint64_t u64);
+void server_clear_function(u64_t u64);
 struct conv_manager_t  //TODO change map to unordered map
 {
 	//typedef hash_map map;
-	unordered_map<uint64_t,uint32_t> u64_to_conv;  //conv and u64 are both supposed to be uniq
-	unordered_map<uint32_t,uint64_t> conv_to_u64;
+	unordered_map<u64_t,u32_t> u64_to_conv;  //conv and u64 are both supposed to be uniq
+	unordered_map<u32_t,u64_t> conv_to_u64;
 
-	unordered_map<uint32_t,uint64_t> conv_last_active_time;
+	unordered_map<u32_t,u64_t> conv_last_active_time;
 
-	unordered_map<uint32_t,uint64_t>::iterator clear_it;
+	unordered_map<u32_t,u64_t>::iterator clear_it;
 
-	unordered_map<uint32_t,uint64_t>::iterator it;
-	unordered_map<uint32_t,uint64_t>::iterator old_it;
+	unordered_map<u32_t,u64_t>::iterator it;
+	unordered_map<u32_t,u64_t>::iterator old_it;
 
 	//void (*clear_function)(uint64_t u64) ;
 
@@ -170,46 +171,46 @@ struct conv_manager_t  //TODO change map to unordered map
 		clear_it=conv_last_active_time.begin();
 
 	}
-	uint32_t get_new_conv()
+	u32_t get_new_conv()
 	{
-		uint32_t conv=get_true_random_number_nz();
+		u32_t conv=get_true_random_number_nz();
 		while(conv_to_u64.find(conv)!=conv_to_u64.end())
 		{
 			conv=get_true_random_number_nz();
 		}
 		return conv;
 	}
-	int is_conv_used(uint32_t conv)
+	int is_conv_used(u32_t conv)
 	{
 		return conv_to_u64.find(conv)!=conv_to_u64.end();
 	}
-	int is_u64_used(uint64_t u64)
+	int is_u64_used(u64_t u64)
 	{
 		return u64_to_conv.find(u64)!=u64_to_conv.end();
 	}
-	uint32_t find_conv_by_u64(uint64_t u64)
+	u32_t find_conv_by_u64(u64_t u64)
 	{
 		return u64_to_conv[u64];
 	}
-	uint64_t find_u64_by_conv(uint32_t conv)
+	u64_t find_u64_by_conv(u32_t conv)
 	{
 		return conv_to_u64[conv];
 	}
-	int update_active_time(uint32_t conv)
+	int update_active_time(u32_t conv)
 	{
 		return conv_last_active_time[conv]=get_current_time();
 	}
-	int insert_conv(uint32_t conv,uint64_t u64)
+	int insert_conv(u32_t conv,u64_t u64)
 	{
 		u64_to_conv[u64]=conv;
 		conv_to_u64[conv]=u64;
 		conv_last_active_time[conv]=get_current_time();
 		return 0;
 	}
-	int erase_conv(uint32_t conv)
+	int erase_conv(u32_t conv)
 	{
 		if(disable_conv_clear) return 0;
-		uint64_t u64=conv_to_u64[conv];
+		u64_t u64=conv_to_u64[conv];
 		if(program_mode==server_mode)
 		{
 			server_clear_function(u64);
@@ -240,7 +241,7 @@ struct conv_manager_t  //TODO change map to unordered map
 		int size=conv_last_active_time.size();
 		int num_to_clean=size/conv_clear_ratio+conv_clear_min;   //clear 1/10 each time,to avoid latency glitch
 
-		uint64_t current_time=get_current_time();
+		u64_t current_time=get_current_time();
 		for(;;)
 		{
 			if(cnt>=num_to_clean) break;
@@ -278,9 +279,9 @@ struct conn_info_t
 	current_state_t state;
 
 	raw_info_t raw_info;
-	long long last_state_time;
-	long long last_hb_sent_time;  //client re-use this for retry
-	long long last_hb_recv_time;
+	u64_t last_state_time;
+	u64_t last_hb_sent_time;  //client re-use this for retry
+	u64_t last_hb_recv_time;
 	//long long last_resent_time;
 
 	id_t my_id;
@@ -344,16 +345,16 @@ struct conn_info_t
 struct conn_manager_t
 {
 
- uint32_t ready_num;
+ u32_t ready_num;
 
  unordered_map<int,conn_info_t *> udp_fd_mp;  //a bit dirty to used pointer,but can void unordered_map search
  unordered_map<int,conn_info_t *> timer_fd_mp;//we can use pointer here since unordered_map.rehash() uses shallow copy
 
  unordered_map<id_t,conn_info_t *> const_id_mp;
 
- unordered_map<uint64_t,conn_info_t*> mp; //put it at end so that it de-consturcts first
+ unordered_map<u64_t,conn_info_t*> mp; //put it at end so that it de-consturcts first
 
- unordered_map<uint64_t,conn_info_t*>::iterator clear_it;
+ unordered_map<u64_t,conn_info_t*>::iterator clear_it;
 
  long long last_clear_time;
 
@@ -369,9 +370,9 @@ struct conn_manager_t
 	 //current_ready_ip=0;
 	// current_ready_port=0;
  }
- int exist(uint32_t ip,uint16_t port)
+ int exist(u32_t ip,uint16_t port)
  {
-	 uint64_t u64=0;
+	 u64_t u64=0;
 	 u64=ip;
 	 u64<<=32u;
 	 u64|=port;
@@ -391,38 +392,38 @@ struct conn_manager_t
 	 mp[u64];
 	 return 0;
  }*/
- conn_info_t *& find_insert_p(uint32_t ip,uint16_t port)  //be aware,the adress may change after rehash
+ conn_info_t *& find_insert_p(u32_t ip,uint16_t port)  //be aware,the adress may change after rehash
  {
-	 uint64_t u64=0;
+	 u64_t u64=0;
 	 u64=ip;
 	 u64<<=32u;
 	 u64|=port;
-	 unordered_map<uint64_t,conn_info_t*>::iterator it=mp.find(u64);
+	 unordered_map<u64_t,conn_info_t*>::iterator it=mp.find(u64);
 	 if(it==mp.end())
 	 {
 		 mp[u64]=new conn_info_t;
 	 }
 	 return mp[u64];
  }
- conn_info_t & find_insert(uint32_t ip,uint16_t port)  //be aware,the adress may change after rehash
+ conn_info_t & find_insert(u32_t ip,uint16_t port)  //be aware,the adress may change after rehash
  {
-	 uint64_t u64=0;
+	 u64_t u64=0;
 	 u64=ip;
 	 u64<<=32u;
 	 u64|=port;
-	 unordered_map<uint64_t,conn_info_t*>::iterator it=mp.find(u64);
+	 unordered_map<u64_t,conn_info_t*>::iterator it=mp.find(u64);
 	 if(it==mp.end())
 	 {
 		 mp[u64]=new conn_info_t;
 	 }
 	 return *mp[u64];
  }
- int erase(unordered_map<uint64_t,conn_info_t*>::iterator erase_it)
+ int erase(unordered_map<u64_t,conn_info_t*>::iterator erase_it)
  {
 		if(erase_it->second->state.server_current_state==server_ready)
 		{
 			ready_num--;
-			assert(int32_t(ready_num)!=-1);
+			assert(i32_t(ready_num)!=-1);
 			assert(erase_it->second!=0);
 			assert(erase_it->second->timer_fd !=0);
 			assert(erase_it->second->oppsite_const_id!=0);
@@ -456,8 +457,8 @@ int clear_inactive()
 }
 int clear_inactive0()
 {
-	 unordered_map<uint64_t,conn_info_t*>::iterator it;
-	 unordered_map<uint64_t,conn_info_t*>::iterator old_it;
+	 unordered_map<u64_t,conn_info_t*>::iterator it;
+	 unordered_map<u64_t,conn_info_t*>::iterator old_it;
 
 	if(disable_conn_clear) return 0;
 
@@ -467,10 +468,10 @@ int clear_inactive0()
 	int size=mp.size();
 	int num_to_clean=size/conn_clear_ratio+conn_clear_min;   //clear 1/10 each time,to avoid latency glitch
 
-	mylog(log_trace,"mp.size() %d\n",mp.size());
+	mylog(log_trace,"mp.size() %d\n", size);
 
 	num_to_clean=min(num_to_clean,(int)mp.size());
-	uint64_t current_time=get_current_time();
+	u64_t current_time=get_current_time();
 
 	for(;;)
 	{
@@ -537,7 +538,7 @@ int TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 ////////==========================type divider=======================================================
 
 
-int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_const_id);
+int server_on_raw_recv_pre_ready(conn_info_t &conn_info,u32_t tmp_oppsite_const_id);
 int server_on_raw_recv_ready(conn_info_t &conn_info);
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id );
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
@@ -672,7 +673,7 @@ int pre_recv_deprecated(char * data, int &data_len)
 }*/
 
 
-void server_clear_function(uint64_t u64)
+void server_clear_function(u64_t u64)
 {
 	int fd=int(u64);
 	int ret;
@@ -850,14 +851,14 @@ int send_safer(conn_info_t &conn_info,const char* data,int len)
 
 	return 0;
 }
-int send_data_safer(conn_info_t &conn_info,const char* data,int len,uint32_t conv_num)
+int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_num)
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
 	char send_data_buf[buf_len];
 	send_data_buf[0]='d';
-	uint32_t n_conv_num=htonl(conv_num);
+	u32_t n_conv_num=htonl(conv_num);
 	memcpy(send_data_buf+1,&n_conv_num,sizeof(n_conv_num));
 
 	memcpy(send_data_buf+1+sizeof(n_conv_num),data,len);
@@ -1235,7 +1236,8 @@ int client_on_timer(conn_info_t &conn_info) //for client
 	else if(conn_info.state.client_current_state==client_ready)
 	{
 		fail_time_counter=0;
-		mylog(log_trace,"time %lld %lld\n",get_current_time(),conn_info.last_state_time);
+		mylog(log_trace,"time %llu,%llu\n",get_current_time(),conn_info.last_state_time);
+
 		if(get_current_time()-conn_info.last_hb_recv_time>client_conn_timeout)
 		{
 			conn_info.state.client_current_state=client_idle;
@@ -1370,9 +1372,9 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			mylog(log_debug,"too short to be a handshake\n");
 			return -1;
 		}
-		id_t tmp_oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
-		id_t tmp_my_id=ntohl(* ((uint32_t *)&data[sizeof(id_t)]));
-		id_t tmp_oppsite_const_id=ntohl(* ((uint32_t *)&data[sizeof(id_t)*2]));
+		id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
+		id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
+		id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
 
 		if(tmp_my_id!=conn_info.my_id)
 		{
@@ -1432,13 +1434,13 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			conn_info.last_hb_recv_time=get_current_time();
 			return 0;
 		}
-		else if(data_len>= int( sizeof(uint32_t)+1 )&&data[0]=='d')
+		else if(data_len>= int( sizeof(u32_t)+1 )&&data[0]=='d')
 		{
 			mylog(log_trace,"received a data from fake tcp,len:%d\n",data_len);
 
 			conn_info.last_hb_recv_time=get_current_time();
 
-			uint32_t tmp_conv_id= ntohl(* ((uint32_t *)&data[1]));
+			u32_t tmp_conv_id= ntohl(* ((u32_t *)&data[1]));
 
 			if(!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id))
 			{
@@ -1448,7 +1450,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 
 			conn_info.blob->conv_manager.update_active_time(tmp_conv_id);
 
-			uint64_t u64=conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
+			u64_t u64=conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
 
 
 			sockaddr_in tmp_sockaddr;
@@ -1459,7 +1461,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
 
 
-			int ret=sendto(udp_fd,data+1+sizeof(uint32_t),data_len -(1+sizeof(uint32_t)),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
+			int ret=sendto(udp_fd,data+1+sizeof(u32_t),data_len -(1+sizeof(u32_t)),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
 
 			if(ret<0)
 			{
@@ -1498,7 +1500,7 @@ int server_on_raw_recv_multi()
 		mylog(log_trace,"peek_raw failed\n");
 		return -1;
 	}
-	uint32_t ip=peek_info.src_ip;uint16_t port=peek_info.src_port;
+	u32_t ip=peek_info.src_ip;uint16_t port=peek_info.src_port;
 	mylog(log_trace,"peek_raw %s %d\n",my_ntoa(ip),port);
 	char ip_port[40];
 	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
@@ -1564,7 +1566,7 @@ int server_on_raw_recv_multi()
 			return -1;
 		}
 
-		id_t zero=ntohl(* ((uint32_t *)&data[sizeof(id_t)]));
+		id_t zero=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
 		if(zero!=0)
 		{
 			mylog(log_debug,"[%s]not a invalid initial handshake\n",ip_port);
@@ -1586,7 +1588,7 @@ int server_on_raw_recv_multi()
 		send_info.dst_port = recv_info.src_port;
 		send_info.dst_ip = recv_info.src_ip;
 
-		id_t tmp_oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
+		id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
 		mylog(log_info,"handshake received %x\n",tmp_oppsite_id);
 
 		conn_info.my_id=get_true_random_number_nz();
@@ -1619,8 +1621,8 @@ int server_on_raw_recv_multi()
 			mylog(log_debug,"[%s] data_len=%d too short to be a handshake\n",ip_port,data_len);
 			return -1;
 		}
-		id_t tmp_oppsite_id=  ntohl(* ((uint32_t *)&data[0]));
-		id_t tmp_my_id=ntohl(* ((uint32_t *)&data[sizeof(id_t)]));
+		id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
+		id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
 
 		if(tmp_my_id==0)  //received  init handshake again
 		{
@@ -1630,7 +1632,7 @@ int server_on_raw_recv_multi()
 		else if(tmp_my_id==conn_info.my_id)
 		{
 			conn_info.oppsite_id=tmp_oppsite_id;
-			id_t tmp_oppsite_const_id=ntohl(* ((uint32_t *)&data[sizeof(id_t)*2]));
+			id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
 
 			if(raw_mode==mode_faketcp)
 			{
@@ -1704,14 +1706,14 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 	}
 
 	if (data[0] == 'h' && data_len == 1) {
-		uint32_t tmp = ntohl(*((uint32_t *) &data[1 + sizeof(uint32_t)]));
+		u32_t tmp = ntohl(*((u32_t *) &data[1 + sizeof(u32_t)]));
 		mylog(log_debug,"[%s][hb]received hb \n",ip_port);
 		conn_info.last_hb_recv_time = get_current_time();
 		return 0;
-	} else if (data[0] == 'd' && data_len >=int( sizeof(uint32_t) + 1))
+	} else if (data[0] == 'd' && data_len >=int( sizeof(u32_t) + 1))
 	{
 
-		uint32_t tmp_conv_id = ntohl(*((uint32_t *) &data[1]));
+		u32_t tmp_conv_id = ntohl(*((u32_t *) &data[1]));
 
 		conn_info.last_hb_recv_time = get_current_time();
 
@@ -1749,8 +1751,8 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 			}
 			struct epoll_event ev;
 
-			uint64_t u64 = (uint32_t(new_udp_fd))+(1llu<<32u);
-			mylog(log_trace, "u64: %ld\n", u64);
+			u64_t u64 = (u32_t(new_udp_fd))+(1llu<<32u);
+			mylog(log_trace, "u64: %lld\n", u64);
 			ev.events = EPOLLIN;
 
 			ev.data.u64 = u64;
@@ -1777,15 +1779,15 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 
 		}
 
-		uint64_t u64 = conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
+		u64_t u64 = conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
 
 		conn_info.blob->conv_manager.update_active_time(tmp_conv_id);
 
 		int fd = int((u64 << 32u) >> 32u);
 
 		mylog(log_trace, "received a data from fake tcp,len:%d\n", data_len);
-		int ret = send(fd, data + 1 + sizeof(uint32_t),
-				data_len - (1 + sizeof(uint32_t)), 0);
+		int ret = send(fd, data + 1 + sizeof(u32_t),
+				data_len - (1 + sizeof(u32_t)), 0);
 
 		mylog(log_trace, "%d byte sent  ,fd :%d\n ", ret, fd);
 		if (ret < 0) {
@@ -1797,9 +1799,9 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 	return 0;
 }
 
-int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_const_id)
+int server_on_raw_recv_pre_ready(conn_info_t &conn_info,u32_t tmp_oppsite_const_id)
 {
-	uint32_t ip;uint16_t port;
+	u32_t ip;uint16_t port;
 	ip=conn_info.raw_info.recv_info.src_ip;
 	port=conn_info.raw_info.recv_info.src_port;
 	char ip_port[40];
@@ -1915,7 +1917,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_con
 	return 0;
 }
 
-int get_src_adress(uint32_t &ip)
+int get_src_adress(u32_t &ip)
 {
 	struct sockaddr_in remote_addr_in;
 
@@ -2066,21 +2068,21 @@ int client_event_loop()
 		}
 		int idx;
 		for (idx = 0; idx < nfds; ++idx) {
-			if (events[idx].data.u64 == (uint64_t)raw_recv_fd)
+			if (events[idx].data.u64 == (u64_t)raw_recv_fd)
 			{
 				iphdr *iph;tcphdr *tcph;
 				client_on_raw_recv(conn_info);
 			}
-			else if(events[idx].data.u64 ==(uint64_t)timer_fd)
+			else if(events[idx].data.u64 ==(u64_t)timer_fd)
 			{
-				uint64_t value;
+				u64_t value;
 				read(timer_fd, &value, 8);
 				client_on_timer(conn_info);
 
 				mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
 				epoll_trigger_counter=0;
 			}
-			else if (events[idx].data.u64 == (uint64_t)udp_fd)
+			else if (events[idx].data.u64 == (u64_t)udp_fd)
 			{
 
 				int recv_len;
@@ -2116,8 +2118,8 @@ int client_event_loop()
 				}*/
 
 				//last_udp_recv_time=get_current_time();
-				uint64_t u64=((uint64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
-				uint32_t conv;
+				u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
+				u32_t conv;
 
 				if(!conn_info.blob->conv_manager.is_u64_used(u64))
 				{
@@ -2227,8 +2229,8 @@ int server_event_loop()
 
 	set_timer(epollfd,timer_fd);
 
-	long int begin_time=0;
-	long int end_time=0;
+	u64_t begin_time=0;
+	u64_t end_time=0;
 
 	while(1)////////////////////////
 	{
@@ -2244,38 +2246,38 @@ int server_event_loop()
 			//mylog(log_debug,"ndfs:  %d \n",nfds);
 			epoll_trigger_counter++;
 			//printf("%d %d %d %d\n",timer_fd,raw_recv_fd,raw_send_fd,n);
-			if ((events[idx].data.u64 ) == (uint64_t)timer_fd)
+			if ((events[idx].data.u64 ) == (u64_t)timer_fd)
 			{
 				if(debug_flag)begin_time=get_current_time();
 				conn_manager.clear_inactive();
-				uint64_t dummy;
+				u64_t dummy;
 				read(timer_fd, &dummy, 8);
 				//current_time_rough=get_current_time();
 				if(debug_flag)
 				{
 					end_time=get_current_time()-begin_time;
-					mylog(log_debug,"conn_manager.clear_inactive(),%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+					mylog(log_debug,"conn_manager.clear_inactive(),%llu,%llu,%llu\n",begin_time,end_time,end_time-begin_time);
 				}
 
 				mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
 				epoll_trigger_counter=0;
 
 			}
-			else if (events[idx].data.u64 == (uint64_t)raw_recv_fd)
+			else if (events[idx].data.u64 == (u64_t)raw_recv_fd)
 			{
 				if(debug_flag)begin_time=get_current_time();
 				server_on_raw_recv_multi();
 				if(debug_flag)
 				{
 					end_time=get_current_time()-begin_time;
-					mylog(log_debug,"conn_manager.clear_inactive(),%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+					mylog(log_debug,"conn_manager.clear_inactive(),%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
 				}
 			}
 			else if ((events[idx].data.u64 >>32u) == 2u)
 			{
 				if(debug_flag)begin_time=get_current_time();
 				int fd=get_u64_l(events[idx].data.u64);
-				uint64_t dummy;
+				u64_t dummy;
 				read(fd, &dummy, 8);
 
 				if(conn_manager.timer_fd_mp.find(fd)==conn_manager.timer_fd_mp.end()) //this can happen,when fd is a just closed fd
@@ -2284,8 +2286,8 @@ int server_event_loop()
 					continue;
 				}
 				conn_info_t* p_conn_info=conn_manager.timer_fd_mp[fd];
-				uint32_t ip=p_conn_info->raw_info.recv_info.src_ip;
-				uint32_t port=p_conn_info->raw_info.recv_info.src_port;
+				u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
+				u32_t port=p_conn_info->raw_info.recv_info.src_port;
 				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
 					mylog(log_fatal,"ip port no longer exits 1!!!this shouldnt happen\n");
@@ -2302,7 +2304,7 @@ int server_event_loop()
 				if(debug_flag)
 				{
 					end_time=get_current_time()-begin_time;
-					mylog(log_debug,"conn_manager.clear_inactive(),%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+					mylog(log_debug,"conn_manager.clear_inactive(),%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
 				}
 			}
 			else if ((events[idx].data.u64 >>32u) == 1u)
@@ -2321,17 +2323,17 @@ int server_event_loop()
 				}
 				conn_info_t* p_conn_info=conn_manager.udp_fd_mp[fd];
 
-				uint32_t ip=p_conn_info->raw_info.recv_info.src_ip;
-				uint32_t port=p_conn_info->raw_info.recv_info.src_port;
+				u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
+				u32_t port=p_conn_info->raw_info.recv_info.src_port;
 				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
-					mylog(log_fatal,"ip port no longer exits 2!!!this shouldnt happen\n", nfds);
+					mylog(log_fatal,"ip port no longer exits 2!!!this shouldnt happen\n");
 					myexit(-1);
 				}
 
 				if(p_conn_info->state.server_current_state!=server_ready)//TODO remove this for peformance
 				{
-					mylog(log_fatal,"p_conn_info->state.server_current_state!=server_ready!!!this shouldnt happen\n", nfds);
+					mylog(log_fatal,"p_conn_info->state.server_current_state!=server_ready!!!this shouldnt happen\n");
 					myexit(-1);
 				}
 
@@ -2344,7 +2346,7 @@ int server_event_loop()
 					continue;
 				}
 
-				uint32_t conv_id=conn_info.blob->conv_manager.find_conv_by_u64(fd);
+				u32_t conv_id=conn_info.blob->conv_manager.find_conv_by_u64(fd);
 
 				int recv_len=recv(fd,buf,buf_len,0);
 
@@ -2397,8 +2399,8 @@ void print_help()
 	printf("    --cipher-mode   <string>    avaliable values:md5,crc32,sum,none\n");
 	printf("\n");
 	printf("client options:\n");
-	printf("    --source-ip     <ip>        override source-ip for raw socket\n");
-	printf("    --source-port   <port>      override source-port for tcp/udp \n");
+	printf("    --source-ip     <ip>        force source-ip for raw socket\n");
+	printf("    --source-port   <port>      force source-port for raw socket,tcp/udp only\n");
 	printf("\n");
 	printf("other options:\n");
 	printf("    --log-level     <number>    0:never print log\n");
@@ -2409,16 +2411,16 @@ void print_help()
 	printf("                                5:debug\n");
 	printf("                                6:trace\n");
 	printf("\n");
-	printf("    --disable-color             disable log color\n");
 	printf("    --log-position              enable file name,function name,line number in log\n");
+	printf("    --disable-color             disable log color\n");
 	printf("    --disable-bpf               disable the kernel space filter,most time its not necessary\n");
 	printf("                                unless you suspect there is a bug\n");
 	printf("\n");
-	printf("    --sock-buf      <number>    buf size for socket,>=1 and <=10240,unit:kbyte\n");
+	printf("    --sock-buf      <number>    buf size for socket,>=10 and <=10240,unit:kbyte\n");
 	printf("    --seqmode       <number>    seq increase mode for faketcp:\n");
 	printf("                                0:dont increase\n");
 	printf("                                1:increase every packet\n");
-	printf("                                2:increase randomly, about every 5 packets (default)\n");
+	printf("                                2:increase randomly, about every 3 packets (default)\n");
 	printf("\n");
 	printf("    -h,--help                   print this help message\n");
 
@@ -2440,8 +2442,8 @@ void process_arg(int argc, char *argv[])
 		{"disable-color", no_argument,    0, 1},
 		{"log-position", no_argument,    0, 1},
 		{"disable-bpf", no_argument,    0, 1},
+		{"disable-anti-replay", no_argument,    0, 1},
 		{"debug", no_argument,    0, 1},
-		{"debug-resend", no_argument,    0, 1},
 		{"sock-buf", required_argument,    0, 1},
 		{"seq-mode", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
@@ -2540,7 +2542,7 @@ void process_arg(int argc, char *argv[])
 		case 'h':
 			break;
 		case 'a':
-			//auto_add_iptables_rule=1;
+			auto_add_iptables_rule=1;
 			break;
 		case 'k':
 			mylog(log_debug,"parsing key option\n");
@@ -2558,7 +2560,7 @@ void process_arg(int argc, char *argv[])
 			{
 				mylog(log_debug,"parsing long option :source-port\n");
 				sscanf(optarg, "%d", &source_port);
-				mylog(log_info,"source: %d\n",&source_port);
+				mylog(log_info,"source: %d\n",source_port);
 			}
 			else if(strcmp(long_options[option_index].name,"raw-mode")==0)
 			{
@@ -2635,11 +2637,15 @@ void process_arg(int argc, char *argv[])
 			{
 				disable_bpf_filter=1;
 			}
+			else if(strcmp(long_options[option_index].name,"disable-anti-replay")==0)
+			{
+				disable_anti_replay=1;
+			}
 			else if(strcmp(long_options[option_index].name,"sock-buf")==0)
 			{
 				int tmp=-1;
 				sscanf(optarg,"%d",&tmp);
-				if(1<=tmp&&tmp<=10*1024)
+				if(10<=tmp&&tmp<=10*1024)
 				{
 					socket_buf_size=tmp*1024;
 				}
@@ -2684,7 +2690,7 @@ void process_arg(int argc, char *argv[])
 		myexit(-1);
 	}
 
-	 mylog(log_info,"important variables: ", argc);
+	 mylog(log_info,"important variables: ");
 
 	 log_bare(log_info,"log_level=%d:%s ",log_level,log_text[log_level]);
 	 log_bare(log_info,"raw_mode=%s ",raw_mode_tostring[raw_mode]);
@@ -2706,22 +2712,22 @@ void process_arg(int argc, char *argv[])
 }
 void iptables_warn()
 {
-	char iptables[200];
+	char rule[200];
 	if(program_mode==client_mode)
 	{
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(iptables,"INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP\n",remote_address,remote_port);
+			sprintf(rule,"INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP",remote_address,remote_port);
 			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP\n",remote_address,remote_port);
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(iptables,"INPUT -s %s/32 -p udp -m udp --sport %d -j DROP\n",remote_address,remote_port);
+			sprintf(rule,"INPUT -s %s/32 -p udp -m udp --sport %d -j DROP",remote_address,remote_port);
 			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p udp -m udp --sport %d -j DROP\n",remote_address,remote_port);
 		}
 		if(raw_mode==mode_icmp)
 		{
-			sprintf(iptables,"INPUT -s %s/32 -p icmp -j DROP\n",remote_address);
+			sprintf(rule,"INPUT -s %s/32 -p icmp -j DROP",remote_address);
 			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p icmp -j DROP\n",remote_address);
 		}
 	}
@@ -2730,35 +2736,36 @@ void iptables_warn()
 
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(iptables,"INPUT -p tcp -m tcp --dport %d -j DROP\n",local_port);
+			sprintf(rule,"INPUT -p tcp -m tcp --dport %d -j DROP",local_port);
 			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p tcp -m tcp --dport %d -j DROP\n",local_port);
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(iptables,"INPUT -p udp -m udp --udp %d -j DROP\n",local_port);
+			sprintf(rule,"INPUT -p udp -m udp --udp %d -j DROP",local_port);
 			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p udp -m udp --udp %d -j DROP\n",local_port);
 		}
 		if(raw_mode==mode_icmp)
 		{
 			if(local_address_uint32==0)
 			{
-				sprintf(iptables,"INPUT -p icmp -j DROP\n");
+				sprintf(rule,"INPUT -p icmp -j DROP");
 				//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p icmp -j DROP\n");
 			}
 			else
 			{
-				sprintf(iptables,"INPUT -d %s/32 -p icmp -j DROP\n",local_address);
+				sprintf(rule,"INPUT -d %s/32 -p icmp -j DROP",local_address);
 				//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -d %s/32 -p icmp -j DROP\n",local_address);
 			}
 		}
 	}
 	if(auto_add_iptables_rule)
 	{
-			//not implemented
+			strcat(rule," -m comment --comment udp2raw_added ");
+			add_iptables_rule(rule);
 	}
 	else
 	{
-		mylog(log_warn,"make sure you have run once:  iptables -A %s\n",iptables);
+		mylog(log_warn,"make sure you have run once:  iptables -A %s\n",rule);
 	}
 }
 int main(int argc, char *argv[])
