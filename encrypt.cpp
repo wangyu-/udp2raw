@@ -57,7 +57,7 @@ unsigned int crc32h(unsigned char *message,int len) {
    return ;
 }*/
 
-void simple_hash(unsigned char *str,int len,unsigned char*  res)   //djb2+ sdb
+void simple_hash(unsigned char *str,int len,unsigned char*  res)   //djb2+ sdbm
 {
 	 u32_t hash = 5381;
      u32_t hash2 = 0;
