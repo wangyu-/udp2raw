@@ -1051,12 +1051,9 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     }
     else
     {
-    	mylog(log_info,"tcph->doff= %u\n",tcph->doff);
+    	//mylog(log_info,"tcph->doff= %u\n",tcph->doff);
     }
-    if(tcph->rst==1)
-    {
-    	mylog(log_error,"rst==1\n");
-    }
+
 
     recv_info.ack=tcph->ack;
     recv_info.syn=tcph->syn;
@@ -1067,6 +1064,11 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     recv_info.seq=ntohl(tcph->seq);
     recv_info.ack_seq=ntohl(tcph->ack_seq);
     recv_info.psh=tcph->psh;
+
+    if(tcph->rst==1)
+    {
+    	mylog(log_error,"[%s,%d]rst==1\n",my_ntoa(recv_info.src_ip),recv_info.src_port);
+    }
 
    /* if(recv_info.has_ts)
     {

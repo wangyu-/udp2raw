@@ -13,11 +13,11 @@
 static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog use zero iv,you should make sure first block of data contains a random/nonce data
 
 
-unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_sum,"sum"}};
+unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_simple,"simple"}};
 unordered_map<int, const char *> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"}};
 
-auth_mode_t auth_mode=auth_sum;
-cipher_mode_t cipher_mode=cipher_xor;
+auth_mode_t auth_mode=auth_crc32;
+cipher_mode_t cipher_mode=cipher_aes128cbc;
 
 
 /*
@@ -45,7 +45,7 @@ unsigned int crc32h(unsigned char *message,int len) {
    return ~crc;
 }
 
-
+/*
  void sum(const unsigned  char *data,int len,unsigned char*  res) {
    memset(res,0,sizeof(int));
    for(int i=0,j=0;i<len;i++,j++)
@@ -55,7 +55,25 @@ unsigned int crc32h(unsigned char *message,int len) {
    }
 
    return ;
-}
+}*/
+
+void simple_hash(unsigned char *str,int len,unsigned char*  res)   //djb2+ sdb
+{
+	 u32_t hash = 5381;
+     u32_t hash2 = 0;
+     int c;
+     int i=0;
+    while(c = *str++,i++!=len)
+    {
+         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+         hash2 = c + (hash2 << 6) + (hash2 << 16) - hash2;
+    }
+
+     hash=htonl(hash);
+     hash2=htonl(hash2);
+     memcpy(res,&hash,sizeof(hash));
+     memcpy(res+sizeof(hash),&hash2,sizeof(hash2));
+ }
 
 int auth_md5_cal(const char *data,char * output,int &len)
 {
@@ -75,21 +93,21 @@ int auth_crc32_cal(const char *data,char * output,int &len)
 	return 0;
 }
 
-int auth_sum_cal(const char *data,char * output,int &len)
+int auth_simple_cal(const char *data,char * output,int &len)
 {
 	//char res[4];
 	memcpy(output,data,len);//TODO inefficient code
-	sum((unsigned char *)output,len,(unsigned char *)(output+len));
-	len+=4;
+	simple_hash((unsigned char *)output,len,(unsigned char *)(output+len));
+	len+=8;
 	return 0;
 }
-int auth_sum_verify(const char *data,int &len)
+int auth_simple_verify(const char *data,int &len)
 {
-	if(len<4) return -1;
-	unsigned char res[4];
-	len-=4;
-	sum((unsigned char *)data,len,res);
-	if(memcmp(res,data+len,sizeof(int))!=0)
+	if(len<8) return -1;
+	unsigned char res[8];
+	len-=8;
+	simple_hash((unsigned char *)data,len,res);
+	if(memcmp(res,data+len,8)!=0)
 		return -1;
 	return 0;
 }
@@ -236,7 +254,7 @@ int auth_cal(const char *data,char * output,int &len)
 	{
 	case auth_crc32:return auth_crc32_cal(data, output, len);
 	case auth_md5:return auth_md5_cal(data, output, len);
-	case auth_sum:return auth_sum_cal(data, output, len);
+	case auth_simple:return auth_simple_cal(data, output, len);
 	case auth_none:return auth_none_cal(data, output, len);
 	default:	return auth_md5_cal(data,output,len);//default
 	}
@@ -249,7 +267,7 @@ int auth_verify(const char *data,int &len)
 	{
 	case auth_crc32:return auth_crc32_verify(data, len);
 	case auth_md5:return auth_md5_verify(data, len);
-	case auth_sum:return auth_sum_verify(data, len);
+	case auth_simple:return auth_simple_verify(data, len);
 	case auth_none:return auth_none_verify(data, len);
 	default:	return auth_md5_verify(data,len);//default
 	}

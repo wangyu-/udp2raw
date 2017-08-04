@@ -2251,7 +2251,7 @@ void print_help()
 	printf("    --raw-mode            <string>        avaliable values:faketcp,udp,icmp\n");
 	printf("    -k,--key              <string>        password to gen symetric key\n");
 	printf("    --auth-mode           <string>        avaliable values:aes128cbc(default),xor,none\n");
-	printf("    --cipher-mode         <string>        avaliable values:md5(default),crc32,sum,none\n");
+	printf("    --cipher-mode         <string>        avaliable values:md5(default),crc32,simple,none\n");
 	printf("    -a,--auto-add                         auto add (and delete) iptables rule\n");
 	printf("    --disable-anti-replay 				  disable anti-replay,not suggested");
 
@@ -2304,6 +2304,7 @@ void process_arg(int argc, char *argv[])
 		{"disable-anti-replay", no_argument,    0, 1},
 		{"auto-add", no_argument,    0, 'a'},
 		{"debug", no_argument,    0, 1},
+		{"clear", no_argument,    0, 1},
 		{"sock-buf", required_argument,    0, 1},
 		{"seq-mode", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
@@ -2363,18 +2364,29 @@ void process_arg(int argc, char *argv[])
 			no_l = 0;
 			if (strchr(optarg, ':') != 0) {
 				sscanf(optarg, "%[^:]:%d", local_address, &local_port);
+				if(local_port==22)
+				{
+					mylog(log_fatal,"port 22 not allowed\n");
+					myexit(-1);
+				}
 			} else {
-				strcpy(local_address, "127.0.0.1");
-				sscanf(optarg, "%d", &local_port);
+				mylog(log_fatal,"invalid parameter for -l ,%s,should be ip:port\n",optarg);
+				myexit(-1);
+
 			}
 			break;
 		case 'r':
 			no_r = 0;
 			if (strchr(optarg, ':') != 0) {
 				sscanf(optarg, "%[^:]:%d", remote_address, &remote_port);
+				if(remote_port==22)
+				{
+					mylog(log_fatal,"port 22 not allowed\n");
+					myexit(-1);
+				}
 			} else {
-				strcpy(remote_address, "127.0.0.1");
-				sscanf(optarg, "%d", &remote_port);
+				mylog(log_fatal,"invalid parameter for -r ,%s,should be ip:port\n",optarg);
+				myexit(-1);
 			}
 			break;
 		case 's':
@@ -2410,7 +2422,15 @@ void process_arg(int argc, char *argv[])
 			break;
 		case 1:
 			mylog(log_debug,"option_index: %d\n",option_index);
-			if(strcmp(long_options[option_index].name,"source-ip")==0)
+			if(strcmp(long_options[option_index].name,"clear")==0)
+			{
+				system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
+				//system("iptables-save |grep udp2raw_dWRwMnJhdw|sed 's/^-A/iptables -D/'|sh");
+				//system("iptables-save|grep -v udp2raw_dWRwMnJhdw|iptables-restore");
+				mylog(log_info,"tried to clear all iptables rule created previously");
+				myexit(-1);
+			}
+			else if(strcmp(long_options[option_index].name,"source-ip")==0)
 			{
 				mylog(log_debug,"parsing long option :source-ip\n");
 				sscanf(optarg, "%s", source_address);
@@ -2620,16 +2640,28 @@ void iptables_warn()
 	}
 	if(auto_add_iptables_rule)
 	{
-			strcat(rule," -m comment --comment udp2raw_added_");
+			strcat(rule," -m comment --comment udp2raw_dWRwMnJhdw_");
+
 			char const_id_str[100];
-			sprintf(const_id_str,"%x",const_id);
+			sprintf(const_id_str,"%x_",const_id);
+
 			strcat(rule,const_id_str);
 
+		    time_t timer;
+		    char buffer[26];
+		    struct tm* tm_info;
+
+		    time(&timer);
+		    tm_info = localtime(&timer);
+
+		    strftime(buffer, 26, "%Y-%m-%d-%H:%M:%S", tm_info);
+
+		    strcat(rule,buffer);
 			add_iptables_rule(rule);
 	}
 	else
 	{
-		mylog(log_warn,"make sure you have run once:  iptables -A %s\n",rule);
+		mylog(log_warn,"make sure you have run once:  iptables -I %s\n",rule);
 	}
 }
 int main(int argc, char *argv[])

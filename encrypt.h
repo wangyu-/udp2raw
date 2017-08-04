@@ -20,7 +20,7 @@ int my_decrypt_pesudo_header(uint8_t *data,uint8_t *output,int &len,uint8_t * ke
 unsigned short csum(const unsigned short *ptr,int nbytes) ;
 
 
-enum auth_mode_t {auth_none=0,auth_md5,auth_crc32,auth_sum,auth_end};
+enum auth_mode_t {auth_none=0,auth_md5,auth_crc32,auth_simple,auth_end};
 
 
 enum cipher_mode_t {cipher_none=0,cipher_aes128cbc,cipher_xor,cipher_end};

@@ -52,7 +52,7 @@ char * my_ntoa(u32_t ip)
 int add_iptables_rule(char * s)
 {
 	strcpy(iptables_rule,s);
-	char buf[300]="iptables -A ";
+	char buf[300]="iptables -I ";
 	strcat(buf,s);
 	if(system(buf)==0)
 	{
