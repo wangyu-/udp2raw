@@ -20,7 +20,7 @@ void log0(const char * file,const char * function,int line,int level,const char*
 	tm_info = localtime(&timer);
 
 	if(enable_log_color)
-		puts(log_color[level]);
+		printf("%s",log_color[level]);
 
 	strftime(buffer, 100, "%Y-%m-%d %H:%M:%S", tm_info);
 	printf("[%s][%s]",buffer,log_text[level]);
@@ -32,13 +32,15 @@ void log0(const char * file,const char * function,int line,int level,const char*
 	vfprintf(stdout, str, vlist);
 	va_end(vlist);
 	if(enable_log_color)
-		puts(RESET);
+		printf("%s",RESET);
 
 	//printf("\n");
 	//if(enable_log_color)
 		//printf(log_color[level]);
-
 	fflush(stdout);
+
+	if(log_level==log_fatal)
+		myexit(-1);
 }
 
 void log_bare(int level,const char* str, ...)
@@ -46,13 +48,13 @@ void log_bare(int level,const char* str, ...)
 	if(level>log_level) return ;
 	if(level>log_trace||level<0) return ;
 	if(enable_log_color)
-		puts(log_color[level]);
+		printf("%s",log_color[level]);
 	va_list vlist;
 	va_start(vlist, str);
 	vfprintf(stdout, str, vlist);
 	va_end(vlist);
 	if(enable_log_color)
-		puts(RESET);
+		printf("%s",RESET);
 	fflush(stdout);
 
 }

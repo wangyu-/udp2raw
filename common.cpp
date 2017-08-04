@@ -203,11 +203,11 @@ int set_buf_size(int fd)
 void myexit(int a)
 {
     if(enable_log_color)
-   	 puts(RESET);
+   	 printf("%s\n",RESET);
     clear_iptables_rule();
 	exit(a);
 }
-void  INThandler(int sig)
+void  signal_handler(int sig)
 {
 
      myexit(0);

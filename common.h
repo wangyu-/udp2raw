@@ -133,7 +133,7 @@ int set_buf_size(int fd);
 
 unsigned short csum(const unsigned short *ptr,int nbytes);
 
-void  INThandler(int sig);
+void  signal_handler(int sig);
 int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len);
 int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3);
 

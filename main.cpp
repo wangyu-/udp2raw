@@ -46,7 +46,6 @@ struct anti_replay_t
 {
 	u64_t max_packet_received;
 	char window[anti_replay_window_size];
-	char disabled;
 	anti_replay_seq_t anti_replay_seq;
 	anti_replay_seq_t get_new_seq_for_send()
 	{
@@ -54,31 +53,22 @@ struct anti_replay_t
 	}
 	anti_replay_t()
 	{
-		disabled=disable_anti_replay;
 		max_packet_received=0;
 		anti_replay_seq=get_true_random_number_64()/10;//random first seq
 		//memset(window,0,sizeof(window)); //not necessary
 	}
 	void re_init()
 	{
-		disabled=disable_anti_replay;
 		max_packet_received=0;
 		//memset(window,0,sizeof(window));
-	}
-	void disable()
-	{
-		disabled=1;
-	}
-	void enable()
-	{
-		disabled=0;
 	}
 
 	int is_vaild(u64_t seq)
 	{
+		if(disable_anti_replay) return 1;
 		//if(disabled) return 0;
 
-		if(seq==max_packet_received) return 0||disabled;
+		if(seq==max_packet_received) return 0;
 		else if(seq>max_packet_received)
 		{
 			if(seq-max_packet_received>=anti_replay_window_size)
@@ -97,10 +87,10 @@ struct anti_replay_t
 		}
 		else if(seq<max_packet_received)
 		{
-			if(max_packet_received-seq>=anti_replay_window_size) return 0||disabled;
+			if(max_packet_received-seq>=anti_replay_window_size) return 0;
 			else
 			{
-				if (window[seq%anti_replay_window_size]==1) return 0||disabled;
+				if (window[seq%anti_replay_window_size]==1) return 0;
 				else
 				{
 					window[seq%anti_replay_window_size]=1;
@@ -543,135 +533,6 @@ int server_on_raw_recv_ready(conn_info_t &conn_info);
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id );
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
 ////////////////=======================declear divider=============================
-/*
-int pre_send_deprecate(char * data, int &data_len)
-{
-	const int disable_encrypt=0;
-	const int disable_anti_replay=0;
-	char replay_buf[buf_len];
-	//return 0;
-	if(data_len<0) return -3;
-
-	if(disable_encrypt&&disable_anti_replay) return 0;
-
-	if(!disable_anti_replay)
-	{
-		anti_replay_seq++;
-		uint32_t seq_high= htonl(anti_replay_seq>>32u);
-
-		uint32_t seq_low= htonl((anti_replay_seq<<32u)>>32u);
-
-		memcpy(replay_buf,&seq_high,sizeof(uint32_t));
-		memcpy(replay_buf+sizeof(uint32_t),&seq_low,sizeof(uint32_t));
-
-		memcpy(replay_buf+sizeof(uint32_t)*2,data,data_len);
-
-		data_len+=sizeof(uint32_t)*2;
-	}
-	else
-	{
-		memcpy(replay_buf,data,data_len);
-	}
-
-	if(!disable_encrypt)
-	{
-		if(my_encrypt(replay_buf,data,data_len,key2) <0)
-		{
-			mylog(log_debug,"encrypt fail\n");
-			return -1;
-		}
-	}
-	else
-	{
-		memcpy(data,replay_buf,data_len);
-	}
-	return 0;
-}
-
-int pre_recv_deprecated(char * data, int &data_len)
-{
-	const int disable_encrypt=0;
-	const int disable_anti_replay=0;
-
-	char replay_buf[buf_len];
-	//return 0;
-	if(data_len<0) return -1;
-
-	if(disable_encrypt&&disable_anti_replay) return 0;
-
-	if(!disable_encrypt)
-	{
-		if(my_decrypt(data,replay_buf,data_len,key2) <0)
-		{
-			mylog(log_debug,"decrypt fail\n");
-			return -1;
-		}
-		else
-		{
-			mylog(log_debug,"decrypt succ\n");
-		}
-	}
-	else
-	{
-		memcpy(replay_buf,data,data_len);
-	}
-
-	if(!disable_anti_replay)
-	{
-		data_len-=sizeof(uint32_t)*2;
-		if(data_len<0)
-		{
-			mylog(log_debug,"data_len<=0\n");
-			return -2;
-		}
-
-		uint64_t seq_high= ntohl(*((uint32_t*)(replay_buf) ) );
-		uint32_t seq_low= ntohl(*((uint32_t*)(replay_buf+sizeof(uint32_t)) ) );
-		uint64_t recv_seq =(seq_high<<32u )+seq_low;
-
-
-		if((program_mode==client_mode&&client_current_state==client_ready)
-				||(program_mode==server_mode&&server_current_state==server_ready ))
-		{
-			if(data_len<sizeof(uint32_t)*2+1)
-			{
-				mylog(log_debug,"no room for session id and oppiste session_id\n");
-				return -4;
-			}
-
-			uint32_t tmp_oppiste_session_id = ntohl(
-					*((uint32_t*) (replay_buf + sizeof(uint32_t) * 2+1)));
-			uint32_t tmp_session_id = ntohl(
-					*((uint32_t*) (replay_buf + sizeof(uint32_t) * 3+1)));
-
-			if (tmp_oppiste_session_id != oppsite_id
-					|| tmp_session_id != my_id) {
-				mylog(log_debug,"auth fail and pre send\n");
-				return -5;
-			}
-
-			mylog(log_debug,"seq=========%u\n", recv_seq);
-
-			if (anti_replay.is_vaild(recv_seq) != 1) {
-				mylog(log_info,"dropped replay packet\n");
-				return -1;
-			}
-		}
-
-		mylog(log_trace,"<<<<<%ld,%d,%ld>>>>\n",seq_high,seq_low,recv_seq);
-
-
-		memcpy(data,replay_buf+sizeof(uint32_t)*2,data_len);
-	}
-	else
-	{
-		memcpy(data,replay_buf,data_len);
-	}
-
-
-	return 0;
-}*/
-
 
 void server_clear_function(u64_t u64)
 {
@@ -709,7 +570,7 @@ int send_bare(raw_info_t &raw_info,const char* data,int len)
 {
 	if(len<0)
 	{
-		mylog(log_debug,"input_len <0");
+		mylog(log_debug,"input_len <0\n");
 		return -1;
 	}
 	packet_info_t &send_info=raw_info.send_info;
@@ -743,7 +604,7 @@ int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow 
 
 	if(input_len<0)
 	{
-		mylog(log_debug,"input_len <0");
+		mylog(log_debug,"input_len <0\n");
 		return -1;
 	}
 	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
@@ -761,7 +622,7 @@ int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow 
 	len-=sizeof(iv_t)+sizeof(padding_t)+1;
 	if(len<0)
 	{
-		mylog(log_debug,"len <0");
+		mylog(log_debug,"len <0\n");
 		return -1;
 	}
 	return 0;
@@ -1065,7 +926,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 		fail_time_counter++;
 		if(fail_time_counter>max_fail_time)
 		{
-			mylog(log_fatal,"max_fail_time exceed");
+			mylog(log_fatal,"max_fail_time exceed\n");
 			myexit(-1);
 		}
 
@@ -2288,16 +2149,10 @@ int server_event_loop()
 				conn_info_t* p_conn_info=conn_manager.timer_fd_mp[fd];
 				u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
 				u32_t port=p_conn_info->raw_info.recv_info.src_port;
-				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
-				{
-					mylog(log_fatal,"ip port no longer exits 1!!!this shouldnt happen\n");
-					myexit(-1);
-				}
-				if (p_conn_info->state.server_current_state != server_ready) //TODO remove this for peformance
-				{
-					mylog(log_fatal,"p_conn_info->state.server_current_state!=server_ready!!!this shouldnt happen\n");
-					myexit(-1);
-				}
+				assert(conn_manager.exist(ip,port));//TODO remove this for peformance
+
+				assert(p_conn_info->state.server_current_state == server_ready); //TODO remove this for peformance
+
 				//conn_info_t &conn_info=conn_manager.find(ip,port);
 				server_on_timer_multi(*p_conn_info);
 
@@ -2393,36 +2248,40 @@ void print_help()
 	printf("    run as server : ./this_program -s -l adress:port -r adress:port  [options]\n");
 	printf("\n");
 	printf("common options,these options must be same on both side:\n");
-	printf("    --raw-mode      <string>    avaliable values:faketcp,udp,icmp\n");
-	printf("    --key           <string>    password to gen symetric key\n");
-	printf("    --auth-mode     <string>    avaliable values:aes128cbc,xor,none\n");
-	printf("    --cipher-mode   <string>    avaliable values:md5,crc32,sum,none\n");
+	printf("    --raw-mode            <string>        avaliable values:faketcp,udp,icmp\n");
+	printf("    -k,--key              <string>        password to gen symetric key\n");
+	printf("    --auth-mode           <string>        avaliable values:aes128cbc(default),xor,none\n");
+	printf("    --cipher-mode         <string>        avaliable values:md5(default),crc32,sum,none\n");
+	printf("    -a,--auto-add                         auto add (and delete) iptables rule\n");
+	printf("    --disable-anti-replay 				  disable anti-replay,not suggested");
+
 	printf("\n");
 	printf("client options:\n");
-	printf("    --source-ip     <ip>        force source-ip for raw socket\n");
-	printf("    --source-port   <port>      force source-port for raw socket,tcp/udp only\n");
-	printf("\n");
+	printf("    --source-ip           <ip>            force source-ip for raw socket\n");
+	printf("    --source-port         <port>          force source-port for raw socket,tcp/udp only\n");
+	printf("                                          this option disables port changing while re-connecting\n");
+	printf("                                          \n");
 	printf("other options:\n");
-	printf("    --log-level     <number>    0:never print log\n");
-	printf("                                1:fatal\n");
-	printf("                                2:error\n");
-	printf("                                3:warn\n");
-	printf("                                4:info (default)\n");
-	printf("                                5:debug\n");
-	printf("                                6:trace\n");
+	printf("    --log-level           <number>        0:never,never print log\n");
+	printf("                                          1:fatal\n");
+	printf("                                          2:error\n");
+	printf("                                          3:warn\n");
+	printf("                                          4:info (default)\n");
+	printf("                                          5:debug\n");
+	printf("                                          6:trace\n");
 	printf("\n");
-	printf("    --log-position              enable file name,function name,line number in log\n");
-	printf("    --disable-color             disable log color\n");
-	printf("    --disable-bpf               disable the kernel space filter,most time its not necessary\n");
-	printf("                                unless you suspect there is a bug\n");
+	printf("    --log-position                        enable file name,function name,line number in log\n");
+	printf("    --disable-color                       disable log color\n");
+	printf("    --disable-bpf                         disable the kernel space filter,most time its not necessary\n");
+	printf("                                          unless you suspect there is a bug\n");
 	printf("\n");
-	printf("    --sock-buf      <number>    buf size for socket,>=10 and <=10240,unit:kbyte\n");
-	printf("    --seqmode       <number>    seq increase mode for faketcp:\n");
-	printf("                                0:dont increase\n");
-	printf("                                1:increase every packet\n");
-	printf("                                2:increase randomly, about every 3 packets (default)\n");
+	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte\n");
+	printf("    --seqmode             <number>        seq increase mode for faketcp:\n");
+	printf("                                          0:dont increase\n");
+	printf("                                          1:increase every packet\n");
+	printf("                                          2:increase randomly, about every 3 packets (default)\n");
 	printf("\n");
-	printf("    -h,--help                   print this help message\n");
+	printf("    -h,--help                             print this help message\n");
 
 	//printf("common options,these options must be same on both side\n");
 }
@@ -2443,6 +2302,7 @@ void process_arg(int argc, char *argv[])
 		{"log-position", no_argument,    0, 1},
 		{"disable-bpf", no_argument,    0, 1},
 		{"disable-anti-replay", no_argument,    0, 1},
+		{"auto-add", no_argument,    0, 'a'},
 		{"debug", no_argument,    0, 1},
 		{"sock-buf", required_argument,    0, 1},
 		{"seq-mode", required_argument,    0, 1},
@@ -2495,7 +2355,7 @@ void process_arg(int argc, char *argv[])
 	}
 
 	int no_l = 1, no_r = 1;
-	while ((opt = getopt_long(argc, argv, "l:r:scha",long_options,&option_index)) != -1) {
+	while ((opt = getopt_long(argc, argv, "l:r:schk:a",long_options,&option_index)) != -1) {
 		//string opt_key;
 		//opt_key+=opt;
 		switch (opt) {
@@ -2524,7 +2384,7 @@ void process_arg(int argc, char *argv[])
 			}
 			else
 			{
-				mylog(log_fatal,"-s /-c has already been set,-s option conflict\n");
+				mylog(log_fatal,"-s /-c has already been set,conflict\n");
 				myexit(-1);
 			}
 			break;
@@ -2535,7 +2395,7 @@ void process_arg(int argc, char *argv[])
 			}
 			else
 			{
-				mylog(log_fatal,"-s /-c has already been set,-c option conflict\n");
+				mylog(log_fatal,"-s /-c has already been set,conflict\n");
 				myexit(-1);
 			}
 			break;
@@ -2673,7 +2533,7 @@ void process_arg(int argc, char *argv[])
 			}
 			break;
 		default:
-			mylog(log_fatal,"unknown option ,code:<%x>\n", optopt);
+			mylog(log_fatal,"unknown option ,code:<%c>,<%x>\n",optopt, optopt);
 			myexit(-1);
 		}
 	}
@@ -2741,7 +2601,7 @@ void iptables_warn()
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(rule,"INPUT -p udp -m udp --udp %d -j DROP",local_port);
+			sprintf(rule,"INPUT -p udp -m udp --dport %d -j DROP",local_port);
 			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p udp -m udp --udp %d -j DROP\n",local_port);
 		}
 		if(raw_mode==mode_icmp)
@@ -2760,7 +2620,11 @@ void iptables_warn()
 	}
 	if(auto_add_iptables_rule)
 	{
-			strcat(rule," -m comment --comment udp2raw_added ");
+			strcat(rule," -m comment --comment udp2raw_added_");
+			char const_id_str[100];
+			sprintf(const_id_str,"%x",const_id);
+			strcat(rule,const_id_str);
+
 			add_iptables_rule(rule);
 	}
 	else
@@ -2773,7 +2637,12 @@ int main(int argc, char *argv[])
 	//printf("%d %d %d %d",larger_than_u32(1,2),larger_than_u32(2,1),larger_than_u32(0xeeaaeebb,2),larger_than_u32(2,0xeeaaeebb));
 	//assert(0==1);
 	dup2(1, 2);//redirect stderr to stdout
-	signal(SIGINT, INThandler);
+	signal(SIGINT, signal_handler);
+	signal(SIGHUP, signal_handler);
+	signal(SIGKILL, signal_handler);
+	signal(SIGTERM, signal_handler);
+	signal(SIGQUIT, signal_handler);
+
 	process_arg(argc,argv);
 
 	local_address_uint32=inet_addr(local_address);
