@@ -143,12 +143,35 @@ int cipher_xor_decrypt(const char * data, char *output,int &len, char *key) {
         return 0;
 }
 
+int padding(char *data ,int &data_len,int padding_num)
+{
+	int old_len=data_len;
+	data_len+=1;
+	if(data_len%padding_num!=0)
+	{
+		data_len= (data_len/padding_num)*padding_num+padding_num;
+	}
+	data[data_len-1]= (data_len-old_len);
+	return 0;
+}
 
+int de_padding(const char *data ,int &data_len,int padding_num)
+{
+	if((uint8_t)data[data_len-1]  >padding_num) return -1;
+	data_len-=(uint8_t)data[data_len-1];
+	if(data_len<0)
+	{
+		return -1;
+	}
+	return 0;
+}
 int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 {
 	char buf[buf_len];
 	memcpy(buf,data,len);//TODO inefficient code
 
+
+	/*
 	int ori_len=len;
 	len+=2;//length
 	if(len%16!=0)
@@ -158,7 +181,8 @@ int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 	//if(len>max_data_len) return -1;
 
 	buf[len-2]= (unsigned char)( (uint16_t(ori_len))>>8);
-	buf[len-1]=(unsigned char)( ((uint16_t(ori_len))<<8)>>8) ;
+	buf[len-1]=(unsigned char)( ((uint16_t(ori_len))<<8)>>8) ;*/
+	if(padding(buf,len,16)<0) return -1;
 
 	AES_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	return 0;
@@ -188,10 +212,11 @@ int cipher_none_encrypt(const char *data,char *output,int &len,char * key)
 }
 int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 {
+
 	if(len%16 !=0) {mylog(log_debug,"len%16!=0\n");return -1;}
-	if(len<2) {mylog(log_debug,"len <2\n");return -1;}
+	//if(len<0) {mylog(log_debug,"len <0\n");return -1;}
 	AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
-	len=((unsigned char)output[len-2])*256u+((unsigned char)output[len-1]);
+	if(de_padding(output,len,16)<0) return -1;
 	return 0;
 }
 
