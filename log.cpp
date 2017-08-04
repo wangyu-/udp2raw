@@ -40,7 +40,9 @@ void log0(const char * file,const char * function,int line,int level,const char*
 	fflush(stdout);
 
 	if(log_level==log_fatal)
-		myexit(-1);
+	{
+		about_to_exit=1;
+	}
 }
 
 void log_bare(int level,const char* str, ...)

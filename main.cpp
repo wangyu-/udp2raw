@@ -750,7 +750,7 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &d
 
 	if(h_oppiste_id!=conn_info.oppsite_id||h_my_id!=conn_info.my_id)
 	{
-		mylog(log_warn,"id and oppsite_id verification failed %x %x %x %x \n",h_oppiste_id,conn_info.oppsite_id,h_my_id,conn_info.my_id);
+		mylog(log_debug,"id and oppsite_id verification failed %x %x %x %x \n",h_oppiste_id,conn_info.oppsite_id,h_my_id,conn_info.my_id);
 		return -1;
 	}
 
@@ -766,13 +766,13 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &d
 
 	if(data[0]!='h'&&data[0]!='d')
 	{
-		mylog(log_warn,"first byte is not h or d  ,%x\n",data[0]);
+		mylog(log_debug,"first byte is not h or d  ,%x\n",data[0]);
 		return -1;
 	}
 
 	if(len<0)
 	{
-		mylog(log_error,"len <0 ,%d\n",len);
+		mylog(log_debug,"len <0 ,%d\n",len);
 		return -1;
 	}
 
@@ -1633,7 +1633,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 
 			//pack_u64(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
 
-			mylog(log_info, "new conv conv_id=%x, assigned fd=%d\n",
+			mylog(log_info, "[%s]new conv conv_id=%x, assigned fd=%d\n",ip_port,
 					tmp_conv_id, new_udp_fd);
 
 
@@ -1921,6 +1921,7 @@ int client_event_loop()
 	mylog(log_debug,"send_raw : from %x %d  to %x %d\n",send_info.src_ip,send_info.src_port,send_info.dst_ip,send_info.dst_port);
 	while(1)////////////////////////
 	{
+		if(about_to_exit) myexit(0);
 		epoll_trigger_counter++;
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
@@ -2096,6 +2097,8 @@ int server_event_loop()
 	while(1)////////////////////////
 	{
 
+		if(about_to_exit) myexit(0);
+
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
 			mylog(log_fatal,"epoll_wait return %d\n", nfds);
@@ -2116,8 +2119,8 @@ int server_event_loop()
 				//current_time_rough=get_current_time();
 				if(debug_flag)
 				{
-					end_time=get_current_time()-begin_time;
-					mylog(log_debug,"conn_manager.clear_inactive(),%llu,%llu,%llu\n",begin_time,end_time,end_time-begin_time);
+					end_time=get_current_time();
+					mylog(log_debug,"timer_fd,%llu,%llu,%llu\n",begin_time,end_time,end_time-begin_time);
 				}
 
 				mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
@@ -2130,8 +2133,8 @@ int server_event_loop()
 				server_on_raw_recv_multi();
 				if(debug_flag)
 				{
-					end_time=get_current_time()-begin_time;
-					mylog(log_debug,"conn_manager.clear_inactive(),%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
+					end_time=get_current_time();
+					mylog(log_debug,"raw_recv_fd,%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
 				}
 			}
 			else if ((events[idx].data.u64 >>32u) == 2u)
@@ -2158,8 +2161,8 @@ int server_event_loop()
 
 				if(debug_flag)
 				{
-					end_time=get_current_time()-begin_time;
-					mylog(log_debug,"conn_manager.clear_inactive(),%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
+					end_time=get_current_time();
+					mylog(log_debug,"(events[idx].data.u64 >>32u) == 2u ,%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
 				}
 			}
 			else if ((events[idx].data.u64 >>32u) == 1u)
@@ -2224,8 +2227,8 @@ int server_event_loop()
 
 				if(debug_flag)
 				{
-					end_time=get_current_time()-begin_time;
-				    mylog(log_debug,"conn_manager.clear_inactive(),%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+					end_time=get_current_time();
+				    mylog(log_debug,"(events[idx].data.u64 >>32u) == 1u,%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
 				}
 			}
 			else

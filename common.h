@@ -93,7 +93,7 @@ const u32_t client_conn_timeout=10000;
 //const uint32_t server_conn_timeout=conv_timeout+60000;//this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
 const u32_t server_conn_timeout=conv_timeout+10000;//for test
 
-
+extern int about_to_exit;
 
 enum raw_mode_t{mode_faketcp=0,mode_udp,mode_icmp,mode_end};
 extern raw_mode_t raw_mode;

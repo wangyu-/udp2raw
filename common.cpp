@@ -10,6 +10,7 @@
 
 
 
+int about_to_exit=0;
 
 raw_mode_t raw_mode=mode_faketcp;
 unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
@@ -72,7 +73,15 @@ int clear_iptables_rule()
 	{
 		char buf[300]="iptables -D ";
 		strcat(buf,iptables_rule);
-		system(buf);
+		if(system(buf)==0)
+		{
+			mylog(log_warn,"iptables rule cleared\n",buf);
+		}
+		else
+		{
+			mylog(log_error,"auto added iptables failed by: %s\n",buf);
+		}
+
 	}
 	return 0;
 }
@@ -209,8 +218,8 @@ void myexit(int a)
 }
 void  signal_handler(int sig)
 {
-
-     myexit(0);
+	about_to_exit=1;
+    // myexit(0);
 }
 
 int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len)
