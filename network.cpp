@@ -162,13 +162,13 @@ int init_raw_socket()
     if(raw_send_fd == -1) {
     	mylog(log_fatal,"Failed to create raw_send_fd\n");
         //perror("Failed to create raw_send_fd");
-        exit(1);
+        myexit(1);
     }
 
     if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
     	mylog(log_fatal,"SO_SNDBUFFORCE fail\n");
-    	exit(1);
+    	myexit(1);
     }
 	//raw_fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
 
@@ -177,13 +177,13 @@ int init_raw_socket()
     if(raw_recv_fd == -1) {
     	mylog(log_fatal,"Failed to create raw_recv_fd\n");
         //perror("");
-        exit(1);
+        myexit(1);
     }
 
     if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
     	mylog(log_fatal,"SO_RCVBUFFORCE fail\n");
-    	exit(1);
+    	myexit(1);
     }
 
     //IP_HDRINCL to tell the kernel that headers are included in the packet
@@ -193,7 +193,7 @@ int init_raw_socket()
     if (setsockopt (raw_send_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0) {
     	mylog(log_fatal,"Error setting IP_HDRINCL %d\n",errno);
         //perror("Error setting IP_HDRINCL");
-        exit(2);
+        myexit(2);
     }
 
     setnonblocking(raw_send_fd); //not really necessary
@@ -243,7 +243,7 @@ void init_filter(int port)
 	{
 		mylog(log_fatal,"error set fiter\n");
 		//perror("filter");
-		exit(-1);
+		myexit(-1);
 	}
 }
 void remove_filter()

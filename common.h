@@ -127,5 +127,6 @@ void  INThandler(int sig);
 int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len);
 int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3);
 
+void myexit(int a);
 
 #endif /* COMMON_H_ */

@@ -29,6 +29,7 @@ int timer_fd=-1;
 int fail_time_counter=0;
 int epoll_trigger_counter=0;
 int debug_flag=0;
+int auto_add_iptables_rule=0;
 //int debug_resend=0;
 
 char key_string[1000]= "secret key";
@@ -334,7 +335,7 @@ struct conn_info_t
 	conn_info_t& operator=(const conn_info_t& b)
 	  {
 		mylog(log_fatal,"not allowed\n");
-		exit(-1);
+		myexit(-1);
 	    return *this;
 	  }
 	~conn_info_t();
@@ -693,7 +694,7 @@ void server_clear_function(uint64_t u64)
 	if (ret!=0)
 	{
 		mylog(log_fatal,"close fd %d failed !!!!\n",fd);
-		exit(-1);  //this shouldnt happen
+		myexit(-1);  //this shouldnt happen
 	}
 	//mylog(log_fatal,"size:%d !!!!\n",conn_manager.udp_fd_mp.size());
 	assert(conn_manager.udp_fd_mp.find(fd)!=conn_manager.udp_fd_mp.end());
@@ -980,7 +981,7 @@ int client_bind_to_a_new_port()
 		}
 	}
 	mylog(log_fatal,"bind port fail\n");
-	exit(-1);
+	myexit(-1);
 	return -1;////for compiler check
 }
 
@@ -997,7 +998,7 @@ int set_timer(int epollfd,int &timer_fd)
 	if((timer_fd=timerfd_create(CLOCK_MONOTONIC,TFD_NONBLOCK)) < 0)
 	{
 		mylog(log_fatal,"timer_fd create error\n");
-		exit(1);
+		myexit(1);
 	}
 	its.it_interval.tv_sec=(timer_interval/1000);
 	its.it_interval.tv_nsec=(timer_interval%1000)*1000ll*1000ll;
@@ -1011,7 +1012,7 @@ int set_timer(int epollfd,int &timer_fd)
 	ret=epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
 		mylog(log_fatal,"epoll_ctl return %d\n", ret);
-		exit(-1);
+		myexit(-1);
 	}
 	return 0;
 }
@@ -1028,7 +1029,7 @@ int set_timer_server(int epollfd,int &timer_fd)
 	if((timer_fd=timerfd_create(CLOCK_MONOTONIC,TFD_NONBLOCK)) < 0)
 	{
 		mylog(log_fatal,"timer_fd create error\n");
-		exit(1);
+		myexit(1);
 	}
 	its.it_interval.tv_sec=(timer_interval/1000);
 	its.it_interval.tv_nsec=(timer_interval%1000)*1000ll*1000ll;
@@ -1042,7 +1043,7 @@ int set_timer_server(int epollfd,int &timer_fd)
 	ret=epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
 		mylog(log_fatal,"epoll_ctl return %d\n", ret);
-		exit(-1);
+		myexit(-1);
 	}
 	return 0;
 }
@@ -1064,7 +1065,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 		if(fail_time_counter>max_fail_time)
 		{
 			mylog(log_fatal,"max_fail_time exceed");
-			exit(-1);
+			myexit(-1);
 		}
 
 		conn_info.blob->anti_replay.re_init();
@@ -1258,7 +1259,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 	else
 	{
 		mylog(log_fatal,"unknown state,this shouldnt happen.\n");
-		exit(-1);
+		myexit(-1);
 	}
 	return 0;
 }
@@ -1300,7 +1301,7 @@ int server_on_timer_multi(conn_info_t &conn_info)
 	else
 	{
 		mylog(log_fatal,"this shouldnt happen!\n");
-		exit(-1);
+		myexit(-1);
 	}
 	return 0;
 
@@ -1479,7 +1480,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 	else
 	{
 		mylog(log_fatal,"unknown state,this shouldnt happen.\n");
-		exit(-1);
+		myexit(-1);
 	}
 	return 0;
 }
@@ -1875,12 +1876,12 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_con
 			if(!conn_manager.exist(ori_conn_info.raw_info.recv_info.src_ip,ori_conn_info.raw_info.recv_info.src_port))//TODO remove this
 			{
 				mylog(log_fatal,"[%s]this shouldnt happen\n",ip_port);
-				exit(-1);
+				myexit(-1);
 			}
 			if(!conn_manager.exist(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port))//TODO remove this
 			{
 				mylog(log_fatal,"[%s]this shouldnt happen2\n",ip_port);
-				exit(-1);
+				myexit(-1);
 			}
 			conn_info_t *&p_ori=conn_manager.find_insert_p(ori_conn_info.raw_info.recv_info.src_ip,ori_conn_info.raw_info.recv_info.src_port);
 			conn_info_t *&p=conn_manager.find_insert_p(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
@@ -1907,7 +1908,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,uint32_t tmp_oppsite_con
 		else
 		{
 			mylog(log_fatal,"[%s]this should never happen\n",ip_port);
-			exit(-1);
+			myexit(-1);
 		}
 		return 0;
 	}
@@ -1971,7 +1972,7 @@ int client_event_loop()
 		if(get_src_adress(source_address_uint32)!=0)
 		{
 			mylog(log_fatal,"the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
-			exit(-1);
+			myexit(-1);
 		}
 	}
 	in_addr tmp;
@@ -1983,7 +1984,7 @@ int client_event_loop()
 	if(try_to_list_and_bind(source_port)!=0)
 	{
 		mylog(log_fatal,"bind to source_port:%d fail\n ",source_port);
-		exit(-1);
+		myexit(-1);
 	}
 	send_info.src_port=source_port;
 	send_info.src_ip = source_address_uint32;
@@ -2016,7 +2017,7 @@ int client_event_loop()
 	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
 		mylog(log_fatal,"socket bind error\n");
 		//perror("socket bind error");
-		exit(1);
+		myexit(1);
 	}
 	setnonblocking(udp_fd);
 	epollfd = epoll_create1(0);
@@ -2025,7 +2026,7 @@ int client_event_loop()
 	struct epoll_event ev, events[max_events];
 	if (epollfd < 0) {
 		mylog(log_fatal,"epoll return %d\n", epollfd);
-		exit(-1);
+		myexit(-1);
 	}
 
 	ev.events = EPOLLIN;
@@ -2033,7 +2034,7 @@ int client_event_loop()
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
 	if (ret!=0) {
 		mylog(log_fatal,"add  udp_listen_fd error\n");
-		exit(-1);
+		myexit(-1);
 	}
 	ev.events = EPOLLIN;
 	ev.data.u64 = raw_recv_fd;
@@ -2041,7 +2042,7 @@ int client_event_loop()
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
 		mylog(log_fatal,"add raw_fd error\n");
-		exit(-1);
+		myexit(-1);
 	}
 
 	////add_timer for fake_tcp_keep_connection_client
@@ -2061,7 +2062,7 @@ int client_event_loop()
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
 			mylog(log_fatal,"epoll_wait return %d\n", nfds);
-			exit(-1);
+			myexit(-1);
 		}
 		int idx;
 		for (idx = 0; idx < nfds; ++idx) {
@@ -2087,7 +2088,7 @@ int client_event_loop()
 				if ((recv_len = recvfrom(udp_fd, buf, buf_len, 0,
 						(struct sockaddr *) &udp_new_addr_in, &slen)) == -1) {
 					mylog(log_error,"recv_from error,this shouldnt happen at client\n");
-					exit(1);
+					myexit(1);
 				};
 
 				mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
@@ -2152,7 +2153,7 @@ int client_event_loop()
 			else
 			{
 				mylog(log_fatal,"unknown fd,this should never happen\n");
-				exit(-1);
+				myexit(-1);
 			}
 		}
 	}
@@ -2187,7 +2188,7 @@ int server_event_loop()
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
     	 mylog(log_fatal,"bind fail\n");
-    	 exit(-1);
+    	 myexit(-1);
      }
 
 	 if(raw_mode==mode_faketcp)
@@ -2196,7 +2197,7 @@ int server_event_loop()
 		 if(listen(bind_fd, SOMAXCONN) != 0 )
 		 {
 			 mylog(log_fatal,"listen fail\n");
-			 exit(-1);
+			 myexit(-1);
 		 }
 	 }
 
@@ -2211,7 +2212,7 @@ int server_event_loop()
 	struct epoll_event ev, events[max_events];
 	if (epollfd < 0) {
 		mylog(log_fatal,"epoll return %d\n", epollfd);
-		exit(-1);
+		myexit(-1);
 	}
 
 	ev.events = EPOLLIN;
@@ -2220,7 +2221,7 @@ int server_event_loop()
 	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
 	if (ret!= 0) {
 		mylog(log_fatal,"add raw_fd error\n");
-		exit(-1);
+		myexit(-1);
 	}
 	int timer_fd;
 
@@ -2235,7 +2236,7 @@ int server_event_loop()
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
 			mylog(log_fatal,"epoll_wait return %d\n", nfds);
-			exit(-1);
+			myexit(-1);
 		}
 		int idx;
 		for (idx = 0; idx < nfds; ++idx)
@@ -2288,12 +2289,12 @@ int server_event_loop()
 				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
 					mylog(log_fatal,"ip port no longer exits 1!!!this shouldnt happen\n");
-					exit(-1);
+					myexit(-1);
 				}
 				if (p_conn_info->state.server_current_state != server_ready) //TODO remove this for peformance
 				{
 					mylog(log_fatal,"p_conn_info->state.server_current_state!=server_ready!!!this shouldnt happen\n");
-					exit(-1);
+					myexit(-1);
 				}
 				//conn_info_t &conn_info=conn_manager.find(ip,port);
 				server_on_timer_multi(*p_conn_info);
@@ -2325,13 +2326,13 @@ int server_event_loop()
 				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
 					mylog(log_fatal,"ip port no longer exits 2!!!this shouldnt happen\n", nfds);
-					exit(-1);
+					myexit(-1);
 				}
 
 				if(p_conn_info->state.server_current_state!=server_ready)//TODO remove this for peformance
 				{
 					mylog(log_fatal,"p_conn_info->state.server_current_state!=server_ready!!!this shouldnt happen\n", nfds);
-					exit(-1);
+					myexit(-1);
 				}
 
 				conn_info_t &conn_info=*p_conn_info;
@@ -2373,7 +2374,7 @@ int server_event_loop()
 			else
 			{
 				mylog(log_fatal,"unknown fd,this should never happen\n");
-				exit(-1);
+				myexit(-1);
 			}
 
 		}
@@ -2452,7 +2453,7 @@ void process_arg(int argc, char *argv[])
 		if(strcmp(argv[i],"-h")==0||strcmp(argv[i],"--help")==0)
 		{
 			print_help();
-			exit(0);
+			myexit(0);
 		}
 	}
 	for (i = 0; i < argc; i++)
@@ -2468,7 +2469,7 @@ void process_arg(int argc, char *argv[])
 				else
 				{
 					log_bare(log_fatal,"invalid log_level\n");
-					exit(-1);
+					myexit(-1);
 				}
 			}
 		}
@@ -2488,11 +2489,11 @@ void process_arg(int argc, char *argv[])
 	if (argc == 1)
 	{
 		print_help();
-		exit(-1);
+		myexit(-1);
 	}
 
 	int no_l = 1, no_r = 1;
-	while ((opt = getopt_long(argc, argv, "l:r:sch",long_options,&option_index)) != -1) {
+	while ((opt = getopt_long(argc, argv, "l:r:scha",long_options,&option_index)) != -1) {
 		//string opt_key;
 		//opt_key+=opt;
 		switch (opt) {
@@ -2522,7 +2523,7 @@ void process_arg(int argc, char *argv[])
 			else
 			{
 				mylog(log_fatal,"-s /-c has already been set,-s option conflict\n");
-				exit(-1);
+				myexit(-1);
 			}
 			break;
 		case 'c':
@@ -2533,12 +2534,14 @@ void process_arg(int argc, char *argv[])
 			else
 			{
 				mylog(log_fatal,"-s /-c has already been set,-c option conflict\n");
-				exit(-1);
+				myexit(-1);
 			}
 			break;
 		case 'h':
 			break;
-
+		case 'a':
+			//auto_add_iptables_rule=1;
+			break;
 		case 'k':
 			mylog(log_debug,"parsing key option\n");
 			sscanf(optarg,"%s",key_string);
@@ -2572,7 +2575,7 @@ void process_arg(int argc, char *argv[])
 				if(i==mode_end)
 				{
 					mylog(log_fatal,"no such raw_mode %s\n",optarg);
-					exit(-1);
+					myexit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"auth-mode")==0)
@@ -2588,7 +2591,7 @@ void process_arg(int argc, char *argv[])
 				if(i==auth_end)
 				{
 					mylog(log_fatal,"no such auth_mode %s\n",optarg);
-					exit(-1);
+					myexit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"cipher-mode")==0)
@@ -2604,7 +2607,7 @@ void process_arg(int argc, char *argv[])
 				if(i==cipher_end)
 				{
 					mylog(log_fatal,"no such cipher_mode %s\n",optarg);
-					exit(-1);
+					myexit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"log-level")==0)
@@ -2643,7 +2646,7 @@ void process_arg(int argc, char *argv[])
 				else
 				{
 					mylog(log_fatal,"sock-buf value must be between 1 and 10240 (kbyte) \n");
-					exit(-1);
+					myexit(-1);
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"seq-mode")==0)
@@ -2655,7 +2658,7 @@ void process_arg(int argc, char *argv[])
 				else
 				{
 					mylog(log_fatal,"seq_mode value must be  0,1,or 2 \n");
-					exit(-1);
+					myexit(-1);
 				}
 			}
 			else
@@ -2665,7 +2668,7 @@ void process_arg(int argc, char *argv[])
 			break;
 		default:
 			mylog(log_fatal,"unknown option ,code:<%x>\n", optopt);
-			exit(-1);
+			myexit(-1);
 		}
 	}
 
@@ -2678,7 +2681,7 @@ void process_arg(int argc, char *argv[])
 	if (no_l || no_r||program_mode==0)
 	{
 		print_help();
-		exit(-1);
+		myexit(-1);
 	}
 
 	 mylog(log_info,"important variables: ", argc);
@@ -2703,42 +2706,59 @@ void process_arg(int argc, char *argv[])
 }
 void iptables_warn()
 {
+	char iptables[200];
 	if(program_mode==client_mode)
 	{
 		if(raw_mode==mode_faketcp)
 		{
-			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP\n",remote_address,remote_port);
+			sprintf(iptables,"INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP\n",remote_address,remote_port);
+			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP\n",remote_address,remote_port);
 		}
 		if(raw_mode==mode_udp)
 		{
-			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p udp -m udp --sport %d -j DROP\n",remote_address,remote_port);
+			sprintf(iptables,"INPUT -s %s/32 -p udp -m udp --sport %d -j DROP\n",remote_address,remote_port);
+			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p udp -m udp --sport %d -j DROP\n",remote_address,remote_port);
 		}
 		if(raw_mode==mode_icmp)
 		{
-			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p icmp -j DROP\n",remote_address);
+			sprintf(iptables,"INPUT -s %s/32 -p icmp -j DROP\n",remote_address);
+			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p icmp -j DROP\n",remote_address);
 		}
 	}
 	if(program_mode==server_mode)
 	{
+
 		if(raw_mode==mode_faketcp)
 		{
-			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p tcp -m tcp --dport %d -j DROP\n",local_port);
+			sprintf(iptables,"INPUT -p tcp -m tcp --dport %d -j DROP\n",local_port);
+			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p tcp -m tcp --dport %d -j DROP\n",local_port);
 		}
 		if(raw_mode==mode_udp)
 		{
-			mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p udp -m udp --udp %d -j DROP\n",local_port);
+			sprintf(iptables,"INPUT -p udp -m udp --udp %d -j DROP\n",local_port);
+			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p udp -m udp --udp %d -j DROP\n",local_port);
 		}
 		if(raw_mode==mode_icmp)
 		{
 			if(local_address_uint32==0)
 			{
-				mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p icmp -j DROP\n");
+				sprintf(iptables,"INPUT -p icmp -j DROP\n");
+				//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p icmp -j DROP\n");
 			}
 			else
 			{
-				mylog(log_warn,"make sure you have run once:  iptables -A INPUT -d %s/32 -p icmp -j DROP\n",local_address);
+				sprintf(iptables,"INPUT -d %s/32 -p icmp -j DROP\n",local_address);
+				//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -d %s/32 -p icmp -j DROP\n",local_address);
 			}
 		}
+	}
+	if(auto_add_iptables_rule)
+	{
+			//not implemented
+	}
+	else
+	{
+		mylog(log_warn,"make sure you have run once:  iptables -A %s\n",iptables);
 	}
 }
 int main(int argc, char *argv[])
