@@ -75,7 +75,7 @@ int clear_iptables_rule()
 		strcat(buf,iptables_rule);
 		if(system(buf)==0)
 		{
-			mylog(log_warn,"iptables rule cleared\n",buf);
+			mylog(log_warn,"iptables rule cleared by: %s \n",buf);
 		}
 		else
 		{

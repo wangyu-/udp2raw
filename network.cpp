@@ -46,7 +46,7 @@ struct sock_filter code_tcp[] = {
 { 0x45, 4, 0, 0x00001fff },//5
 { 0xb1, 0, 0, 0x00000000 },//6
 { 0x48, 0, 0, 0x00000002 },//7
-{ 0x15, 0, 1, 0x0000fffe },//8
+{ 0x15, 0, 1, 0x0000fffe },//8   //modify this fffe to the port you listen on
 { 0x6, 0, 0, 0x0000ffff },//9
 { 0x6, 0, 0, 0x00000000 },//10
 };
@@ -61,7 +61,7 @@ struct sock_filter code_udp[] = {
 { 0x45, 4, 0, 0x00001fff },
 { 0xb1, 0, 0, 0x00000000 },
 { 0x48, 0, 0, 0x00000002 },
-{ 0x15, 0, 1, 0x0000fffe },
+{ 0x15, 0, 1, 0x0000fffe },    //modify this fffe to the port you listen on
 { 0x6, 0, 0, 0x0000ffff },
 { 0x6, 0, 0, 0x00000000 },
 };

@@ -1,7 +1,7 @@
 #include "common.h"
 #include "network.h"
 #include "log.h"
-#include "md5.h"
+#include "lib/md5.h"
 
 char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
 u32_t local_address_uint32,remote_address_uint32,source_address_uint32;
@@ -1374,7 +1374,7 @@ int server_on_raw_recv_multi()
 
 	char ip_port[40];
 	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
-	mylog(log_trace,"[%s]peek_raw %s %d\n",ip_port);
+	mylog(log_trace,"[%s]peek_raw\n",ip_port);
 	int data_len; char *data;
 
 	if(raw_mode==mode_faketcp&&peek_info.syn==1)
@@ -2288,47 +2288,44 @@ int server_event_loop()
 
 void print_help()
 {
-	printf("udp-to-raw tunnel v0.1\n");
+	printf("udp2raw-tunnel\n");
+	printf("version: %s %s\n",__DATE__,__TIME__);
+	printf("repository: https://github.com/wangyu-/udp2raw-tunnel\n");
 	printf("\n");
 	printf("usage:\n");
 	printf("    run as client : ./this_program -c -l adress:port -r adress:port  [options]\n");
 	printf("    run as server : ./this_program -s -l adress:port -r adress:port  [options]\n");
 	printf("\n");
 	printf("common options,these options must be same on both side:\n");
-	printf("    --raw-mode            <string>        avaliable values:faketcp,udp,icmp\n");
-	printf("    -k,--key              <string>        password to gen symetric key\n");
+	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp\n");
+	printf("    -k,--key              <string>        password to gen symetric key,default:\"secret key\"\n");
 	printf("    --auth-mode           <string>        avaliable values:aes128cbc(default),xor,none\n");
 	printf("    --cipher-mode         <string>        avaliable values:md5(default),crc32,simple,none\n");
 	printf("    -a,--auto-rule                        auto add (and delete) iptables rule\n");
 	printf("    -g,--gen-rule                         generate iptables rule then exit\n");
-	printf("    --disable-anti-replay 				  disable anti-replay,not suggested");
+	printf("    --disable-anti-replay                 disable anti-replay,not suggested\n");
 
-	printf("\n");
+	//printf("\n");
 	printf("client options:\n");
 	printf("    --source-ip           <ip>            force source-ip for raw socket\n");
 	printf("    --source-port         <port>          force source-port for raw socket,tcp/udp only\n");
 	printf("                                          this option disables port changing while re-connecting\n");
-	printf("                                          \n");
+//	printf("                                          \n");
 	printf("other options:\n");
-	printf("    --log-level           <number>        0:never,never print log\n");
-	printf("                                          1:fatal\n");
-	printf("                                          2:error\n");
-	printf("                                          3:warn\n");
-	printf("                                          4:info (default)\n");
-	printf("                                          5:debug\n");
-	printf("                                          6:trace\n");
-	printf("\n");
+	printf("    --log-level           <number>        0:never    1:fatal   2:error   3:warn \n");
+	printf("                                          4:info (default)     5:debug   6:trace\n");
+//	printf("\n");
 	printf("    --log-position                        enable file name,function name,line number in log\n");
 	printf("    --disable-color                       disable log color\n");
 	printf("    --disable-bpf                         disable the kernel space filter,most time its not necessary\n");
 	printf("                                          unless you suspect there is a bug\n");
-	printf("\n");
-	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte\n");
+//	printf("\n");
+	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024\n");
 	printf("    --seqmode             <number>        seq increase mode for faketcp:\n");
 	printf("                                          0:dont increase\n");
 	printf("                                          1:increase every packet\n");
 	printf("                                          2:increase randomly, about every 3 packets (default)\n");
-	printf("\n");
+//	printf("\n");
 	printf("    -h,--help                             print this help message\n");
 
 	//printf("common options,these options must be same on both side\n");
