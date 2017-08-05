@@ -29,7 +29,9 @@ int timer_fd=-1;
 int fail_time_counter=0;
 int epoll_trigger_counter=0;
 int debug_flag=0;
+
 int auto_add_iptables_rule=0;
+int generate_iptables_rule=0;
 
 int debug_resend=0;
 int disable_anti_replay=0;
@@ -208,19 +210,18 @@ struct conv_manager_t  //TODO change map to unordered map
 		conv_to_u64.erase(conv);
 		u64_to_conv.erase(u64);
 		conv_last_active_time.erase(conv);
-		mylog(log_info,"conv %x cleared\n",conv);
 		return 0;
 	}
-	int clear_inactive()
+	int clear_inactive(char * ip_port=0)
 	{
 		if(get_current_time()-last_clear_time>conv_clear_interval)
 		{
 			last_clear_time=get_current_time();
-			return clear_inactive0();
+			return clear_inactive0(ip_port);
 		}
 		return 0;
 	}
-	int clear_inactive0()
+	int clear_inactive0(char * ip_port)
 	{
 		if(disable_conv_clear) return 0;
 
@@ -247,8 +248,16 @@ struct conv_manager_t  //TODO change map to unordered map
 				//mylog(log_info,"inactive conv %u cleared \n",it->first);
 				old_it=it;
 				it++;
+				u32_t conv= old_it->first;
 				erase_conv(old_it->first);
-
+				if(ip_port==0)
+				{
+					mylog(log_info,"conv %x cleared\n",conv);
+				}
+				else
+				{
+					mylog(log_info,"[%s]conv %x cleared\n",ip_port,conv);
+				}
 			}
 			else
 			{
@@ -527,10 +536,10 @@ conn_info_t::~conn_info_t()
 int TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;
 ////////==========================type divider=======================================================
 
+int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id);
+int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char *data,int data_len);
+int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len);
 
-int server_on_raw_recv_pre_ready(conn_info_t &conn_info,u32_t tmp_oppsite_const_id);
-int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len);
-int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * data, int data_len);
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
 ////////////////=======================declear divider=============================
 
@@ -1126,7 +1135,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 	}
 	return 0;
 }
-int server_on_timer_multi(conn_info_t &conn_info)
+int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)
 {
 	mylog(log_trace,"server timer!\n");
 	raw_info_t &raw_info=conn_info.raw_info;
@@ -1136,7 +1145,7 @@ int server_on_timer_multi(conn_info_t &conn_info)
 
 	if(conn_info.state.server_current_state==server_ready)
 	{
-		conn_info.blob->conv_manager.clear_inactive();
+		conn_info.blob->conv_manager.clear_inactive(ip_port);
 		/*
 		if( get_current_time()-conn_info.last_hb_recv_time>heartbeat_timeout )
 		{
@@ -1347,68 +1356,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 	}
 	return 0;
 }
-int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * data, int data_len)
-{
-	packet_info_t &send_info=conn_info.raw_info.send_info;
-	packet_info_t &recv_info=conn_info.raw_info.recv_info;
-	raw_info_t &raw_info=conn_info.raw_info;
 
-	u32_t ip=conn_info.raw_info.recv_info.src_ip;
-	uint16_t port=conn_info.raw_info.recv_info.src_port;
-
-	char ip_port[40];
-	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
-
-	if(data_len<int( 3*sizeof(id_t)))
-	{
-		mylog(log_debug,"[%s] data_len=%d too short to be a handshake\n",ip_port,data_len);
-		return -1;
-	}
-	id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
-	id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
-
-	if(tmp_my_id==0)  //received  init handshake again
-	{
-		if(raw_mode==mode_faketcp)
-		{
-			send_info.seq=recv_info.ack_seq;
-			send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
-			send_info.ts_ack=recv_info.ts;
-		}
-		if(raw_mode==mode_icmp)
-		{
-			send_info.icmp_seq=recv_info.icmp_seq;
-		}
-		send_handshake(raw_info,conn_info.my_id,tmp_oppsite_id,const_id);  //////////////send
-
-		mylog(log_info,"[%s]changed state to server_handshake1,my_id is %x\n",ip_port,conn_info.my_id);
-	}
-	else if(tmp_my_id==conn_info.my_id)
-	{
-		conn_info.oppsite_id=tmp_oppsite_id;
-		id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
-
-		if(raw_mode==mode_faketcp)
-		{
-			send_info.seq=recv_info.ack_seq;
-			send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
-			send_info.ts_ack=recv_info.ts;
-		}
-
-		if(raw_mode==mode_icmp)
-		{
-			send_info.icmp_seq=recv_info.icmp_seq;
-		}
-
-		server_on_raw_recv_pre_ready(conn_info,tmp_oppsite_const_id);
-
-	}
-	else
-	{
-		mylog(log_debug,"[%s]invalid my_id %x,my_id is %x\n",ip_port,tmp_my_id,conn_info.my_id);
-	}
-	return 0;
-}
 int server_on_raw_recv_multi()
 {
 	char dummy_buf[buf_len];
@@ -1423,9 +1371,10 @@ int server_on_raw_recv_multi()
 		return -1;
 	}
 	u32_t ip=peek_info.src_ip;uint16_t port=peek_info.src_port;
-	mylog(log_trace,"peek_raw %s %d\n",my_ntoa(ip),port);
+
 	char ip_port[40];
 	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
+	mylog(log_trace,"[%s]peek_raw %s %d\n",ip_port);
 	int data_len; char *data;
 
 	if(raw_mode==mode_faketcp&&peek_info.syn==1)
@@ -1456,7 +1405,7 @@ int server_on_raw_recv_multi()
 				send_info.ack = 1;
 				send_info.ts_ack=recv_info.ts;
 
-				mylog(log_info,"received syn,sent syn ack back\n");
+				mylog(log_info,"[%s]received syn,sent syn ack back\n",ip_port);
 				send_raw0(raw_info, 0, 0);
 				return 0;
 			}
@@ -1522,7 +1471,7 @@ int server_on_raw_recv_multi()
 		conn_info.state.server_current_state = server_handshake1;
 		conn_info.last_state_time = get_current_time();
 
-		server_on_raw_recv_handshake1(conn_info,data,data_len);
+		server_on_raw_recv_handshake1(conn_info,ip_port,data,data_len);
 		return 0;
 	}
 
@@ -1538,14 +1487,14 @@ int server_on_raw_recv_multi()
 		{
 			return -1;
 		}
-		server_on_raw_recv_handshake1(conn_info,data,data_len);
+		server_on_raw_recv_handshake1(conn_info,ip_port,data,data_len);
 	}
 	if(conn_info.state.server_current_state==server_ready)
 	{
 		if (recv_safer(conn_info, data, data_len) != 0) {
 			return -1;
 		}
-		return server_on_raw_recv_ready(conn_info,data,data_len);
+		return server_on_raw_recv_ready(conn_info,ip_port,data,data_len);
 	}
 	return 0;
 }
@@ -1561,23 +1510,85 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id )
 
 	return 0;
 }*/
-int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len)
+int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len)
+{
+	packet_info_t &send_info=conn_info.raw_info.send_info;
+	packet_info_t &recv_info=conn_info.raw_info.recv_info;
+	raw_info_t &raw_info=conn_info.raw_info;
+
+	//u32_t ip=conn_info.raw_info.recv_info.src_ip;
+	//uint16_t port=conn_info.raw_info.recv_info.src_port;
+
+	//char ip_port[40];
+	//sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
+
+	if(data_len<int( 3*sizeof(id_t)))
+	{
+		mylog(log_debug,"[%s] data_len=%d too short to be a handshake\n",ip_port,data_len);
+		return -1;
+	}
+	id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
+	id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
+
+	if(tmp_my_id==0)  //received  init handshake again
+	{
+		if(raw_mode==mode_faketcp)
+		{
+			send_info.seq=recv_info.ack_seq;
+			send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
+			send_info.ts_ack=recv_info.ts;
+		}
+		if(raw_mode==mode_icmp)
+		{
+			send_info.icmp_seq=recv_info.icmp_seq;
+		}
+		send_handshake(raw_info,conn_info.my_id,tmp_oppsite_id,const_id);  //////////////send
+
+		mylog(log_info,"[%s]changed state to server_handshake1,my_id is %x\n",ip_port,conn_info.my_id);
+	}
+	else if(tmp_my_id==conn_info.my_id)
+	{
+		conn_info.oppsite_id=tmp_oppsite_id;
+		id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
+
+		if(raw_mode==mode_faketcp)
+		{
+			send_info.seq=recv_info.ack_seq;
+			send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
+			send_info.ts_ack=recv_info.ts;
+		}
+
+		if(raw_mode==mode_icmp)
+		{
+			send_info.icmp_seq=recv_info.icmp_seq;
+		}
+
+		server_on_raw_recv_pre_ready(conn_info,ip_port,tmp_oppsite_const_id);
+
+	}
+	else
+	{
+		mylog(log_debug,"[%s]invalid my_id %x,my_id is %x\n",ip_port,tmp_my_id,conn_info.my_id);
+	}
+	return 0;
+}
+int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char *data,int data_len)
 {
 
 	raw_info_t &raw_info = conn_info.raw_info;
 	packet_info_t &send_info = conn_info.raw_info.send_info;
 	packet_info_t &recv_info = conn_info.raw_info.recv_info;
-	char ip_port[40];
+	//char ip_port[40];
 
-	sprintf(ip_port,"%s:%d",my_ntoa(recv_info.src_ip),recv_info.src_port);
+	//sprintf(ip_port,"%s:%d",my_ntoa(recv_info.src_ip),recv_info.src_port);
 
 
-
+/*
 	if (recv_info.src_ip != send_info.dst_ip
 			|| recv_info.src_port != send_info.dst_port) {
 		mylog(log_debug, "unexpected adress\n");
 		return 0;
-	}
+	}*/
 
 	if (data[0] == 'h' && data_len == 1) {
 		u32_t tmp = ntohl(*((u32_t *) &data[1 + sizeof(u32_t)]));
@@ -1595,7 +1606,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len)
 		if (!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id)) {
 			if (conn_info.blob->conv_manager.get_size() >= max_conv_num) {
 				mylog(log_warn,
-						"ignored new conv %x connect bc max_conv_num exceed\n",
+						"[%s]ignored new conv %x connect bc max_conv_num exceed\n",ip_port,
 						tmp_conv_id);
 				return 0;
 			}
@@ -1609,13 +1620,13 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len)
 
 			int new_udp_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 			if (new_udp_fd < 0) {
-				mylog(log_warn, "create udp_fd error\n");
+				mylog(log_warn, "[%s]create udp_fd error\n",ip_port);
 				return -1;
 			}
 			setnonblocking(new_udp_fd);
 			set_buf_size(new_udp_fd);
 
-			mylog(log_debug, "created new udp_fd %d\n", new_udp_fd);
+			mylog(log_debug, "[%s]created new udp_fd %d\n",ip_port, new_udp_fd);
 			int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in,
 					slen);
 			if (ret != 0) {
@@ -1626,7 +1637,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len)
 			struct epoll_event ev;
 
 			u64_t u64 = (u32_t(new_udp_fd))+(1llu<<32u);
-			mylog(log_trace, "u64: %lld\n", u64);
+			mylog(log_trace, "[%s]u64: %lld\n",ip_port, u64);
 			ev.events = EPOLLIN;
 
 			ev.data.u64 = u64;
@@ -1634,7 +1645,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len)
 			ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, new_udp_fd, &ev);
 
 			if (ret != 0) {
-				mylog(log_warn, "add udp_fd error\n");
+				mylog(log_warn, "[%s]add udp_fd error\n",ip_port);
 				close(new_udp_fd);
 				return -1;
 			}
@@ -1659,11 +1670,11 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len)
 
 		int fd = int((u64 << 32u) >> 32u);
 
-		mylog(log_trace, "received a data from fake tcp,len:%d\n", data_len);
+		mylog(log_trace, "[%s]received a data from fake tcp,len:%d\n",ip_port, data_len);
 		int ret = send(fd, data + 1 + sizeof(u32_t),
 				data_len - (1 + sizeof(u32_t)), 0);
 
-		mylog(log_trace, "%d byte sent  ,fd :%d\n ", ret, fd);
+		mylog(log_trace, "[%s]%d byte sent  ,fd :%d\n ",ip_port, ret, fd);
 		if (ret < 0) {
 			mylog(log_warn, "send returned %d\n", ret);
 			//perror("what happened????");
@@ -1673,13 +1684,13 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len)
 	return 0;
 }
 
-int server_on_raw_recv_pre_ready(conn_info_t &conn_info,u32_t tmp_oppsite_const_id)
+int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id)
 {
-	u32_t ip;uint16_t port;
-	ip=conn_info.raw_info.recv_info.src_ip;
-	port=conn_info.raw_info.recv_info.src_port;
-	char ip_port[40];
-	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
+	//u32_t ip;uint16_t port;
+	//ip=conn_info.raw_info.recv_info.src_ip;
+	//port=conn_info.raw_info.recv_info.src_port;
+	//char ip_port[40];
+	//sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
 
 	mylog(log_info,"[%s]received handshake oppsite_id:%x  my_id:%x\n",ip_port,conn_info.oppsite_id,conn_info.my_id);
 
@@ -2186,7 +2197,11 @@ int server_event_loop()
 				assert(p_conn_info->state.server_current_state == server_ready); //TODO remove this for peformance
 
 				//conn_info_t &conn_info=conn_manager.find(ip,port);
-				server_on_timer_multi(*p_conn_info);
+				char ip_port[40];
+
+				sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
+
+				server_on_timer_multi(*p_conn_info,ip_port);
 
 				if(debug_flag)
 				{
@@ -2284,7 +2299,8 @@ void print_help()
 	printf("    -k,--key              <string>        password to gen symetric key\n");
 	printf("    --auth-mode           <string>        avaliable values:aes128cbc(default),xor,none\n");
 	printf("    --cipher-mode         <string>        avaliable values:md5(default),crc32,simple,none\n");
-	printf("    -a,--auto-add                         auto add (and delete) iptables rule\n");
+	printf("    -a,--auto-rule                        auto add (and delete) iptables rule\n");
+	printf("    -g,--gen-rule                         generate iptables rule then exit\n");
 	printf("    --disable-anti-replay 				  disable anti-replay,not suggested");
 
 	printf("\n");
@@ -2334,7 +2350,8 @@ void process_arg(int argc, char *argv[])
 		{"log-position", no_argument,    0, 1},
 		{"disable-bpf", no_argument,    0, 1},
 		{"disable-anti-replay", no_argument,    0, 1},
-		{"auto-add", no_argument,    0, 'a'},
+		{"auto-rule", no_argument,    0, 'a'},
+		{"gen-rule", no_argument,    0, 'g'},
 		{"debug", no_argument,    0, 1},
 		{"clear", no_argument,    0, 1},
 		{"sock-buf", required_argument,    0, 1},
@@ -2388,7 +2405,7 @@ void process_arg(int argc, char *argv[])
 	}
 
 	int no_l = 1, no_r = 1;
-	while ((opt = getopt_long(argc, argv, "l:r:schk:a",long_options,&option_index)) != -1) {
+	while ((opt = getopt_long(argc, argv, "l:r:schk:ag",long_options,&option_index)) != -1) {
 		//string opt_key;
 		//opt_key+=opt;
 		switch (opt) {
@@ -2447,6 +2464,9 @@ void process_arg(int argc, char *argv[])
 			break;
 		case 'a':
 			auto_add_iptables_rule=1;
+			break;
+		case 'g':
+			generate_iptables_rule=1;
 			break;
 		case 'k':
 			mylog(log_debug,"parsing key option\n");
@@ -2622,7 +2642,7 @@ void process_arg(int argc, char *argv[])
 
 	 log_bare(log_info,"\n");
 }
-void iptables_warn()
+void iptables_rule()
 {
 	char rule[200];
 	if(program_mode==client_mode)
@@ -2670,7 +2690,13 @@ void iptables_warn()
 			}
 		}
 	}
-	if(auto_add_iptables_rule)
+	if(generate_iptables_rule)
+	{
+		printf("generated iptables rule:\n");
+		printf("iptables -I %s\n",rule);
+		myexit(-1);
+	}
+	else if(auto_add_iptables_rule)
 	{
 			strcat(rule," -m comment --comment udp2raw_dWRwMnJhdw_");
 
@@ -2739,7 +2765,7 @@ int main(int argc, char *argv[])
 
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);*/
 
-	iptables_warn();
+	iptables_rule();
 	if(program_mode==client_mode)
 	{
 		client_event_loop();
