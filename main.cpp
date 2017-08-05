@@ -2293,8 +2293,8 @@ void print_help()
 	printf("repository: https://github.com/wangyu-/udp2raw-tunnel\n");
 	printf("\n");
 	printf("usage:\n");
-	printf("    run as client : ./this_program -c -l adress:port -r adress:port  [options]\n");
-	printf("    run as server : ./this_program -s -l adress:port -r adress:port  [options]\n");
+	printf("    run as client : ./this_program -c -l local_listen_ip:local_port -r server_ip:server_port  [options]\n");
+	printf("    run as server : ./this_program -s -l server_listen_ip:server_port -r remote_ip:remote_port  [options]\n");
 	printf("\n");
 	printf("common options,these options must be same on both side:\n");
 	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp\n");
