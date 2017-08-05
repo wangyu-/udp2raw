@@ -57,7 +57,7 @@ unsigned int crc32h(unsigned char *message,int len) {
    return ;
 }*/
 
-void simple_hash(unsigned char *str,int len,unsigned char*  res)   //djb2+ sdbm
+void simple_hash(unsigned char *str,int len,unsigned char res[8])   //djb2+ sdbm
 {
 	 u32_t hash = 5381;
      u32_t hash2 = 0;
@@ -65,7 +65,8 @@ void simple_hash(unsigned char *str,int len,unsigned char*  res)   //djb2+ sdbm
      int i=0;
     while(c = *str++,i++!=len)
     {
-         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+        // hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+         hash = ((hash << 5) + hash)^c; /* (hash * 33) ^ c */
          hash2 = c + (hash2 << 6) + (hash2 << 16) - hash2;
     }
 
