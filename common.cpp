@@ -79,7 +79,7 @@ int clear_iptables_rule()
 		}
 		else
 		{
-			mylog(log_error,"auto added iptables failed by: %s\n",buf);
+			mylog(log_error,"clear iptables failed by: %s\n",buf);
 		}
 
 	}

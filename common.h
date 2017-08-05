@@ -78,8 +78,7 @@ const u32_t conv_clear_interval=1000;
 const u32_t conn_clear_interval=1000;
 
 
-const int max_fail_time=100000;
-
+const i32_t max_fail_time=0;//disable
 
 const u32_t heartbeat_interval=1000;
 

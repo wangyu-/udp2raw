@@ -529,8 +529,8 @@ int TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 
 
 int server_on_raw_recv_pre_ready(conn_info_t &conn_info,u32_t tmp_oppsite_const_id);
-int server_on_raw_recv_ready(conn_info_t &conn_info);
-int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id );
+int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len);
+int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * data, int data_len);
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
 ////////////////=======================declear divider=============================
 
@@ -924,7 +924,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 	if(conn_info.state.client_current_state==client_idle)
 	{
 		fail_time_counter++;
-		if(fail_time_counter>max_fail_time)
+		if(max_fail_time>0&&fail_time_counter>max_fail_time)
 		{
 			mylog(log_fatal,"max_fail_time exceed\n");
 			myexit(-1);
@@ -1347,7 +1347,68 @@ int client_on_raw_recv(conn_info_t &conn_info)
 	}
 	return 0;
 }
+int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * data, int data_len)
+{
+	packet_info_t &send_info=conn_info.raw_info.send_info;
+	packet_info_t &recv_info=conn_info.raw_info.recv_info;
+	raw_info_t &raw_info=conn_info.raw_info;
 
+	u32_t ip=conn_info.raw_info.recv_info.src_ip;
+	uint16_t port=conn_info.raw_info.recv_info.src_port;
+
+	char ip_port[40];
+	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
+
+	if(data_len<int( 3*sizeof(id_t)))
+	{
+		mylog(log_debug,"[%s] data_len=%d too short to be a handshake\n",ip_port,data_len);
+		return -1;
+	}
+	id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
+	id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
+
+	if(tmp_my_id==0)  //received  init handshake again
+	{
+		if(raw_mode==mode_faketcp)
+		{
+			send_info.seq=recv_info.ack_seq;
+			send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
+			send_info.ts_ack=recv_info.ts;
+		}
+		if(raw_mode==mode_icmp)
+		{
+			send_info.icmp_seq=recv_info.icmp_seq;
+		}
+		send_handshake(raw_info,conn_info.my_id,tmp_oppsite_id,const_id);  //////////////send
+
+		mylog(log_info,"[%s]changed state to server_handshake1,my_id is %x\n",ip_port,conn_info.my_id);
+	}
+	else if(tmp_my_id==conn_info.my_id)
+	{
+		conn_info.oppsite_id=tmp_oppsite_id;
+		id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
+
+		if(raw_mode==mode_faketcp)
+		{
+			send_info.seq=recv_info.ack_seq;
+			send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
+			send_info.ts_ack=recv_info.ts;
+		}
+
+		if(raw_mode==mode_icmp)
+		{
+			send_info.icmp_seq=recv_info.icmp_seq;
+		}
+
+		server_on_raw_recv_pre_ready(conn_info,tmp_oppsite_const_id);
+
+	}
+	else
+	{
+		mylog(log_debug,"[%s]invalid my_id %x,my_id is %x\n",ip_port,tmp_my_id,conn_info.my_id);
+	}
+	return 0;
+}
 int server_on_raw_recv_multi()
 {
 	char dummy_buf[buf_len];
@@ -1370,7 +1431,8 @@ int server_on_raw_recv_multi()
 	if(raw_mode==mode_faketcp&&peek_info.syn==1)
 	{
 		if(!conn_manager.exist(ip,port)||conn_manager.find_insert(ip,port).state.server_current_state!=server_ready)
-		{
+		{//reply any syn ,before state become ready
+
 			raw_info_t tmp_raw_info;
 			if(recv_raw0(tmp_raw_info,data,data_len)<0)
 			{
@@ -1449,8 +1511,8 @@ int server_on_raw_recv_multi()
 		send_info.dst_port = recv_info.src_port;
 		send_info.dst_ip = recv_info.src_ip;
 
-		id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
-		mylog(log_info,"handshake received %x\n",tmp_oppsite_id);
+		//id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
+		//mylog(log_info,"[%s]handshake1 received %x\n",ip_port,tmp_oppsite_id);
 
 		conn_info.my_id=get_true_random_number_nz();
 
@@ -1460,7 +1522,7 @@ int server_on_raw_recv_multi()
 		conn_info.state.server_current_state = server_handshake1;
 		conn_info.last_state_time = get_current_time();
 
-		server_on_raw_recv_handshake1(conn_info,tmp_oppsite_id);
+		server_on_raw_recv_handshake1(conn_info,data,data_len);
 		return 0;
 	}
 
@@ -1472,81 +1534,35 @@ int server_on_raw_recv_multi()
 
 	if(conn_info.state.server_current_state==server_handshake1)
 	{
-		if(recv_bare(raw_info,data,data_len)<0)
+		if(recv_bare(raw_info,data,data_len)!=0)
 		{
 			return -1;
 		}
-
-		if(data_len<int( 3*sizeof(id_t)))
-		{
-			mylog(log_debug,"[%s] data_len=%d too short to be a handshake\n",ip_port,data_len);
-			return -1;
-		}
-		id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
-		id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
-
-		if(tmp_my_id==0)  //received  init handshake again
-		{
-			server_on_raw_recv_handshake1(conn_info,tmp_oppsite_id);
-			mylog(log_info,"[%s]changed state to server_handshake1,my_id is %x\n",ip_port,conn_info.my_id);
-		}
-		else if(tmp_my_id==conn_info.my_id)
-		{
-			conn_info.oppsite_id=tmp_oppsite_id;
-			id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
-
-			if(raw_mode==mode_faketcp)
-			{
-				send_info.seq=recv_info.ack_seq;
-				send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
-				send_info.ts_ack=recv_info.ts;
-			}
-
-			if(raw_mode==mode_icmp)
-			{
-				send_info.icmp_seq=recv_info.icmp_seq;
-			}
-
-			server_on_raw_recv_pre_ready(conn_info,tmp_oppsite_const_id);
-
-		}
-		else
-		{
-			mylog(log_debug,"[%s]invalid my_id %x,my_id is %x\n",ip_port,tmp_my_id,conn_info.my_id);
-		}
-		return 0;
+		server_on_raw_recv_handshake1(conn_info,data,data_len);
 	}
 	if(conn_info.state.server_current_state==server_ready)
 	{
-		return server_on_raw_recv_ready(conn_info);
+		if (recv_safer(conn_info, data, data_len) != 0) {
+			return -1;
+		}
+		return server_on_raw_recv_ready(conn_info,data,data_len);
 	}
 	return 0;
 }
 
-
+/*
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id )
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
 
-	if(raw_mode==mode_faketcp)
-	{
-		send_info.seq=recv_info.ack_seq;
-		send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
-		send_info.ts_ack=recv_info.ts;
-	}
-	if(raw_mode==mode_icmp)
-	{
-		send_info.icmp_seq=recv_info.icmp_seq;
-	}
-	send_handshake(raw_info,conn_info.my_id,tmp_oppsite_id,const_id);  //////////////send
+
 
 	return 0;
-}
-int server_on_raw_recv_ready(conn_info_t &conn_info)
+}*/
+int server_on_raw_recv_ready(conn_info_t &conn_info,char *data,int data_len)
 {
-	int data_len; char *data;
 
 	raw_info_t &raw_info = conn_info.raw_info;
 	packet_info_t &send_info = conn_info.raw_info.send_info;
@@ -1554,9 +1570,6 @@ int server_on_raw_recv_ready(conn_info_t &conn_info)
 	char ip_port[40];
 
 	sprintf(ip_port,"%s:%d",my_ntoa(recv_info.src_ip),recv_info.src_port);
-	if (recv_safer(conn_info, data, data_len) != 0) {
-		return -1;
-	}
 
 
 
@@ -1925,8 +1938,16 @@ int client_event_loop()
 		epoll_trigger_counter++;
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
-			mylog(log_fatal,"epoll_wait return %d\n", nfds);
-			myexit(-1);
+			if(errno==EINTR  )
+			{
+				mylog(log_info,"epoll interrupted by signal\n");
+				myexit(0);
+			}
+			else
+			{
+				mylog(log_fatal,"epoll_wait return %d\n", nfds);
+				myexit(-1);
+			}
 		}
 		int idx;
 		for (idx = 0; idx < nfds; ++idx) {
@@ -2101,8 +2122,16 @@ int server_event_loop()
 
 		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
 		if (nfds < 0) {  //allow zero
-			mylog(log_fatal,"epoll_wait return %d\n", nfds);
-			myexit(-1);
+			if(errno==EINTR  )
+			{
+				mylog(log_info,"epoll interrupted by signal\n");
+				myexit(0);
+			}
+			else
+			{
+				mylog(log_fatal,"epoll_wait return %d\n", nfds);
+				myexit(-1);
+			}
 		}
 		int idx;
 		for (idx = 0; idx < nfds; ++idx)
@@ -2427,10 +2456,10 @@ void process_arg(int argc, char *argv[])
 			mylog(log_debug,"option_index: %d\n",option_index);
 			if(strcmp(long_options[option_index].name,"clear")==0)
 			{
-				system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
+				int ret =system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
 				//system("iptables-save |grep udp2raw_dWRwMnJhdw|sed 's/^-A/iptables -D/'|sh");
 				//system("iptables-save|grep -v udp2raw_dWRwMnJhdw|iptables-restore");
-				mylog(log_info,"tried to clear all iptables rule created previously");
+				mylog(log_info,"tried to clear all iptables rule created previously,return value %d\n",ret);
 				myexit(-1);
 			}
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
