@@ -1,14 +1,26 @@
-# udp2raw-tunnel
-udp2raw tunnel  (udp to tcp with fake tcp header)
+# Udp2raw-tunnel
+An Encrpyted,Anti-Replay,Multiplexed Udp Tunnel,tunnels udp traffic through raw socket,send/recv udp packet as raw packet with fake tcp/icmp header. Which can help you bypass udp blocking or udp qos. It also supports sending raw packet as udp packet,in this way you can just may use of the encrpyting and anti-replay feature.
 
-#usage
+Nat supported in 3 the 3 modes.
 
+In tcp mode simulated 3-way hand-shake,simluated seq ack_seq are implemented. those tcp options are implemented:MSS,sackOk,TS,TS_ack,wscale  
+
+
+## Getting Started
+
+### Prerequisites
+linux host with root access
+
+### Installing
+download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
+
+### Running 
+```
 client:
--A INPUT -s 44.55.66.77/32 -p tcp -m tcp --sport 9999 -j DROP
+./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a
 
-./raw -l 127.0.0.1:6666 -r44.55.66.77:9999 -c --source-ip 192.168.1.100
+server(assume ip is 44.55.66.77):
+./udp2raw -s -l44.55.66.77:4096 -r 127.0.0.1:7777  -a
 
-server:
--A INPUT -p tcp -m tcp --dport 9999 -j DROP
+```
 
-./raw -l44.55.66.77:9999 -r 127.0.0.1:5555  -s
