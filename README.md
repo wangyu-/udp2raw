@@ -95,14 +95,14 @@ vultr $2.5/monthly plan(single core 2.4ghz cpu,512m ram),
 #### server host
 bandwagonhost $3.99/annually(single core 2.0ghz cpu,128m ram)
 ### Test1
-cipher_mode: xor  auth_mode: simple
+raw_mode: faketcp  cipher_mode: xor  auth_mode: simple
 
 ![image4](images/image4.PNG)
 
 (reverse speed is simliar and not uploaded)
 
 ### Test2
-cipher_mode: aes128cbc  auth_mode: md5
+raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 
 ![image5](images/image5.PNG)
 
