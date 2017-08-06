@@ -9,11 +9,11 @@ encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,prot
 ### Simulated TCP Handshake
 simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
 ### Connnection Recover
-After connection timeouts,the client will re-connect.if re-connection is successful,the previous connection will be recovered,and all old udp conversations will stay vaild.
+After connection timeouts,the client will re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild.
 ### Other Features
 Multiplexing ,one client supports multi udp connections,all of those traffic will share one raw connection
 
-Multiple Client Support,one server supports multiple client.
+Multiple Clients Support,one server supports multiple clients.
 
 NAT Supported,all 3 modes work in NAT environment 
 
@@ -76,7 +76,7 @@ other options:
     -h,--help                             print this help message
 ```
 ### iptables rule
-this programs sends packet via raw socket.In faketcp mode,Linux Kernel TCP packet processing has to be blocked by a iptables rule on both side,otherwise Kernel will automatically send RST for unrecongized TCP packet and you will sustain from stability/peformance problem.You can use -a option to let the program automatically add/del iptables rules on start/exit.You can also use the -g option to generate iptables rule and add it manually.
+this programs sends packet via raw socket.In faketcp mode,Linux Kernel TCP packet processing has to be blocked by a iptables rule on both sides,otherwise Kernel will automatically send RST for unrecongized TCP packet and you will sustain from stability/peformance problem.You can use -a option to let the program automatically add/del iptables rule on start/exit.You can also use the -g option to generate iptables rule and add it manually.
 ### cipher-mode and auth-mode 
 Its suggested to use aes128cbc + md5 to obtain maxmized security.If you want to run the program on a router,you can try xor+simple,it can fool Packet Inspection by firewalls most time, but it cant protect you from serious attackers. Mode none is only for debug,its not suggest to set cipher-mode or auth-mode to none.
 ### seq-mode
