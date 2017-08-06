@@ -140,9 +140,9 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 测试中cpu被打满。绝大多数cpu都是被udp2raw占用的（主要消耗在aes加密）。即使不用Openvpn，速度也不会快很多了。
 # 应用
 ### 中转 kcptun
-
+[udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
 ### 中转 finalspeed
-
+[udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
 # 相关repo
 ### kcptun-raw
 this project was inspired by kcptun-raw,which modified kcptun to support tcp mode.
