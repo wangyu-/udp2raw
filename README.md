@@ -2,6 +2,8 @@
 ![image2](images/image2.PNG)
 
 An Encrpyted,Anti-Replay,Multiplexed Udp Tunnel,tunnels udp traffic through raw socket
+
+[简体中文](/doc/README.zh-cn.md)
 ### Send/Recv Udp Packet as Raw Packet with TCP header,ICMP header
 Which can help you bypass udp blocking or udp QOS or just poorly supported udp NAT behavior by some ISP. Raw packet with UDP header is also supported,in this way you can just make use of the encrpyting and anti-replay feature.
 ### Encrpytion and Anti-Replay
@@ -84,7 +86,7 @@ the faketcp mode doest not behave 100% like a real tcp connection.ISP may be abl
 # Peformance Test
 #### test method:
 iperf3 tcp via openvpn + udp2raw 
-(iperf3 udp mode is not used bc of bug mentioned in this issue: https://github.com/esnet/iperf/issues/296 ,instead,we turn iperf3 's tcp traffic into udp by using openvpn,to test udp2raw 's peformance )
+(iperf3 udp mode is not used bc of bug mentioned in this issue: https://github.com/esnet/iperf/issues/296 ,instead,we turn iperf3 's tcp traffic into udp by using openvpn,to test udp2raw 's peformance. Read [Application](https://github.com/wangyu-/udp2raw-tunnel#application) for detail )
 #### iperf3 command: 
 ```
 iperf3 -c 10.222.2.1 -P40 
@@ -109,22 +111,19 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 (reverse speed is simliar and not uploaded)
 
 # Application
-### tunneling openvpn
-1. bypass tcp ovr tcp problem when udp is not avaliable. 
-(tcp over tcp problem http://sites.inka.de/bigred/devel/tcp-tcp.html)
-2. openopvn via icmp
+### tunneling any traffic via raw traffic by using udp2raw +openvpn
+![image_vpn](images/openvpn.PNG)
+1. bypasses UDP block/UDP QOS
 
-//todo
+2. no TCP ovr tcp problem (tcp over tcp problem http://sites.inka.de/bigred/devel/tcp-tcp.html )
+
+3. openvpn over icmp also becomes a choice
 ### tunneling kcptun
 make kcptun support tcp mode.
 (kcptun, https://github.com/xtaci/kcptun)
 
-//todo
 ### tunneling finalspeed
 finalspeed 's tcp mode doesnt work on openvz VPS.you can use finalspeed 's udp mode,and tunnel udp through tcp with this tunnel.
-
-//todo
-
 
 # Related work
 ### kcptun-raw

@@ -2,24 +2,31 @@ Udp2raw-tunnel
 ![image2](/images/image2.PNG)
 加密、防重放攻击的、信道复用的udp tunnel，利用raw socket中转udp流量
 
+[English](/README.md)
+
+[udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
+
+[udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
 ### 把udp流量伪装成tcp /icmp
-可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
+用raw socket给udp包加上tcp/icmp包头，可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
 
 ### 加密 防重放攻击
 用aes128cbc加密，md5/crc32做数据完整校验。用类似ipsec/openvpn的 replay windows机制来防止重放攻击。
+
+设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。
 
 ### 模拟TCP3次握手
 模拟TCP3次握手，模拟seq ack过程。另外还模拟了一些tcp option：MSS,sackOk,TS,TS_ack,wscale，用来使流量看起来更像是由普通的linux tcp协议栈发送的。
 
 ### 连接快速恢复
-心跳机制检查连接是否中断，一旦心跳超时。client会立即换raw socket的端口重连，重连成功后会恢复之前中断的连接。虽然raw端的端口变了，但是udp端的所有连接都会继续有效。udp这边感觉不到raw端的重连，只会感觉到短暂断流。
+心跳机制检查连接是否中断，一旦心跳超时。client会立即换raw socket的端口重连，重连成功后会恢复之前中断的连接。虽然raw端的端口变了，但是udp端的所有连接都会继续有效。udp这边感觉不到raw端的重连，只会感觉到短暂断流,这跟普通的短暂丢包是类似的，不会导致上层应用重连。
 
-另一个优化是，重连只需要client发起，就可以立即被server处理，不需要等到server端的连接也超时。
+另一个优化是，重连只需要client发起，就可以立即被server处理，不需要等到server端的连接超时后。
 
 ### 其他特性
 信道复用，client的udp端支持多个连接。
 
-server支持多个client，也能正确处理多个连接的重连和连接回复。
+server支持多个client，也能正确处理多个连接的重连和连接恢复。
 
 NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
 
@@ -111,10 +118,10 @@ iperf3 -c 10.222.2.1 -P40
 iperf3 -c 10.222.2.1 -P40 -R
 ```
 #### client主机
-vultr $2.5/monthly plan(single core 2.4ghz cpu,512m ram,日本东进机房),
+vultr 2.5美元每月套餐(single core 2.4ghz cpu,512m ram,日本东京机房),
 #### server主机
-bandwagonhost $3.99/annually(single core 2.0ghz cpu,128m ram,美国洛杉矶机房)
-### Test1
+bandwagonhost 3.99美元每年套餐(single core 2.0ghz cpu,128m ram,美国洛杉矶机房)
+### 测试1
 raw_mode: faketcp  cipher_mode: xor  auth_mode: simple
 
 ![image4](/images/image4.PNG)
@@ -123,14 +130,14 @@ raw_mode: faketcp  cipher_mode: xor  auth_mode: simple
 
 测试中cpu被打满。其中有30%的cpu是被openvpn占的。 如果不用Openvpn中转，实际达到100+Mb/S 应该没问题。
 
-### Test2
+### 测试2
 raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 
 ![image5](/images/image5.PNG)
 
 （反向的速度几乎一样，所以只发正向测试的图)
 
-
+测试中cpu被打满。绝大多数cpu都是被udp2raw占用的（主要消耗在aes加密）。即使不用Openvpn，速度也不会快很多了。
 # 应用
 ### 中转 kcptun
 
