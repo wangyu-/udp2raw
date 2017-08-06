@@ -63,7 +63,7 @@ netstat -nlp|grep java
 来试一下通过http://127.0.0.1:8012/ 下载文件 ，1.5M/s：
 ![image](finalspeed_step_by_step/Capture6.PNG)
 
-再试一下只接通过服务器的ip访问，http://45.66.77.88:80/ ，速度只有600K/s
+再试一下直接通过服务器的ip访问，http://45.66.77.88:80/ ，速度只有600K/s
 ![image](finalspeed_step_by_step/Capture7.PNG)
 
 教程就到这里了，用来加速其他的tcp服务也是一样的，只要再第三步那里设置其他的端口。
