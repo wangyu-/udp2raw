@@ -91,9 +91,9 @@ iperf3 -c 10.222.2.1 -P40
 iperf3 -c 10.222.2.1 -P40 -R
 ```
 #### client host
-vultr $2.5/monthly plan(single core 2.4ghz cpu,512m ram),
+vultr $2.5/monthly plan(single core 2.4ghz cpu,512m ram,location:Tokyo,Japan),
 #### server host
-bandwagonhost $3.99/annually(single core 2.0ghz cpu,128m ram)
+bandwagonhost $3.99/annually(single core 2.0ghz cpu,128m ram,location:Los Angeles,USA)
 ### Test1
 raw_mode: faketcp  cipher_mode: xor  auth_mode: simple
 
