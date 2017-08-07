@@ -13,7 +13,7 @@ udp2raw是一个把udp流量通过raw socket包装成tcp流量的工具。通过
 udp2raw也支持把udp流量包装成Icmp发送，本教程不做演示。
 
 ### 环境要求
-服务器主机都是linux，有root权限。  可以是openvz架构的vps。 也可以是openwrt路由器。
+服务器主机是linux，有root权限。  可以是openvz架构的vps。 也可以是openwrt路由器。
 
 本地主机是windows,安装了wmware,安装了linux虚拟机（网卡设置为桥接模式）。
 
