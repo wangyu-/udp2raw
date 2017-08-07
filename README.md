@@ -115,7 +115,7 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 ![image_vpn](images/openvpn.PNG)
 1. bypasses UDP block/UDP QOS
 
-2. no TCP ovr tcp problem (tcp over tcp problem http://sites.inka.de/bigred/devel/tcp-tcp.html )
+2. no TCP ovr tcp problem (tcp over tcp problem http://sites.inka.de/bigred/devel/tcp-tcp.html ,https://community.openvpn.net/openvpn/ticket/2 )
 
 3. openvpn over icmp also becomes a choice
 ### tunneling kcptun
