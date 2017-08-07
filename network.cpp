@@ -20,7 +20,13 @@ int disable_bpf_filter=0;  //for test only,most time no need to disable this
 
 u32_t bind_address_uint32=0;
 
+int lower_level=0;
+int ifindex=-1;
+char if_name[100]="";
 
+unsigned char oppsite_hw_addr[6]=
+    {0xff,0xff,0xff,0xff,0xff,0xff};
+//{0x00,0x23,0x45,0x67,0x89,0xb9};
 
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
@@ -156,20 +162,47 @@ packet_info_t::packet_info_t()
 int init_raw_socket()
 {
 
-	raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);
+	if(lower_level==0)
+	{
+		raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);
+
+	    if(raw_send_fd == -1) {
+	    	mylog(log_fatal,"Failed to create raw_send_fd\n");
+	        //perror("Failed to create raw_send_fd");
+	        myexit(1);
+	    }
+
+	    int one = 1;
+	    const int *val = &one;
+	    if (setsockopt (raw_send_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0) {
+	    	mylog(log_fatal,"Error setting IP_HDRINCL %d\n",errno);
+	        //perror("Error setting IP_HDRINCL");
+	        myexit(2);
+	    }
 
 
-    if(raw_send_fd == -1) {
-    	mylog(log_fatal,"Failed to create raw_send_fd\n");
-        //perror("Failed to create raw_send_fd");
-        myexit(1);
-    }
+	}
+	else
+	{
+		raw_send_fd = socket(PF_PACKET , SOCK_DGRAM , htons(ETH_P_IP));
+
+	    if(raw_send_fd == -1) {
+	    	mylog(log_fatal,"Failed to create raw_send_fd\n");
+	        //perror("Failed to create raw_send_fd");
+	        myexit(1);
+	    }
+		init_ifindex(if_name);
+
+	}
 
     if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
     	mylog(log_fatal,"SO_SNDBUFFORCE fail\n");
     	myexit(1);
     }
+
+
+
 	//raw_fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
 
 	raw_recv_fd= socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
@@ -188,13 +221,7 @@ int init_raw_socket()
 
     //IP_HDRINCL to tell the kernel that headers are included in the packet
 
-    int one = 1;
-    const int *val = &one;
-    if (setsockopt (raw_send_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0) {
-    	mylog(log_fatal,"Error setting IP_HDRINCL %d\n",errno);
-        //perror("Error setting IP_HDRINCL");
-        myexit(2);
-    }
+
 
     setnonblocking(raw_send_fd); //not really necessary
     setnonblocking(raw_recv_fd);
@@ -258,8 +285,26 @@ void remove_filter()
 		//exit(-1);
 	}
 }
+int init_ifindex(char * if_name)
+{
+	struct ifreq ifr;
+	size_t if_name_len=strlen(if_name);
+	if (if_name_len<sizeof(ifr.ifr_name)) {
+		memcpy(ifr.ifr_name,if_name,if_name_len);
+		ifr.ifr_name[if_name_len]=0;
+	} else {
+		mylog(log_fatal,"interface name is too long\n");
+		myexit(-1);
+	}
+	if (ioctl(raw_send_fd,SIOCGIFINDEX,&ifr)==-1) {
 
-
+		mylog(log_fatal,"SIOCGIFINDEX fail ,%s\n",strerror(errno));
+		myexit(-1);
+	}
+	ifindex=ifr.ifr_ifindex;
+	mylog(log_info,"ifname:%s  ifindex:%d\n",if_name,ifindex);
+	return 0;
+}
 
 
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
@@ -271,17 +316,20 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 	struct iphdr *iph = (struct iphdr *) send_raw_ip_buf;
     memset(iph,0,sizeof(iphdr));
 
-	struct sockaddr_in sin;
-    sin.sin_family = AF_INET;
-    //sin.sin_port = htons(info.dst_port); //dont need this
-    sin.sin_addr.s_addr = send_info.dst_ip;
+    static unsigned short ip_id=1;
 
     iph->ihl = sizeof(iphdr)/4;  //we dont use ip options,so the length is just sizeof(iphdr)
     iph->version = 4;
     iph->tos = 0;
 
-   // iph->id = htonl (ip_id++); //Id of this packet
-    // iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero
+    if(lower_level)
+    {
+    	iph->id=0;
+    	//iph->id = htons (ip_id++); //Id of this packet
+    }
+    else
+    	iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero  ,or really?????// todo //seems like there is a problem
+
     iph->frag_off = htons(0x4000); //DF set,others are zero
    // iph->frag_off = htons(0x0000); //DF set,others are zero
     iph->ttl = 64;
@@ -291,19 +339,50 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     iph->daddr = send_info.dst_ip;
 
     uint16_t ip_tot_len=sizeof (struct iphdr)+payloadlen;
-   // iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
-    //iph->tot_len = ip_tot_len;
+    if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
+    else
+    	iph->tot_len = 0;
+
     memcpy(send_raw_ip_buf+sizeof(iphdr) , payload, payloadlen);
 
-    //iph->check = csum ((unsigned short *) send_raw_ip_buf, ip_tot_len); //this is not necessary ,kernel will always auto fill this
+    if(lower_level) iph->check =
+    		csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4); //this is not necessary ,kernel will always auto fill this
+    else
+    	iph->check=0;
 
-    int ret = sendto(raw_send_fd, send_raw_ip_buf, ip_tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
+    int ret;
+    if(lower_level==0)
+    {
+		struct sockaddr_in sin;
+		sin.sin_family = AF_INET;
+		//sin.sin_port = htons(info.dst_port); //dont need this
+		sin.sin_addr.s_addr = send_info.dst_ip;
+		ret = sendto(raw_send_fd, send_raw_ip_buf, ip_tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
 
+    }
+    else
+    {
+
+    	struct sockaddr_ll addr;
+    	memset(&addr,0,sizeof(addr));
+
+    	addr.sll_family=AF_PACKET;
+    	addr.sll_ifindex=ifindex;
+    	addr.sll_halen=ETHER_ADDR_LEN;
+    	addr.sll_protocol=htons(ETH_P_IP);
+    	memcpy(addr.sll_addr,oppsite_hw_addr,ETHER_ADDR_LEN);
+    	ret = sendto(raw_send_fd, send_raw_ip_buf, ip_tot_len ,  0, (struct sockaddr *) &addr, sizeof (addr));
+    }
     if(ret==-1)
     {
-    	mylog(log_debug,"sendto failed\n");
+
+    	mylog(log_trace,"sendto failed\n");
     	//perror("why?");
     	return -1;
+    }
+    else
+    {
+    	//mylog(log_info,"sendto succ\n");
     }
     return 0;
 }
@@ -426,7 +505,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     if(ip_chk!=0)
      {
-    	mylog(log_debug,"ip header error %d\n",ip_chk);
+    	mylog(log_debug,"ip header error %x\n",ip_chk);
      	return -1;
      }
 

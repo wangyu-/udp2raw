@@ -15,6 +15,10 @@ extern int filter_port;
 extern u32_t bind_address_uint32;
 extern int disable_bpf_filter;
 
+extern int lower_level;
+extern char if_name[100];
+extern unsigned char oppsite_hw_addr[];
+
 struct icmphdr
 {
 	uint8_t type;
@@ -76,6 +80,7 @@ int init_raw_socket();
 void init_filter(int port);
 
 void remove_filter();
+int init_ifindex(char * if_name);
 
 
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen);

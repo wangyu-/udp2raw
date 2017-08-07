@@ -10,8 +10,8 @@ Which can help you bypass udp blocking or udp QOS or just poorly supported udp N
 encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.
 ### Simulated TCP Handshake
 simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
-### Connnection Recover
-After connection timeouts,the client will re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild.
+### Connnection Failure Dectection & Recover
+Conection failure detection by hearbeat. After hearbeat timeouts,client will auto change port and re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild.
 ### Other Features
 Multiplexing ,one client supports multi udp connections,all of those traffic will share one raw connection
 
@@ -118,6 +118,8 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 2. no TCP ovr tcp problem (tcp over tcp problem http://sites.inka.de/bigred/devel/tcp-tcp.html ,https://community.openvpn.net/openvpn/ticket/2 )
 
 3. openvpn over icmp also becomes a choice
+
+more details at [openvpn+udp2raw_guide](/doc/openvpn_guide.md)
 ### tunneling kcptun
 make kcptun support tcp mode.
 (kcptun, https://github.com/xtaci/kcptun)

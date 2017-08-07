@@ -198,12 +198,12 @@ int set_buf_size(int fd)
 {
     if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	mylog(log_fatal,"SO_SNDBUFFORCE fail\n");
+    	mylog(log_fatal,"SO_SNDBUFFORCE fail,fd %d\n",fd);
     	myexit(1);
     }
     if(setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	mylog(log_fatal,"SO_RCVBUFFORCE fail\n");
+    	mylog(log_fatal,"SO_RCVBUFFORCE fail,fd %d\n",fd);
     	myexit(1);
     }
 	return 0;

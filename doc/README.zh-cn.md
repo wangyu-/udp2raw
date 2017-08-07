@@ -18,10 +18,12 @@ Udp2raw-tunnel
 ### 模拟TCP3次握手
 模拟TCP3次握手，模拟seq ack过程。另外还模拟了一些tcp option：MSS,sackOk,TS,TS_ack,wscale，用来使流量看起来更像是由普通的linux tcp协议栈发送的。
 
-### 连接快速恢复
+### 连接保持，连接快速恢复
 心跳机制检查连接是否中断，一旦心跳超时。client会立即换raw socket的端口重连，重连成功后会恢复之前中断的连接。虽然raw端的端口变了，但是udp端的所有连接都会继续有效。udp这边感觉不到raw端的重连，只会感觉到短暂断流,这跟普通的短暂丢包是类似的，不会导致上层应用重连。
 
-另一个优化是，重连只需要client发起，就可以立即被server处理，不需要等到server端的连接超时后。
+另一个优化是，重连只需要client发起，就可以立即被server处理，不需要等到server端的连接超时后。这个在单向连接失效的情况下有用。
+
+另外，对于有大量client的情况，对于不同client,server发送的心跳是错开时间发送的，不会因为短时间发送大量的心跳而造成拥塞和延迟抖动。
 
 ### 其他特性
 信道复用，client的udp端支持多个连接。
@@ -32,7 +34,10 @@ NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
 
 支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed
 
-支持Openwrt,没有编译以来，容易编译到任何平台上。release中提供了ar71xx版本的binary
+支持Openwrt,没有编译依赖，容易编译到任何平台上。release中提供了ar71xx版本的binary
+
+单进程，纯异步，无锁，高并发，除了回收过期连接外，所有操作的时间复杂度都跟连接数无关。回收过期连接这个操作是个批量操作，会定期进行，但是会保证一次回收的数量不超过总数的1/10（可配置），不会造成延迟抖动。
+
 ### 关键词
 突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
 

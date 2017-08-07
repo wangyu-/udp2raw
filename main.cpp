@@ -38,6 +38,7 @@ int disable_anti_replay=0;
 char key_string[1000]= "secret key";
 char key[16];//,key2[16];
 
+
 //uint64_t current_time_rough=0;
 
 
@@ -2351,6 +2352,7 @@ void process_arg(int argc, char *argv[])
 		{"gen-rule", no_argument,    0, 'g'},
 		{"debug", no_argument,    0, 1},
 		{"clear", no_argument,    0, 1},
+		{"lower-level", required_argument,    0, 1},
 		{"sock-buf", required_argument,    0, 1},
 		{"seq-mode", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
@@ -2543,6 +2545,24 @@ void process_arg(int argc, char *argv[])
 			}
 			else if(strcmp(long_options[option_index].name,"log-level")==0)
 			{
+			}
+			else if(strcmp(long_options[option_index].name,"lower-level")==0)
+			{
+				if(strchr(optarg,'#')==0)
+				{
+					mylog(log_fatal,"lower-level parameter invaild,should be if_name#mac_adress  ,ie eth0#00:23:45:67:89:b9\n");
+					myexit(-1);
+				}
+				lower_level=1;
+				u32_t hw[6];
+				memset(hw,0,sizeof(hw));
+				sscanf(optarg,"%[^#]#%x:%x:%x:%x:%x:%x",if_name,&hw[0],&hw[1],&hw[2],&hw[3],&hw[4],&hw[5]);
+
+				mylog(log_warn,"make sure this is correct:   ifname=<%s>  gateway_hw_hd=<%x:%x:%x:%x:%x:%x>  \n",if_name,hw[0],hw[1],hw[2],hw[3],hw[4],hw[5]);
+				for(int i=0;i<6;i++)
+				{
+					oppsite_hw_addr[i]=uint8_t(hw[i]);
+				}
 			}
 			else if(strcmp(long_options[option_index].name,"disable-color")==0)
 			{
