@@ -38,7 +38,7 @@ NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
 
 支持Openwrt,没有编译依赖，容易编译到任何平台上。release中提供了ar71xx版本的binary
 
-单进程，纯异步，无锁，高并发，除了回收过期连接外，所有操作的时间复杂度都跟连接数无关。回收过期连接这个操作是个批量操作，会定期进行，但是会保证一次回收的数量不超过总数的1/10（可配置），不会造成延迟抖动。
+epoll纯异步，高并发，除了回收过期连接外，所有操作的时间复杂度都跟连接数无关。回收过期连接的操做也是一点一点进行的，不会因为消耗太多cpu时间造成延迟抖动。
 
 ### 关键词
 突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
