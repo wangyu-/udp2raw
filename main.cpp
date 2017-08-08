@@ -292,6 +292,11 @@ struct conn_info_t
 	id_t oppsite_const_id;
 
 	blob_t *blob;
+
+	uint8_t my_roller;
+	uint8_t oppsite_roller;
+	u64_t last_oppsite_roller_time;
+
 /*
 	const uint32_t &ip=raw_info.recv_info.src_ip;
 	const uint16_t &port=raw_info.recv_info.src_port;
@@ -306,8 +311,13 @@ struct conn_info_t
 			my_id=conn_info.my_id;
 			oppsite_id=conn_info.oppsite_id;
 			blob->anti_replay.re_init();
+
+			my_roller=0;//no need to set,but for easier debug,set it to zero
+			oppsite_roller=0;//same as above
+			last_oppsite_roller_time=0;
 	 }
-	conn_info_t()
+
+	void re_init()
 	{
 		//send_packet_info.protocol=g_packet_info_send.protocol;
 		if(program_mode==server_mode)
@@ -316,8 +326,17 @@ struct conn_info_t
 			state.client_current_state=client_idle;
 		last_state_time=0;
 		oppsite_const_id=0;
-		blob=0;
+
 		timer_fd=0;
+
+		my_roller=0;
+		oppsite_roller=0;
+		last_oppsite_roller_time=0;
+	}
+	conn_info_t()
+	{
+		blob=0;
+		re_init();
 	}
 	void prepare()
 	{
@@ -538,7 +557,7 @@ int TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 ////////==========================type divider=======================================================
 
 int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id);
-int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char *data,int data_len);
+int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len);
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len);
 
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
@@ -677,15 +696,15 @@ int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
 	return 0;
 }*/
 
-int send_safer(conn_info_t &conn_info,const char* data,int len)
+int send_safer(conn_info_t &conn_info,char type,const char* data,int len)
 {
 
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
-	if(data[0]!='h'&&data[0]!='d')
+	if(type!='h'&&type!='d')
 	{
-		mylog(log_warn,"first byte is not h or d  ,%x\n",data[0]);
+		mylog(log_warn,"first byte is not h or d  ,%x\n",type);
 		return -1;
 	}
 
@@ -693,6 +712,8 @@ int send_safer(conn_info_t &conn_info,const char* data,int len)
 
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
+
+
 
 	id_t n_tmp_id=htonl(conn_info.my_id);
 
@@ -707,9 +728,12 @@ int send_safer(conn_info_t &conn_info,const char* data,int len)
 	memcpy(send_data_buf+sizeof(n_tmp_id)*2,&n_seq,sizeof(n_seq));
 
 
-	memcpy(send_data_buf+sizeof(n_tmp_id)*2+sizeof(n_seq),data,len);//data;
+	send_data_buf[sizeof(n_tmp_id)*2+sizeof(n_seq)]=type;
+	send_data_buf[sizeof(n_tmp_id)*2+sizeof(n_seq)+1]=conn_info.my_roller;
 
-	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2;
+	memcpy(send_data_buf+2+sizeof(n_tmp_id)*2+sizeof(n_seq),data,len);//data;
+
+	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2+2;
 
 	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
 	{
@@ -728,17 +752,17 @@ int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_n
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
 	char send_data_buf[buf_len];
-	send_data_buf[0]='d';
+	//send_data_buf[0]='d';
 	u32_t n_conv_num=htonl(conv_num);
-	memcpy(send_data_buf+1,&n_conv_num,sizeof(n_conv_num));
+	memcpy(send_data_buf,&n_conv_num,sizeof(n_conv_num));
 
-	memcpy(send_data_buf+1+sizeof(n_conv_num),data,len);
-	int new_len=len+1+sizeof(n_conv_num);
-	send_safer(conn_info,send_data_buf,new_len);
+	memcpy(send_data_buf+sizeof(n_conv_num),data,len);
+	int new_len=len+sizeof(n_conv_num);
+	send_safer(conn_info,'d',send_data_buf,new_len);
 	return 0;
 
 }
-int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &data,int &len)//allow overlap
+int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//allow overlap
 {
 	 static char recv_data_buf0[buf_len];
 
@@ -780,17 +804,32 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char* &d
 		return -1;
 	}
 
+	uint8_t roller=data[1];
+
+
+	type=data[0];
+	data+=2;
+	len-=2;
+
 	if(len<0)
 	{
 		mylog(log_debug,"len <0 ,%d\n",len);
 		return -1;
 	}
 
+	if(roller!=conn_info.oppsite_roller)
+	{
+		conn_info.oppsite_roller=roller;
+		conn_info.last_oppsite_roller_time=get_current_time();
+	}
+	conn_info.my_roller++;//increase on a successful recv
+
+
 	if(after_recv_raw0(conn_info.raw_info)!=0) return -1;
 
 	return 0;
 }
-int recv_safer(conn_info_t &conn_info,char* &data,int &len)
+int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
@@ -800,7 +839,7 @@ int recv_safer(conn_info_t &conn_info,char* &data,int &len)
 
 	if(recv_raw0(conn_info.raw_info,recv_data,recv_len)!=0) return -1;
 
-	return parse_safer(conn_info,recv_data,recv_len,data,len);
+	return parse_safer(conn_info,recv_data,recv_len,type,data,len);
 }
 
 int try_to_list_and_bind(int port)
@@ -928,6 +967,8 @@ int client_on_timer(conn_info_t &conn_info) //for client
 	raw_info_t &raw_info=conn_info.raw_info;
 	conn_info.blob->conv_manager.clear_inactive();
 	mylog(log_trace,"timer!\n");
+
+	mylog(log_trace,"roller my %d,oppsite %d,%lld\n",int(conn_info.my_roller),int(conn_info.oppsite_roller),conn_info.last_oppsite_roller_time);
 
 	mylog(log_trace,"<client_on_timer,send_info.ts_ack= %u>\n",send_info.ts_ack);
 
@@ -1113,7 +1154,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 		{
 			conn_info.state.client_current_state=client_idle;
 			conn_info.my_id=get_true_random_number_nz();
-			mylog(log_info,"state back to client_idle from  client_ready\n");
+			mylog(log_info,"state back to client_idle from  client_ready bc of recv-direction timeout\n");
 			return 0;
 		}
 
@@ -1122,9 +1163,16 @@ int client_on_timer(conn_info_t &conn_info) //for client
 			return 0;
 		}
 
+		if(get_current_time()- conn_info.last_oppsite_roller_time>client_conn_uplink_timeout)
+		{
+			conn_info.state.client_current_state=client_idle;
+			conn_info.my_id=get_true_random_number_nz();
+			mylog(log_info,"state back to client_idle from  client_ready bc of send-direction timeout\n");
+		}
+
 		mylog(log_debug,"heartbeat sent <%x,%x>\n",conn_info.oppsite_id,conn_info.my_id);
 
-		send_safer(conn_info,(char *)"h",1);/////////////send
+		send_safer(conn_info,'h',"",0);/////////////send
 
 		conn_info.last_hb_sent_time=get_current_time();
 		return 0;
@@ -1165,7 +1213,7 @@ int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)
 			return 0;
 		}
 
-		send_safer(conn_info,(char *)"h",1);  /////////////send
+		send_safer(conn_info,'h',"",0);  /////////////send
 
 		conn_info.last_hb_sent_time=get_current_time();
 
@@ -1281,7 +1329,8 @@ int client_on_raw_recv(conn_info_t &conn_info)
 	}
 	else if(conn_info.state.client_current_state==client_handshake2||conn_info.state.client_current_state==client_ready)//received heartbeat or data
 	{
-		if(recv_safer(conn_info,data,data_len)!=0)
+		char type;
+		if(recv_safer(conn_info,type,data,data_len)!=0)
 		{
 			mylog(log_debug,"recv_safer failed!\n");
 			return -1;
@@ -1297,21 +1346,22 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			conn_info.state.client_current_state=client_ready;
 			conn_info.last_hb_sent_time=0;
 			conn_info.last_hb_recv_time=get_current_time();
+			conn_info.last_oppsite_roller_time=conn_info.last_hb_recv_time;
 			client_on_timer(conn_info);
 		}
-		if(data_len==1&&data[0]=='h')
+		if(data_len==0&&type=='h')
 		{
 			mylog(log_debug,"[hb]heart beat received\n");
 			conn_info.last_hb_recv_time=get_current_time();
 			return 0;
 		}
-		else if(data_len>= int( sizeof(u32_t)+1 )&&data[0]=='d')
+		else if(data_len>= int( sizeof(u32_t))&&type=='d')
 		{
 			mylog(log_trace,"received a data from fake tcp,len:%d\n",data_len);
 
 			conn_info.last_hb_recv_time=get_current_time();
 
-			u32_t tmp_conv_id= ntohl(* ((u32_t *)&data[1]));
+			u32_t tmp_conv_id= ntohl(* ((u32_t *)&data[0]));
 
 			if(!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id))
 			{
@@ -1332,7 +1382,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
 
 
-			int ret=sendto(udp_fd,data+1+sizeof(u32_t),data_len -(1+sizeof(u32_t)),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
+			int ret=sendto(udp_fd,data+sizeof(u32_t),data_len -(sizeof(u32_t)),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
 
 			if(ret<0)
 			{
@@ -1492,10 +1542,11 @@ int server_on_raw_recv_multi()
 	}
 	if(conn_info.state.server_current_state==server_ready)
 	{
-		if (recv_safer(conn_info, data, data_len) != 0) {
+		char type;
+		if (recv_safer(conn_info,type, data, data_len) != 0) {
 			return -1;
 		}
-		return server_on_raw_recv_ready(conn_info,ip_port,data,data_len);
+		return server_on_raw_recv_ready(conn_info,ip_port,type,data,data_len);
 	}
 	return 0;
 }
@@ -1573,7 +1624,7 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 	}
 	return 0;
 }
-int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char *data,int data_len)
+int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len)
 {
 
 	raw_info_t &raw_info = conn_info.raw_info;
@@ -1591,15 +1642,15 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char *data,in
 		return 0;
 	}*/
 
-	if (data[0] == 'h' && data_len == 1) {
-		u32_t tmp = ntohl(*((u32_t *) &data[1 + sizeof(u32_t)]));
+	if (type == 'h' && data_len == 0) {
+		//u32_t tmp = ntohl(*((u32_t *) &data[sizeof(u32_t)]));
 		mylog(log_debug,"[%s][hb]received hb \n",ip_port);
 		conn_info.last_hb_recv_time = get_current_time();
 		return 0;
-	} else if (data[0] == 'd' && data_len >=int( sizeof(u32_t) + 1))
+	} else if (type== 'd' && data_len >=int( sizeof(u32_t) ))
 	{
 
-		u32_t tmp_conv_id = ntohl(*((u32_t *) &data[1]));
+		u32_t tmp_conv_id = ntohl(*((u32_t *) &data[0]));
 
 		conn_info.last_hb_recv_time = get_current_time();
 
@@ -1672,8 +1723,8 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char *data,in
 		int fd = int((u64 << 32u) >> 32u);
 
 		mylog(log_trace, "[%s]received a data from fake tcp,len:%d\n",ip_port, data_len);
-		int ret = send(fd, data + 1 + sizeof(u32_t),
-				data_len - (1 + sizeof(u32_t)), 0);
+		int ret = send(fd, data + sizeof(u32_t),
+				data_len - ( sizeof(u32_t)), 0);
 
 		mylog(log_trace, "[%s]%d byte sent  ,fd :%d\n ",ip_port, ret, fd);
 		if (ret < 0) {
@@ -1725,7 +1776,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 		conn_info.last_hb_recv_time = get_current_time();
 		conn_info.last_hb_sent_time = conn_info.last_hb_recv_time;//=get_current_time()
 
-		send_safer(conn_info, (char *) "h", 1);		/////////////send
+		send_safer(conn_info, 'h',"", 0);		/////////////send
 
 		mylog(log_info, "[%s]changed state to server_ready\n",ip_port);
 		conn_info.blob->anti_replay.re_init();
@@ -1784,7 +1835,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 			//ori_conn_info.state.server_current_state=server_ready;
 			ori_conn_info.recover(conn_info);
 
-			send_safer(ori_conn_info, (char *) "h", 1);
+			send_safer(ori_conn_info, 'h',"", 0);
 			//ori_conn_info.blob->anti_replay.re_init();
 
 

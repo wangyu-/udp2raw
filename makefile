@@ -17,5 +17,6 @@ debug:
 
 release:
 	g++ main.cpp -o udp2raw_amd64  -static  -ggdb -I. lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp -lrt -std=c++11    ${FLAGS} ${FLAGS2}
+	g++ main.cpp -o udp2raw_x86  -static -ggdb -I. lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp -lrt -std=c++11    ${FLAGS} ${FLAGS2} -m32
 	${ccmips} main.cpp -o udp2raw_ar71xx  -lrt -I. lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp -std=c++11 ${FLAGS} ${FLAGS2}
 	
