@@ -34,15 +34,21 @@ server端也会有类似输出,显示server_ready：
 ![image](kcptun_step_by_step/Capture3.PNG)
 
 3.在远程服务器运行 kcp server
+
+
 ```
 ./server_linux_amd64 -t "127.0.0.1:22" -l ":4000" -mode fast2 -mtu 1300
 ```
+-mtu 1300很重要，或者设置成更小。
 ![image](kcptun_step_by_step/Capture6.PNG)
 
 4.在本地运行 
+
+
 ```
- ./client_linux_amd64 -r "45.66.77.88:4000" -l ":3322" -mode fast2 -mtu 1300
+ ./client_linux_amd64 -r "127.0.0.1:4000" -l ":3322" -mode fast2 -mtu 1300
 ```
+-mtu 1300很重要，或者设置成更小。
 ![image](kcptun_step_by_step/Capture7.PNG)
 
 5.所有准备工作已经做好，在本地运行
