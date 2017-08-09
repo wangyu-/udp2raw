@@ -7,6 +7,10 @@ Udp2raw-tunnel
 [udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
 
 [udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
+
+如果你需要加速跨国网游、网页浏览，解决方案在另一个repo：
+
+https://github.com/wangyu-/UDPspeeder
 ### 把udp流量伪装成tcp /icmp
 用raw socket给udp包加上tcp/icmp包头，可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
 
@@ -23,7 +27,7 @@ Udp2raw-tunnel
 
 Client能用单倍的超时时间检测到单向链路的失效，不管是上行还是下行，只要有一端失效就能被client检测到。重连只需要client发起，就可以立即被server处理，不需要等到server端的连接超时后。
 
-另外，对于有大量client的情况，对于不同client,server发送的心跳是错开时间发送的，不会因为短时间发送大量的心跳而造成拥塞和延迟抖动。
+对于有大量client的情况，对于不同client,server发送的心跳是错开时间发送的，不会因为短时间发送大量的心跳而造成拥塞和延迟抖动。
 
 
 
