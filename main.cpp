@@ -38,6 +38,7 @@ int disable_anti_replay=0;
 char key_string[1000]= "secret key";
 char key[16];//,key2[16];
 
+int mtu_warn=1375;
 
 //uint64_t current_time_rough=0;
 
@@ -2039,6 +2040,10 @@ int client_event_loop()
 					myexit(1);
 				};
 
+				if(recv_len>=mtu_warn)
+				{
+					mylog(log_warn,"huge packet,data len=%d (>=%d).strongly suggested to set a smaller mtu at upper level,to get rid of this warn\n ",recv_len,mtu_warn);
+				}
 				mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
 						ntohs(udp_new_addr_in.sin_port),recv_len);
 
@@ -2310,6 +2315,11 @@ int server_event_loop()
 				{
 					mylog(log_debug,"udp fd,recv_len<0 continue\n");
 					continue;
+				}
+
+				if(recv_len>=mtu_warn)
+				{
+					mylog(log_warn,"huge packet,data len=%d (>=%d).strongly suggested to set a smaller mtu at upper level,to get rid of this warn\n ",recv_len,mtu_warn);
 				}
 
 				//conn_info.conv_manager->update_active_time(conv_id);  server dosnt update from upd side,only update from raw side.  (client updates at both side)
