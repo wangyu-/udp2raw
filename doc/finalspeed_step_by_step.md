@@ -15,7 +15,7 @@ udp2raw也支持把udp流量包装成Icmp发送，本教程不做演示。
 ### 环境要求
 服务器主机是linux，有root权限。  可以是openvz架构的vps。 也可以是openwrt路由器。
 
-本地主机是windows,本地有linux路由器或安装了linux虚拟机（网卡设置为桥接模式）。
+本地主机是windows,本地有openwrt路由器或树莓派或安装了linux虚拟机（网卡设置为桥接模式）。
 
 (如果嫌给虚拟机安装linux麻烦，可以下载别人提供好的linux虚拟机镜像，比如https://www.kali.org/downloads/ ，不过我没有测试过这个镜像,我用的是debian 7)
 
