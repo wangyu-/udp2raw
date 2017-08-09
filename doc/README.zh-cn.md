@@ -7,6 +7,10 @@ Udp2raw-tunnel
 [udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
 
 [udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
+
+如果你需要加速跨国网游、网页浏览，解决方案在另一个repo：
+
+https://github.com/wangyu-/UDPspeeder
 ### 把udp流量伪装成tcp /icmp
 用raw socket给udp包加上tcp/icmp包头，可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
 
