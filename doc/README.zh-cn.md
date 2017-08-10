@@ -22,14 +22,12 @@ https://github.com/wangyu-/UDPspeeder
 ### 模拟TCP3次握手
 模拟TCP3次握手，模拟seq ack过程。另外还模拟了一些tcp option：MSS,sackOk,TS,TS_ack,wscale，用来使流量看起来更像是由普通的linux tcp协议栈发送的。
 
-### 连接保持，连接快速恢复，单向链路失效检测
-心跳机制检查连接是否中断，一旦心跳超时。client会立即换raw socket的端口重连，重连成功后会恢复之前中断的连接。虽然raw端的端口变了，但是udp端的所有连接都会继续有效。udp这边感觉不到raw端的重连，只会感觉到短暂断流,这跟普通的短暂丢包是类似的，不会导致上层应用重连。
+### 心跳保活、自动重连，连接快速恢复，单向链路失效检测
+心跳保活、自动重连，udp2raw重连可以恢复上次的连接，重连后上层连接继续有效，底层掉线上层不掉线。有效解决连接断开的问题。 （功能借鉴自kcptun-raw）
 
-Client能用单倍的超时时间检测到单向链路的失效，不管是上行还是下行，只要有一端失效就能被client检测到。重连只需要client发起，就可以立即被server处理，不需要等到server端的连接超时后。
+Client能用单倍的超时时间检测到单向链路的失效，不管是上行还是下行，只要有一个方向失效就能被client检测到。重连只需要client发起，就可以立即被server处理，不需要等到server端的连接超时后。
 
 对于有大量client的情况，对于不同client,server发送的心跳是错开时间发送的，不会因为短时间发送大量的心跳而造成拥塞和延迟抖动。
-
-
 
 ### 其他特性
 信道复用，client的udp端支持多个连接。
@@ -42,7 +40,7 @@ NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
 
 支持Openwrt,没有编译依赖，容易编译到任何平台上。release中提供了ar71xx版本的binary
 
-epoll纯异步，高并发，除了回收过期连接外，所有操作的时间复杂度都跟连接数无关。回收过期连接的操做也是一点一点进行的，不会因为消耗太多cpu时间造成延迟抖动。
+epoll纯异步，高并发，除了回收过期连接外，所有操作的时间复杂度都跟连接数无关。回收过期连接的操做也是柔和进行的，不会因为消耗太多cpu时间造成延迟抖动。
 
 ### 关键词
 突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
