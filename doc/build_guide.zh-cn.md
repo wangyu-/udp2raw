@@ -48,11 +48,25 @@ redhat/centos执行:
 sudo yum install git
 ```
 
-##### 下载交叉编译工具包
+##### 下载安装交叉编译工具包
 去downloads.openwrt.org上找到自己的openwrt版本和cpu型号对应的SDK。通常openwrt版本号不一样也问题不大，最主要是cpu型号。
 
 比如我的tplink wdr4310运行的是chaos_calmer 15.05,ar71xx cpu，应该下载这个包：
 
+```
 http://downloads.openwrt.org/chaos_calmer/15.05/ar71xx/generic/OpenWrt-SDK-15.05-ar71xx-generic_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64.tar.bz2
-
+```
 解压到本地任意目录，比如：/home/wangyu/OpenWrt-SDK-ar71xx-for-linux-x86_64-gcc-4.8-linaro_uClibc-0.9.33.2
+
+让后依次进入，staging_dir ，toolchain-xxxxx ，bin 目录，找到后缀是g++的软链,比如我的是mips-openwrt-linux-g++ ，记下这个文件的完整路径：
+
+```
+/home/wangyu/Desktop/OpenWrt-SDK-15.05-ar71xx-generic_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64/staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-g++
+```
+##### 编译
+把makefile的第一行 cross_cc=后面的内容改成你刚才记下的完整路径：
+```
+cc_cross=/home/wangyu/Desktop/OpenWrt-SDK-15.05-ar71xx-generic_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64/staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-g++
+```
+
+执行make，目录下生成udp2raw文件。编译完成。
