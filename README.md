@@ -1,7 +1,7 @@
 # Udp2raw-tunnel
 ![image0](images/image0.PNG)
 
-An Encrpyted,Anti-Replay,Multiplexed Udp Tunnel,tunnels udp traffic through raw socket
+An Encrpyted,Anti-Replay,Multiplexed Udp Tunnel,tunnels udp traffic through fake-tcp or icmp by using raw socket
 
 [简体中文](/doc/README.zh-cn.md)
 ### Send/Recv Udp Packet as Raw Packet with TCP header,ICMP header
@@ -26,7 +26,7 @@ Openwrt Supported,no dependence package,easy to compile,ar71xx binary included i
 bypass udp qos,bypass udp blocking,openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
 # Getting Started
 ### Prerequisites
-linux host,root access.  if you want to use it on window,you can use VMware in bridged mode.
+linux host,root access.  if you want to use it on window,you can use VMware(both bridged mode and nat mode are supported).
 ### Installing
 download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
 ### Running 

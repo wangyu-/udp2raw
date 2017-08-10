@@ -18,6 +18,9 @@ assume server ip is 45.66.77.88
 
 #### client side config
 ```
+client
+dev tun100
+proto udp
 
 remote 127.0.0.1 3333
 resolv-retry infinite 
