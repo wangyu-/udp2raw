@@ -152,6 +152,8 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 [udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
 ### 中转 finalspeed
 [udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
+# 如何自己编译
+[编译教程](build_guide.zh-cn.md)
 # 相关repo
 ### kcptun-raw
 this project was inspired by kcptun-raw,which modified kcptun to support tcp mode.
