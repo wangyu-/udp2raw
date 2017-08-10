@@ -1,7 +1,7 @@
 # udp2raw编译方法
 本文演示怎么把udp2raw编译到自己所需的平台。
 
-### 可以本地编译的linux平台
+## 可以本地编译的linux平台
 比如电脑、树莓派
 
 ##### 首先安装git
@@ -35,7 +35,7 @@ sudo yum groupinstall 'Development Tools'
 
 然后运行make，编译完成。 生成的udp2raw就是编译好的bianry。
 
-### 需要交叉编译的平台
+## 需要交叉编译的平台
 比如各种openwrt路由器
 
 ##### 首先安装git
