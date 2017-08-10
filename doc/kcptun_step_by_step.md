@@ -1,7 +1,7 @@
 # udp2raw+kcptun 加速tcp流量 Step by Step 教程
 ![image](kcptun_step_by_step/Capture00.PNG)
 
-本教程会一步一步演示用udp2raw+kcptun加速SSH流量的过程。加速任何其他tcp流量也一样。
+本教程会一步一步演示用udp2raw+kcptun加速SSH流量的过程。加速任何其他tcp流量也一样，包括ss；本文避免涉及敏感问题，所以演示ssh。
 
 ### 环境要求
 两边的主机都是linux，有root权限。 可以是openwrt路由器或树莓派，windows上桥接模式的虚拟机也可用
