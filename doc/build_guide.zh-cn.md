@@ -69,4 +69,4 @@ http://downloads.openwrt.org/chaos_calmer/15.05/ar71xx/generic/OpenWrt-SDK-15.05
 cc_cross=/home/wangyu/Desktop/OpenWrt-SDK-15.05-ar71xx-generic_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64/staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-g++
 ```
 
-执行make cross，目录下生成udp2raw文件。编译完成。
+执行make cross，目录下生成udp2raw_cross文件。编译完成。
