@@ -1,7 +1,9 @@
 #include "common.h"
 #include "network.h"
 #include "log.h"
-#include "lib/md5.h"
+extern "C" {
+	#include "lib/md5.h"
+}
 
 char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
 u32_t local_address_uint32,remote_address_uint32,source_address_uint32;

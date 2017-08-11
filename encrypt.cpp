@@ -1,11 +1,13 @@
-#include <lib/aes.h>
-#include <lib/md5.h>
+extern "C"{
+    #include "lib/aes.h"
+    #include "lib/md5.h"
+}
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <encrypt.h>
-#include <common.h>
+#include "encrypt.h"
+#include "common.h"
 #include "log.h"
 
 //static uint64_t seq=1;
