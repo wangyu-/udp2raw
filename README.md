@@ -127,7 +127,7 @@ kcptun is a tcp connection speed-up program,it speeds-up tcp connection by using
 ### speed-up tcp connection via raw traffic by using udp2raw+finalspeed
 finalspeed is a tcp connection speed-up program similiar to kcptun,it speeds-up tcp connection by using kcp protocol on-top of udp or tcp.but its tcp mode doesnt support openvz,you can bypass this problem if you use udp2raw+finalspeed together,and icmp mode also becomes avaliable.
 
-# how to build
+# How to build
 read [build_guide](/doc/build_guide.md)
 
 # Related work
