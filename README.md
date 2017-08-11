@@ -10,10 +10,10 @@ Which can help you bypass udp blocking or udp QOS or just poorly supported udp N
 Encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.Client and server use pre shared secret to verify each other,man-in-the-middle is impossible.
 ### Simulated TCP Handshake
 Simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
-### Connection Failure Dectection & Connection Stablize(connection recover)
+### Connection Failure Dectection & Connection Stablize(Connection Recover)
 Conection failure detection by hearbeat. After hearbeat timeouts,client will auto change port and re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild. 
 
-For example,if you use udp2raw+openvpn.the openvpn wont lose connection after reconnect,**Even if you re-insert your net cable,or connect to a new wifi,existing openvpn connection will stay vaild**
+For example,if you use udp2raw+openvpn.Openvpn wont lose connection after reconnect,**Even if you re-insert your net cable,or connect to a new wifi,existing openvpn connection will stay vaild**.
 ### Other Features
 Multiplexing ,one client supports multi udp connections,all of those traffic will share one raw connection
 
