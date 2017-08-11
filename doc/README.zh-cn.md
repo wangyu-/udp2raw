@@ -15,13 +15,6 @@ https://github.com/wangyu-/UDPspeeder
 ### 把udp流量伪装成tcp /icmp
 用raw socket给udp包加上tcp/icmp包头，可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
 
-### 加密 防重放攻击 防中间人攻击
-用aes128cbc加密，md5/crc32做数据完整校验。用类似ipsec/openvpn的 replay windows机制来防止重放攻击。
-
-设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。udp2raw client和server用预分配密钥（pre-shared secret）互相认证，无法被中间人攻击。
-
-
-
 ### 模拟TCP3次握手
 模拟TCP3次握手，模拟seq ack过程。另外还模拟了一些tcp option：MSS,sackOk,TS,TS_ack,wscale，用来使流量看起来更像是由普通的linux tcp协议栈发送的。
 
@@ -31,6 +24,11 @@ https://github.com/wangyu-/UDPspeeder
 Client能用单倍的超时时间检测到单向链路的失效，不管是上行还是下行，只要有一个方向失效就能被client检测到。重连只需要client发起，就可以立即被server处理，不需要等到server端的连接超时后。
 
 对于有大量client的情况，对于不同client,server发送的心跳是错开时间发送的，不会因为短时间发送大量的心跳而造成拥塞和延迟抖动。
+
+### 加密 防重放攻击 防中间人攻击
+用aes128cbc加密，md5/crc32做数据完整校验。用类似ipsec/openvpn的 replay windows机制来防止重放攻击。
+
+设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。udp2raw client和server用预分配密钥（pre-shared secret）互相认证，无法被中间人攻击。
 
 ### 其他特性
 信道复用，client的udp端支持多个连接。
