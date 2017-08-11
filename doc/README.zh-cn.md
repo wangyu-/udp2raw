@@ -28,7 +28,7 @@ Client能用单倍的超时时间检测到单向链路的失效，不管是上�
 ### 加密 防重放攻击 防中间人攻击
 用aes128cbc加密，md5/crc32做数据完整校验。用类似ipsec/openvpn的 replay windows机制来防止重放攻击。
 
-设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。udp2raw client和server用预分配密钥（pre-shared secret）互相认证，无法被中间人攻击。
+设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。client和server互相认证对方，无法被中间人攻击。
 
 ### 其他特性
 信道复用，client的udp端支持多个连接。
