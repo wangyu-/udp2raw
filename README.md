@@ -11,7 +11,7 @@ Which can help you bypass udp blocking or udp QOS or just poorly supported udp N
 Simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
 
 ### Encrpytion,Anti-Replay,Anti-MITM
-Encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.Client and server use pre shared secret to verify each other,man-in-the-middle is impossible.
+Encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.Client/Server verifys each other,man-in-the-middle is impossible.
 
 ### Connection Failure Dectect & Connection Stablize(Connection Recover)
 Conection failure detection by hearbeat. After hearbeat timeouts,client will auto change port and re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild. 
