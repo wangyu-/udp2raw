@@ -120,12 +120,12 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 3. openvpn over icmp also becomes a choice
 
 more details at [openvpn+udp2raw_guide](/doc/openvpn_guide.md)
-### speed-up tcp connection by using udp2raw+kcptun
+### speed-up tcp connection via raw traffic by using udp2raw+kcptun
 kcptun is a tcp connection speed-up program,it speeds-up tcp connection by using kcp protocol on-top of udp.by using udp2raw,you can use kcptun while udp is QoSed or blocked.
 (kcptun, https://github.com/xtaci/kcptun)
 
-### speed-up tcp connection by using udp2raw+finalspeed
-finalspeed is a tcp connection speed-up program similiar to kcptun,it speeds-up tcp connection by using kcp protocol on-top of udp or tcp.but its tcp mode doesnt support openvz,you can bypass this problem if you use udp2raw+finalspeed together.
+### speed-up tcp connection via raw traffic by using udp2raw+finalspeed
+finalspeed is a tcp connection speed-up program similiar to kcptun,it speeds-up tcp connection by using kcp protocol on-top of udp or tcp.but its tcp mode doesnt support openvz,you can bypass this problem if you use udp2raw+finalspeed together,and icmp mode also becomes avaliable.
 
 # Related work
 ### kcptun-raw
