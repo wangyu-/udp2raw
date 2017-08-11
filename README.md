@@ -11,7 +11,7 @@ encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,prot
 ### Simulated TCP Handshake
 simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
 ### Connnection Failure Dectection & Recover
-Conection failure detection by hearbeat. After hearbeat timeouts,client will auto change port and re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild.
+Conection failure detection by hearbeat. After hearbeat timeouts,client will auto change port and re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild. (for example,if you use udp2raw+openvpn.the openvpn wont lose connection after reconnect,**Even if you re-insert your net cable,or connect to a new wifi,existing openvpn connection will stay vaild**)
 ### Other Features
 Multiplexing ,one client supports multi udp connections,all of those traffic will share one raw connection
 
