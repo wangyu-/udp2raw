@@ -7,11 +7,13 @@ An Encrpyted,Anti-Replay,Multiplexed Udp Tunnel,tunnels udp traffic through fake
 ### Send/Recv Udp Packet as Raw Packet with TCP header,ICMP header
 Which can help you bypass udp blocking or udp QOS or just poorly supported udp NAT behavior by some ISP. Raw packet with UDP header is also supported,in this way you can just make use of the encrpyting and anti-replay feature.
 ### Encrpytion,Anti-Replay,Anti-MITM
-encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.Client and server use pre shared secret to verify each other,man-in-the-middle is impossible.
+Encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.Client and server use pre shared secret to verify each other,man-in-the-middle is impossible.
 ### Simulated TCP Handshake
-simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
+Simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
 ### Connection Failure Dectection & Connection Stablize(connection recover)
-Conection failure detection by hearbeat. After hearbeat timeouts,client will auto change port and re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild. (for example,if you use udp2raw+openvpn.the openvpn wont lose connection after reconnect,**Even if you re-insert your net cable,or connect to a new wifi,existing openvpn connection will stay vaild**)
+Conection failure detection by hearbeat. After hearbeat timeouts,client will auto change port and re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild. 
+
+For example,if you use udp2raw+openvpn.the openvpn wont lose connection after reconnect,**Even if you re-insert your net cable,or connect to a new wifi,existing openvpn connection will stay vaild**
 ### Other Features
 Multiplexing ,one client supports multi udp connections,all of those traffic will share one raw connection
 
