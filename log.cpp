@@ -1,4 +1,4 @@
-#include <log.h>
+#include "log.h"
 
 int log_level=log_info;
 
