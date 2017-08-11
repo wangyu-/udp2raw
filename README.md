@@ -1,45 +1,70 @@
 # Udp2raw-tunnel
 ![image0](images/image0.PNG)
 
-An Encrpyted,Anti-Replay,Multiplexed Udp Tunnel,tunnels udp traffic through fake-tcp or icmp by using raw socket
+An encrpyted, anti-replay, multiplexing UDP tunnel which tunnels UDP traffic with fake TCP or ICMP header using raw socket. Also acts as a connection stablizer.
 
 [简体中文](/doc/README.zh-cn.md)
-### Send/Recv Udp Packet as Raw Packet with TCP header,ICMP header
-Which can help you bypass udp blocking or udp QOS or just poorly supported udp NAT behavior by some ISP. Raw packet with UDP header is also supported,in this way you can just make use of the encrpyting and anti-replay feature.
-### Encrpytion,Anti-Replay,Anti-MITM
-encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.Client and server use pre shared secret to verify each other,man-in-the-middle is impossible.
-### Simulated TCP Handshake
-simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
-### Connnection Failure Dectection & Recover
-Conection failure detection by hearbeat. After hearbeat timeouts,client will auto change port and re-connect.if re-connection is successful,the previous connection will be recovered,and all existed udp conversations will stay vaild.
+# Features 
+### Send / Receive UDP Packet with fake headers
+Fake headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. Raw packets with UDP headers are also supported, where you can just use the encrpyting and anti-replay feature.
+
+### Simulate TCP Handshake
+Simulates the 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated. Real-time delivery guaranteed, no TCP over TCP problem when using OpenVPN.
+
+### Encrpytion, Anti-Replay, Anti-MITM
+* Encrypt your traffic with AES-128-CBC.
+* Protect data integrity by MD5 or CRC32.
+* Defense replay attack with an anti-replay window, smiliar to IPSec and OpenVPN. 
+* Authenticate mutually, no more MITM attacks.
+
+### Failure Dectection & Stablization (Connection Recovery)
+Conection failures are detected by heartbeats. If timed-out, the client will automatically change the port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild. 
+
+For example, if you use UDP2RAW + OpenVPN, OpenVPN won't lose connection after any reconnect, **even if the network cable is re-plugged or the WiFi access point is changed**.
+
 ### Other Features
-Multiplexing ,one client supports multi udp connections,all of those traffic will share one raw connection
+* **Multiplexing** One client can handle multiple UDP connections, all of which share the same raw connection.
 
-Multiple Clients Support,one server supports multiple clients.
+* **Multiple Clients** One server can have multiple clients.
 
-NAT Supported,all 3 modes work in NAT environment 
+* **NAT Support** All of the 3 modes work in NAT-ed environments.
 
-OpenVZ Supported,tested on bandwagonhost
+* **OpenVZ Support** Tested on BandwagonHost.
 
-Openwrt Supported,no dependence package,easy to compile,ar71xx binary included in release.
-### Key Words
-bypass udp qos,bypass udp blocking,openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
+* **OpenWRT Support** No dependencies, easy to build. Binary for ar71xx are included in release.
+
+### Keywords
+* UDP QoS Bypass
+* UDP Blocking Bypass
+* OpenVPN TCP over TCP problem
+* OpenVPN over ICMP
+* UDP to ICMP tunnel
+* UDP to TCP tunnel
+* UDP over ICMP
+* UDP over TCP
+
 # Getting Started
 ### Prerequisites
-linux host(include desktop linux,openwrt router,raspberry pi),root access.  if you want to use it on window,you can use VMware(both bridged mode and nat mode are supported).
+A Linux host (including desktop Linux, OpenWRT router, or Raspberry PI) with root access.
+
+If you want to use it on MICRO$OFT Windows, you can use VMware or Hyper-V (both bridged mode and NAT mode are supported).
+
 ### Installing
-download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
+Download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
+
 ### Running 
-assume your udp is blocked or being QOS-ed or just poorly supported.assume your server ip is 44.55.66.77, you have a service listening on udp port 7777.
-```
-run at client side:
+Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your server ip is 44.55.66.77, you have a service listening on udp port 7777.
+
+```bash
+# Run at client side
 ./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp
 
-run at server side:
+# Run at server side:
 ./udp2raw_amd64 -s -l0.0.0.0:4096 -r 127.0.0.1:7777  -a -k "passwd" --raw-mode faketcp
-
 ```
-Now,your client and server established a tunnel thorough tcp port 4096. Connecting to udp port 3333 at client side  is equivalent with connecting to port 7777 at server side. No udp traffic will be exposed to outside.
+
+Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
+
 # Advanced Topic
 ### Usage
 ```
@@ -77,25 +102,30 @@ other options:
                                           2:increase randomly, about every 3 packets (default)
     -h,--help                             print this help message
 ```
-### iptables rule
-this programs sends packet via raw socket.In faketcp mode,Linux Kernel TCP packet processing has to be blocked by a iptables rule on both sides,otherwise Kernel will automatically send RST for unrecongized TCP packet and you will sustain from stability/peformance problem.You can use -a option to let the program automatically add/del iptables rule on start/exit.You can also use the -g option to generate iptables rule and add it manually.
-### cipher-mode and auth-mode 
-Its suggested to use aes128cbc + md5 to obtain maxmized security.If you want to run the program on a router,you can try xor+simple,it can fool Packet Inspection by firewalls most time, but it cant protect you from serious attackers. Mode none is only for debug,its not suggest to set cipher-mode or auth-mode to none.
+
+### IPTABLES rule
+This program sends packets via raw socket. In FakeTCP mode, Linux kernel TCP packet processing has to be blocked by a iptables rule on both sides, otherwise the kernel will automatically send RST for an unrecongized TCP packet and you will sustain from stability / peformance problems. You can use `-a` option to let the program automatically add / delete iptables rule on start / exit. You can also use the -g option to generate iptables rule and add it manually.
+
+### `cipher-mode` and `auth-mode` 
+It is suggested to use AES-128-CBC + MD5 to obtain maximum security. If you want to run the program on a router, you can try XOR + simple, which can fool packet inspection by firewalls the most  of time, but it cannot protect you from serious attacks. Mode none is only for debugging purpose. It is not recommended to set the cipher-mode or auth-mode to none.
+
 ### seq-mode
-the faketcp mode doest not behave 100% like a real tcp connection.ISP may be able to distinguish the simulated tcp traffic from real tcp traffic(though its costly). seq-mode can help you changed the seq increase behavior a bit. If you experienced problems,try to change the value. 
+The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience any problems, try to change the value. 
+
 # Peformance Test
-#### test method:
-iperf3 tcp via openvpn + udp2raw 
-(iperf3 udp mode is not used bc of bug mentioned in this issue: https://github.com/esnet/iperf/issues/296 ,instead,we turn iperf3 's tcp traffic into udp by using openvpn,to test udp2raw 's peformance. Read [Application](https://github.com/wangyu-/udp2raw-tunnel#application) for detail )
+#### Test method:
+iperf3 TCP via OpenVPN + udp2raw 
+(iperf3 UDP mode is not used because of a bug mentioned in this issue: https://github.com/esnet/iperf/issues/296 . Instead, we package the TCP traffic into UDP by OpenVPN to test the performance. Read [Application](https://github.com/wangyu-/udp2raw-tunnel#application) for details.
+
 #### iperf3 command: 
 ```
 iperf3 -c 10.222.2.1 -P40 
 iperf3 -c 10.222.2.1 -P40 -R
 ```
-#### client host
-vultr $2.5/monthly plan(single core 2.4ghz cpu,512m ram,location:Tokyo,Japan),
-#### server host
-bandwagonhost $3.99/annually(single core 2.0ghz cpu,128m ram,location:Los Angeles,USA)
+#### Environments
+* **Client** Vultr $2.5/monthly plan (single core 2.4GHz cpu, 512MB RAM, Tokyo, Japan)
+* **Server** BandwagonHost $3.99/annually plan (single core 2.0GHz cpu, 128MB RAM, Los Angeles, USA)
+
 ### Test1
 raw_mode: faketcp  cipher_mode: xor  auth_mode: simple
 
@@ -127,6 +157,9 @@ kcptun is a tcp connection speed-up program,it speeds-up tcp connection by using
 ### speed-up tcp connection via raw traffic by using udp2raw+finalspeed
 finalspeed is a tcp connection speed-up program similiar to kcptun,it speeds-up tcp connection by using kcp protocol on-top of udp or tcp.but its tcp mode doesnt support openvz,you can bypass this problem if you use udp2raw+finalspeed together,and icmp mode also becomes avaliable.
 
+# How to build
+read [build_guide](/doc/build_guide.md)
+
 # Related work
 ### kcptun-raw
 this project was inspired by kcptun-raw,which modified kcptun to support tcp mode.
@@ -144,4 +177,3 @@ https://github.com/linhua55/some_kcptun_tools/tree/master/relayRawSocket
 Transparently tunnel your IP traffic through ICMP echo and reply packets.
 
 https://github.com/DhavalKapil/icmptunnel
-
