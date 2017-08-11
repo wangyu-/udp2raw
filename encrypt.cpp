@@ -1,7 +1,5 @@
-extern "C"{
-    #include "lib/aes.h"
-    #include "lib/md5.h"
-}
+#include "lib/aes.h"
+#include "lib/md5.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>

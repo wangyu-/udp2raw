@@ -20,6 +20,6 @@ cross:
 release:
 	g++ main.cpp -o udp2raw_amd64  -static  -ggdb -I. lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp -lrt -std=c++11    ${FLAGS} ${FLAGS2}
 	g++ main.cpp -o udp2raw_x86  -static -ggdb -I. lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp -lrt -std=c++11    ${FLAGS} ${FLAGS2} -m32
-	${cc_mips} main.cpp -o udp2raw_ar71xx  -lrt -I. lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp -std=c++11 ${FLAGS} ${FLAGS2}
+	${cc_cross} main.cpp -o udp2raw_ar71xx  -lrt -I. lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp -std=c++11 ${FLAGS} ${FLAGS2}
 	tar -zcvf udp2raw_binaries.tar.gz udp2raw_amd64  udp2raw_x86  udp2raw_ar71xx
 	
