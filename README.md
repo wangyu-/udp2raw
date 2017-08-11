@@ -7,7 +7,7 @@ An Encrpyted,Anti-Replay,Multiplexed Udp Tunnel,tunnels udp traffic through fake
 ### Send/Recv Udp Packet as Raw Packet with TCP header,ICMP header
 Which can help you bypass udp blocking or udp QOS or just poorly supported udp NAT behavior by some ISP. Raw packet with UDP header is also supported,in this way you can just make use of the encrpyting and anti-replay feature.
 ### Encrpytion,Anti-Replay,Anti-MITM
-encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.client and server use pre shared secret to verify each other,man-in-the-middle is impossible.
+encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.Client and server use pre shared secret to verify each other,man-in-the-middle is impossible.
 ### Simulated TCP Handshake
 simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
 ### Connnection Failure Dectection & Recover
