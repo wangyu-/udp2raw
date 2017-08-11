@@ -6,8 +6,8 @@ An Encrpyted,Anti-Replay,Multiplexed Udp Tunnel,tunnels udp traffic through fake
 [简体中文](/doc/README.zh-cn.md)
 ### Send/Recv Udp Packet as Raw Packet with TCP header,ICMP header
 Which can help you bypass udp blocking or udp QOS or just poorly supported udp NAT behavior by some ISP. Raw packet with UDP header is also supported,in this way you can just make use of the encrpyting and anti-replay feature.
-### Encrpytion and Anti-Replay
-encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.
+### Encrpytion,Anti-Replay,Anti-MITM
+encrypt your traffic with aes128cbc,protects data integrity by md5 or crc32,protect replay attack with an anti-replay window smiliar to ipsec/openvpn.Client and server use pre shared secret to verify each other,man-in-the-middle is impossible.
 ### Simulated TCP Handshake
 simulated 3-way handshake,simluated seq ack_seq. Simluated tcp options:MSS,sackOk,TS,TS_ack,wscale. Provides real-time delivery ,no tcp over tcp problem when using openvpn.
 ### Connnection Failure Dectection & Recover
@@ -26,7 +26,7 @@ Openwrt Supported,no dependence package,easy to compile,ar71xx binary included i
 bypass udp qos,bypass udp blocking,openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
 # Getting Started
 ### Prerequisites
-linux host,root access.  if you want to use it on window,you can use VMware(both bridged mode and nat mode are supported).
+linux host(include desktop linux,openwrt router,raspberry pi),root access.  if you want to use it on window,you can use VMware(both bridged mode and nat mode are supported).
 ### Installing
 download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
 ### Running 
@@ -120,12 +120,12 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 3. openvpn over icmp also becomes a choice
 
 more details at [openvpn+udp2raw_guide](/doc/openvpn_guide.md)
-### tunneling kcptun
-make kcptun support tcp mode.
+### speed-up tcp connection via raw traffic by using udp2raw+kcptun
+kcptun is a tcp connection speed-up program,it speeds-up tcp connection by using kcp protocol on-top of udp.by using udp2raw,you can use kcptun while udp is QoSed or blocked.
 (kcptun, https://github.com/xtaci/kcptun)
 
-### tunneling finalspeed
-finalspeed 's tcp mode doesnt work on openvz VPS.you can use finalspeed 's udp mode,and tunnel udp through tcp with this tunnel.
+### speed-up tcp connection via raw traffic by using udp2raw+finalspeed
+finalspeed is a tcp connection speed-up program similiar to kcptun,it speeds-up tcp connection by using kcp protocol on-top of udp or tcp.but its tcp mode doesnt support openvz,you can bypass this problem if you use udp2raw+finalspeed together,and icmp mode also becomes avaliable.
 
 # Related work
 ### kcptun-raw
