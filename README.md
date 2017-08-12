@@ -6,7 +6,7 @@ An encrpyted, anti-replay, multiplexing UDP tunnel which tunnels UDP traffic wit
 [简体中文](/doc/README.zh-cn.md)
 # Features 
 ### Send / Receive UDP Packet with fake headers
-Fake headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. Raw packets with UDP headers are also supported, where you can just use the encrpyting and anti-replay feature.
+Fake headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. Raw packets with UDP headers are also supported, in this mode you can just use the encrpyting,anti-replay and connection-stablize feature.
 
 ### Simulate TCP Handshake
 Simulates the 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated. Real-time delivery guaranteed, no TCP over TCP problem when using OpenVPN.
