@@ -47,7 +47,7 @@ For example, if you use UDP2RAW + OpenVPN, OpenVPN won't lose connection after a
 ### Prerequisites
 A Linux host (including desktop Linux, OpenWRT router, or Raspberry PI) with root access.
 
-If you want to use it on MICRO$OFT Windows, you can use VMware or Hyper-V (both bridged mode and NAT mode are supported).
+If you want to use it on MICRO$OFT Windows, you can use VMware or Hyper-V (both bridged mode and <del>NAT mode</del> are supported).
 
 ### Installing
 Download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
