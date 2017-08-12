@@ -987,7 +987,7 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	}
 	udphdr *udph=(struct udphdr*)ip_payload;
 
-	if(ntohs(udph->len)!=ip_payloadlen)
+	if(int(ntohs(udph->len))!=ip_payloadlen)
 	{
 
 		mylog(log_debug,"udp length error %d %d \n",ntohs(udph->len),ip_payloadlen);

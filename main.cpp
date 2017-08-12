@@ -1155,7 +1155,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 		{
 			conn_info.state.client_current_state=client_idle;
 			conn_info.my_id=get_true_random_number_nz();
-			mylog(log_info,"state back to client_idle from  client_ready bc of recv-direction timeout\n");
+			mylog(log_info,"state back to client_idle from  client_ready bc of server-->client direction timeout\n");
 			return 0;
 		}
 
@@ -1168,7 +1168,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 		{
 			conn_info.state.client_current_state=client_idle;
 			conn_info.my_id=get_true_random_number_nz();
-			mylog(log_info,"state back to client_idle from  client_ready bc of send-direction timeout\n");
+			mylog(log_info,"state back to client_idle from  client_ready bc of client-->server direction timeout\n");
 		}
 
 		mylog(log_debug,"heartbeat sent <%x,%x>\n",conn_info.oppsite_id,conn_info.my_id);
