@@ -2034,7 +2034,7 @@ int client_event_loop()
 
 				int recv_len;
 				struct sockaddr_in udp_new_addr_in;
-				if ((recv_len = recvfrom(udp_fd, buf, buf_len, 0,
+				if ((recv_len = recvfrom(udp_fd, buf, max_data_len, 0,
 						(struct sockaddr *) &udp_new_addr_in, &slen)) == -1) {
 					mylog(log_error,"recv_from error,this shouldnt happen at client\n");
 					myexit(1);
@@ -2307,7 +2307,7 @@ int server_event_loop()
 
 				u32_t conv_id=conn_info.blob->conv_manager.find_conv_by_u64(fd);
 
-				int recv_len=recv(fd,buf,buf_len,0);
+				int recv_len=recv(fd,buf,max_data_len,0);
 
 				mylog(log_trace,"received a packet from udp_fd,len:%d\n",recv_len);
 

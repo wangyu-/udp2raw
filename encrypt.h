@@ -29,10 +29,6 @@ enum cipher_mode_t {cipher_none=0,cipher_aes128cbc,cipher_xor,cipher_end};
 extern auth_mode_t auth_mode;
 extern cipher_mode_t cipher_mode;
 
-struct a
-{
-	char * buf[buf_len];
-};
 extern unordered_map<int, const char *> auth_mode_tostring;
 extern unordered_map<int, const char *> cipher_mode_tostring;
 

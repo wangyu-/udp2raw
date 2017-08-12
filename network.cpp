@@ -391,7 +391,7 @@ int peek_raw(packet_info_t &peek_info)
 	char *ip_begin=peek_raw_buf+link_level_header_len;
 	struct sockaddr saddr;
 	socklen_t saddr_size;
-	int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,buf_len, MSG_PEEK ,&saddr , &saddr_size);//change buf_len to something smaller,we only need header here
+	int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,max_data_len, MSG_PEEK ,&saddr , &saddr_size);//change max_data_len to something smaller,we only need header here
 	iphdr * iph = (struct iphdr *) (ip_begin);
 	//mylog(log_info,"recv_len %d\n",recv_len);
 	if(recv_len<int(sizeof(iphdr)))
@@ -450,7 +450,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	saddr_size = sizeof(saddr);
 	int flag=0;
 
-	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, buf_len, flag ,&saddr , &saddr_size);
+	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len, flag ,&saddr , &saddr_size);
 
 	if(recv_len<0)
 	{
@@ -1183,7 +1183,7 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 
 	mylog(log_trace,"raw!\n");
 
-	size = recvfrom(raw_recv_fd, buf, buf_len, 0 ,&saddr , &saddr_size);
+	size = recvfrom(raw_recv_fd, buf, max_data_len, 0 ,&saddr , &saddr_size);
 
 	if(buf[12]!=8||buf[13]!=0)
 	{

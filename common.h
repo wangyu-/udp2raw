@@ -59,7 +59,7 @@ typedef int i32_t;
 
 
 const int max_data_len=1600;
-const int buf_len=max_data_len+200;
+const int buf_len=max_data_len+400;
 const u32_t max_handshake_conn_num=10000;
 const u32_t max_ready_conn_num=1000;
 const u32_t anti_replay_window_size=1000;
