@@ -157,17 +157,17 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 [编译教程](build_guide.zh-cn.md)
 # 相关repo
 ### kcptun-raw
-this project was inspired by kcptun-raw,which modified kcptun to support tcp mode.
+udp2raw was inspired by kcptun-raw,which modified kcptun to support tcp mode.
 
 https://github.com/Chion82/kcptun-raw
+### relayRawSocket
+kcptun-raw was inspired by relayRawSocket. A simple  udp to raw tunnel,wrote in python
+
+https://github.com/linhua55/some_kcptun_tools/tree/master/relayRawSocket
 ### kcpraw
 another project of kcptun with tcp mode
 
 https://github.com/ccsexyz/kcpraw
-### relayRawSocket
-a simple  udp to raw tunnel without simluated 3-way handshake ,wrote in python
-
-https://github.com/linhua55/some_kcptun_tools/tree/master/relayRawSocket
 ### icmptunnel
 Transparently tunnel your IP traffic through ICMP echo and reply packets.
 
