@@ -160,6 +160,13 @@ finalspeed is a tcp connection speed-up program similiar to kcptun,it speeds-up 
 # How to build
 read [build_guide](/doc/build_guide.md)
 
+# Other
+### Easier installation on ArchLinux
+```
+yaourt -S udp2raw-tunnel # or
+pacaur -S udp2raw-tunnel
+```
+
 # Related work
 ### kcptun-raw
 udp2raw was inspired by kcptun-raw,which modified kcptun to support tcp mode.
