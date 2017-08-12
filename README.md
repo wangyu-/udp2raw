@@ -5,8 +5,8 @@ An Encrpyted,Anti-Replay,Multiplexed UDP Tunnel which can help you Bypass UDP Bl
 
 [简体中文](/doc/README.zh-cn.md)
 # Features 
-### Send / Receive UDP Packet with fake headers
-Fake headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. Raw packets with UDP headers are also supported, in this mode you can just use the encrpyting,anti-replay and connection-stablize feature.
+### Send / Receive UDP Packet with fake-tcp/icmp headers
+Fake-tcp/icmp headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. Raw packets with UDP headers are also supported.In UDP header mode,it behaves just like a normal UDP tunnel,and you can just make use of the other features.
 
 ### Simulate TCP Handshake
 Simulates the 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated. Real-time delivery guaranteed, no TCP over TCP problem when using OpenVPN.
@@ -18,7 +18,7 @@ Simulates the 3-way handshake, along with seq and ack_seq. TCP options MSS, sack
 * Authenticate mutually, no more MITM attacks.
 
 ### Failure Dectection & Stablization (Connection Recovery)
-Conection failures are detected by heartbeats. If timed-out, the client will automatically change the port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild. 
+Conection failures are detected by heartbeats. If timed-out,client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild. 
 
 For example, if you use UDP2RAW + OpenVPN, OpenVPN won't lose connection after any reconnect, **even if the network cable is re-plugged or the WiFi access point is changed**.
 
@@ -27,7 +27,7 @@ For example, if you use UDP2RAW + OpenVPN, OpenVPN won't lose connection after a
 
 * **Multiple Clients** One server can have multiple clients.
 
-* **NAT Support** All of the 3 modes work in NAT-ed environments.
+* **NAT Support** All of the 3 modes work in NAT environments.
 
 * **OpenVZ Support** Tested on BandwagonHost.
 
