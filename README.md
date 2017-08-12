@@ -104,13 +104,13 @@ other options:
 ```
 
 ### IPTABLES rule
-This program sends packets via raw socket. In FakeTCP mode, Linux kernel TCP packet processing has to be blocked by a iptables rule on both sides, otherwise the kernel will automatically send RST for an unrecongized TCP packet and you will sustain from stability / peformance problems. You can use `-a` option to let the program automatically add / delete iptables rule on start / exit. You can also use the -g option to generate iptables rule and add it manually.
+This program sends packets via raw socket. In FakeTCP mode, Linux kernel TCP packet processing has to be blocked by a iptables rule on both sides, otherwise the kernel will automatically send RST for an unrecongized TCP packet and you will sustain from stability / peformance problems. You can use `-a` option to let the program automatically add / delete iptables rule on start / exit. You can also use the `-g` option to generate iptables rule and add it manually.
 
 ### `cipher-mode` and `auth-mode` 
-It is suggested to use AES-128-CBC + MD5 to obtain maximum security. If you want to run the program on a router, you can try XOR + simple, which can fool packet inspection by firewalls the most  of time, but it cannot protect you from serious attacks. Mode none is only for debugging purpose. It is not recommended to set the cipher-mode or auth-mode to none.
+It is suggested to use `aes128cbc` + `md5` to obtain maximum security. If you want to run the program on a router, you can try `xor` + `simple`, which can fool packet inspection by firewalls the most of time, but it cannot protect you from serious attacks. Mode none is only for debugging purpose. It is not recommended to set the cipher-mode or auth-mode to none.
 
 ### seq-mode
-The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience any problems, try to change the value. 
+The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value. 
 
 # Peformance Test
 #### Test method:
@@ -131,14 +131,14 @@ raw_mode: faketcp  cipher_mode: xor  auth_mode: simple
 
 ![image4](images/image4.PNG)
 
-(reverse speed is simliar and not uploaded)
+(reverse speed was simliar and not uploaded)
 
 ### Test2
 raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 
 ![image5](images/image5.PNG)
 
-(reverse speed is simliar and not uploaded)
+(reverse speed was simliar and not uploaded)
 
 # Application
 ### tunneling any traffic via raw traffic by using udp2raw +openvpn
