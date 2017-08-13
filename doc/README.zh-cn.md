@@ -26,7 +26,7 @@ Client能用单倍的超时时间检测到单向链路的失效，不管是上�
 对于有大量client的情况，对于不同client,server发送的心跳是错开时间发送的，不会因为短时间发送大量的心跳而造成拥塞和延迟抖动。
 
 ### 加密 防重放攻击 防中间人攻击
-用aes128cbc加密，md5/crc32做数据完整校验。用类似ipsec/openvpn的 replay windows机制来防止重放攻击。
+用aes128cbc加密，md5/crc32做数据完整校验。用类似ipsec/openvpn的 replay window机制来防止重放攻击。
 
 设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。client和server互相认证对方，无法被中间人攻击。
 
