@@ -24,6 +24,8 @@ int lower_level=0;
 int ifindex=-1;
 char if_name[100]="";
 
+unsigned short g_ip_id_counter=0;
+
 unsigned char oppsite_hw_addr[6]=
     {0xff,0xff,0xff,0xff,0xff,0xff};
 //{0x00,0x23,0x45,0x67,0x89,0xb9};
@@ -162,6 +164,7 @@ packet_info_t::packet_info_t()
 int init_raw_socket()
 {
 
+	g_ip_id_counter=get_true_random_number()%65535;
 	if(lower_level==0)
 	{
 		raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);
@@ -306,7 +309,6 @@ int init_ifindex(char * if_name)
 	return 0;
 }
 
-
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
 	const packet_info_t &send_info=raw_info.send_info;
@@ -316,19 +318,18 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 	struct iphdr *iph = (struct iphdr *) send_raw_ip_buf;
     memset(iph,0,sizeof(iphdr));
 
-    static unsigned short ip_id=1;
-
     iph->ihl = sizeof(iphdr)/4;  //we dont use ip options,so the length is just sizeof(iphdr)
     iph->version = 4;
     iph->tos = 0;
 
     if(lower_level)
     {
-    	iph->id=0;
-    	//iph->id = htons (ip_id++); //Id of this packet
+    	//iph->id=0;
+    	iph->id = htons (g_ip_id_counter++); //Id of this packet
     }
     else
-    	iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero  ,or really?????// todo //seems like there is a problem
+    	iph->id = htons (g_ip_id_counter++); //Id of this packet
+    	//iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero  ,or really?????// todo //seems like there is a problem
 
     iph->frag_off = htons(0x4000); //DF set,others are zero
    // iph->frag_off = htons(0x0000); //DF set,others are zero
@@ -390,12 +391,14 @@ int peek_raw(packet_info_t &peek_info)
 {	static char peek_raw_buf[buf_len];
 	char *ip_begin=peek_raw_buf+link_level_header_len;
 	struct sockaddr saddr;
-	socklen_t saddr_size;
+	socklen_t saddr_size=sizeof(saddr);
 	int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,max_data_len, MSG_PEEK ,&saddr , &saddr_size);//change max_data_len to something smaller,we only need header here
 	iphdr * iph = (struct iphdr *) (ip_begin);
 	//mylog(log_info,"recv_len %d\n",recv_len);
 	if(recv_len<int(sizeof(iphdr)))
 	{
+		mylog(log_trace,"failed here %d \n",recv_len,int(sizeof(iphdr)));
+		mylog(log_trace,"%s\n ",strerror(errno));
 		return -1;
 	}
 	peek_info.src_ip=iph->saddr;
@@ -407,10 +410,17 @@ int peek_raw(packet_info_t &peek_info)
     {
     	case mode_faketcp:
     	{
-    		if(iph->protocol!=IPPROTO_TCP) return -1;
+    		if(iph->protocol!=IPPROTO_TCP)
+    		{
+    			mylog(log_trace,"failed here");
+    			return -1;
+    		}
     		struct tcphdr *tcph=(tcphdr *)payload;
     		if(recv_len<int( iphdrlen+sizeof(tcphdr) ))
+    		{
+    			mylog(log_trace,"failed here");
     			return -1;
+    		}
     		peek_info.src_port=ntohs(tcph->source);
     		peek_info.syn=tcph->syn;
 			break;
@@ -446,10 +456,8 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 	iphdr *  iph;
 	struct sockaddr saddr;
-	socklen_t saddr_size;
-	saddr_size = sizeof(saddr);
+	socklen_t saddr_size = sizeof(saddr);
 	int flag=0;
-
 	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len, flag ,&saddr , &saddr_size);
 
 	if(recv_len<0)
@@ -481,6 +489,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 	if(bind_address_uint32!=0 &&recv_info.dst_ip!=bind_address_uint32)
 	{
+		mylog(log_trace,"bind adress doenst match, dropped\n");
 		//printf(" bind adress doenst match, dropped\n");
 		return -1;
 	}

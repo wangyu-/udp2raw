@@ -20,6 +20,10 @@ ar71xx:
 	${cc_ar71xx}  -o udp2raw_ar71xx   -I. ${SOURCES} ${FLAGS} -lrt -lgcc_eh -static -O3
 bcm2708:
 	${cc_bcm2708} -o udp2raw_bcm2708  -I. ${SOURCES} ${FLAGS} -lrt -static -O3
+amd64:
+	${cc_local}   -o udp2raw_amd64    -I. ${SOURCES} ${FLAGS} -lrt -static -O3
+x86:
+	${cc_local}   -o udp2raw_x86      -I. ${SOURCES} ${FLAGS} -lrt -m32 -static -O3
 
 cross:
 	${cc_cross}   -o udp2raw_cross    -I. ${SOURCES} ${FLAGS} -lrt -static -lgcc_eh -O3   
@@ -27,9 +31,7 @@ cross:
 cross2:
 	${cc_cross}   -o udp2raw_cross    -I. ${SOURCES} ${FLAGS} -lrt -O3
 
-release: ar71xx bcm2708
-	${cc_local}   -o udp2raw_amd64    -I. ${SOURCES} ${FLAGS} -lrt -static -O3
-	${cc_local}   -o udp2raw_x86      -I. ${SOURCES} ${FLAGS} -lrt -m32 -static -O3
+release: amd64 x86 ar71xx bcm2708
 	tar -zcvf ${TAR}
 
 clean:	

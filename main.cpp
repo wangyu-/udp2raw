@@ -1417,10 +1417,13 @@ int server_on_raw_recv_multi()
 	{
 		recv(raw_recv_fd, 0,0, 0  );//
 		//struct sockaddr saddr;
-		//socklen_t saddr_size;
+		//socklen_t saddr_size=sizeof(saddr);
 		///recvfrom(raw_recv_fd, 0,0, 0 ,&saddr , &saddr_size);//
 		mylog(log_trace,"peek_raw failed\n");
 		return -1;
+	}else
+	{
+		mylog(log_trace,"peek_raw success\n");
 	}
 	u32_t ip=peek_info.src_ip;uint16_t port=peek_info.src_port;
 
@@ -1544,9 +1547,11 @@ int server_on_raw_recv_multi()
 	if(conn_info.state.server_current_state==server_ready)
 	{
 		char type;
+		//mylog(log_info,"before recv_safer\n");
 		if (recv_safer(conn_info,type, data, data_len) != 0) {
 			return -1;
 		}
+		//mylog(log_info,"after recv_safer\n");
 		return server_on_raw_recv_ready(conn_info,ip_port,type,data,data_len);
 	}
 	return 0;
@@ -2034,8 +2039,9 @@ int client_event_loop()
 
 				int recv_len;
 				struct sockaddr_in udp_new_addr_in;
+				socklen_t udp_new_addr_len = sizeof(sockaddr_in);
 				if ((recv_len = recvfrom(udp_fd, buf, max_data_len, 0,
-						(struct sockaddr *) &udp_new_addr_in, &slen)) == -1) {
+						(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
 					mylog(log_error,"recv_from error,this shouldnt happen at client\n");
 					myexit(1);
 				};
@@ -2313,7 +2319,8 @@ int server_event_loop()
 
 				if(recv_len<0)
 				{
-					mylog(log_debug,"udp fd,recv_len<0 continue\n");
+					mylog(log_debug,"udp fd,recv_len<0 continue,%s\n",strerror(errno));
+
 					continue;
 				}
 
