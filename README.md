@@ -185,3 +185,12 @@ https://github.com/ccsexyz/kcpraw
 Transparently tunnel your IP traffic through ICMP echo and reply packets.
 
 https://github.com/DhavalKapil/icmptunnel
+
+### Tcp Minion
+Tcp Minion is a project which modifid the code of tcp stack in kernel,and implemented real-time out-order udp packet delivery through this modified tcp stack.I cant find the implementation,but there are some papers avaliable:
+
+https://arxiv.org/abs/1103.0463
+
+http://korz.cs.yale.edu/2009/tng/papers/pfldnet10.pdf
+
+https://pdfs.semanticscholar.org/9e6f/e2306f4385b4eb5416d1fcab16e9361d6ba3.pdf
