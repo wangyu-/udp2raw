@@ -1,7 +1,7 @@
 # Udp2raw-tunnel
 ![image0](images/image0.PNG)
 
-A UDP Tunnel which tunnels UDP via Fake-TCP or ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
+A UDP Tunnel which tunnels UDP via Fake-TCP/UDP/ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
 
 [简体中文](/doc/README.zh-cn.md)
 # Features 
