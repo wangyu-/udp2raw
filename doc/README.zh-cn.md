@@ -1,6 +1,6 @@
 Udp2raw-tunnel 
 ![image2](/images/image2.PNG)
-加密、防重放攻击的、信道复用的udp tunnel，利用raw socket中转udp流量，可以给udp流量加上tcp或icmp包头，以骗过udp防火墙。同时有心跳保活，且在断线重连后保持上层连接不掉线的功能。
+通过raw socket给UDP包加上TCP或ICMP header。支持心跳保活、自动重连，重连后会恢复上次连接，在底层掉线的情况下可以保持上层不掉线。同时有加密、防重放攻击的、信道复用的功能。
 
 [English](/README.md)
 
