@@ -53,8 +53,8 @@ epoll纯异步，高并发，除了回收过期连接外，所有操作的时间
 ### 环境要求
 Linux主机，有root权限。可以是PC、openwrt、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
 
-在windows和mac上预装了udp2raw的虚拟机镜像已发布，可以用vmware或virtualbox加载，容量4.4mb，已经配置好了自动获取网卡ip，开机即用，稳定，性能很好。
-（udp2raw跑在虚拟机里，其他应用照常跑在windows上）。
+在windows和mac上预装了udp2raw的虚拟机镜像已发布，可以用Vmware或VirtualBox加载，容量4.4mb，已经配置好了自动获取网卡ip，开机即用，稳定，性能很好。
+（udp2raw跑在虚拟机里，其他应用照常跑在windows上）（确保虚拟机网卡工作在桥接模式）（Vmware player 75mb,VirtualBox 118mb,很容易安装）。
 
 ### 安装
 下载编译好的二进制文件，解压到任意目录。
