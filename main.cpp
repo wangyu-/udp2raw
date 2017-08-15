@@ -860,8 +860,8 @@ int try_to_list_and_bind(int port)
     	 close(old_bind_fd);
      }
 
-	 struct sockaddr_in temp_bind_addr;
-     bzero(&temp_bind_addr, sizeof(temp_bind_addr));
+	 struct sockaddr_in temp_bind_addr={0};
+     //bzero(&temp_bind_addr, sizeof(temp_bind_addr));
 
      temp_bind_addr.sin_family = AF_INET;
      temp_bind_addr.sin_port = htons(port);
@@ -1375,7 +1375,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 			u64_t u64=conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
 
 
-			sockaddr_in tmp_sockaddr;
+			sockaddr_in tmp_sockaddr={0};
 
 			tmp_sockaddr.sin_family = AF_INET;
 			tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
@@ -1668,10 +1668,10 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 						tmp_conv_id);
 				return 0;
 			}
-			struct sockaddr_in remote_addr_in;
+			struct sockaddr_in remote_addr_in={0};
 
 			socklen_t slen = sizeof(sockaddr_in);
-			memset(&remote_addr_in, 0, sizeof(remote_addr_in));
+			//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
 			remote_addr_in.sin_family = AF_INET;
 			remote_addr_in.sin_port = htons(remote_port);
 			remote_addr_in.sin_addr.s_addr = remote_address_uint32;
@@ -1862,10 +1862,10 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 
 int get_src_adress(u32_t &ip)
 {
-	struct sockaddr_in remote_addr_in;
+	struct sockaddr_in remote_addr_in={0};
 
 	socklen_t slen = sizeof(sockaddr_in);
-	memset(&remote_addr_in, 0, sizeof(remote_addr_in));
+	//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
 	remote_addr_in.sin_family = AF_INET;
 	remote_addr_in.sin_port = htons(remote_port);
 	remote_addr_in.sin_addr.s_addr = remote_address_uint32;
@@ -1888,7 +1888,7 @@ int get_src_adress(u32_t &ip)
 		return -1;
 	}
 
-	struct sockaddr_in my_addr;
+	struct sockaddr_in my_addr={0};
 	unsigned int len=sizeof(my_addr);
 
     if(getsockname(new_udp_fd, (struct sockaddr *) &my_addr, &len)!=0) return -1;
@@ -1950,10 +1950,10 @@ int client_event_loop()
 	int yes = 1;
 	//setsockopt(udp_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
-	struct sockaddr_in local_me;
+	struct sockaddr_in local_me={0};
 
 	socklen_t slen = sizeof(sockaddr_in);
-	memset(&local_me, 0, sizeof(local_me));
+	//memset(&local_me, 0, sizeof(local_me));
 	local_me.sin_family = AF_INET;
 	local_me.sin_port = htons(local_port);
 	local_me.sin_addr.s_addr = local_address_uint32;
@@ -2038,7 +2038,7 @@ int client_event_loop()
 			{
 
 				int recv_len;
-				struct sockaddr_in udp_new_addr_in;
+				struct sockaddr_in udp_new_addr_in={0};
 				socklen_t udp_new_addr_len = sizeof(sockaddr_in);
 				if ((recv_len = recvfrom(udp_fd, buf, max_data_len, 0,
 						(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
@@ -2137,8 +2137,8 @@ int server_event_loop()
 		 bind_fd=socket(AF_INET,SOCK_DGRAM,0);
 	 }
 
-	 struct sockaddr_in temp_bind_addr;
-     bzero(&temp_bind_addr, sizeof(temp_bind_addr));
+	 struct sockaddr_in temp_bind_addr={0};
+    // bzero(&temp_bind_addr, sizeof(temp_bind_addr));
 
      temp_bind_addr.sin_family = AF_INET;
      temp_bind_addr.sin_port = htons(local_port);

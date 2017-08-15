@@ -354,7 +354,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     int ret;
     if(lower_level==0)
     {
-		struct sockaddr_in sin;
+		struct sockaddr_in sin={0};
 		sin.sin_family = AF_INET;
 		//sin.sin_port = htons(info.dst_port); //dont need this
 		sin.sin_addr.s_addr = send_info.dst_ip;
@@ -364,8 +364,8 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     else
     {
 
-    	struct sockaddr_ll addr;
-    	memset(&addr,0,sizeof(addr));
+    	struct sockaddr_ll addr={0};
+    	//memset(&addr,0,sizeof(addr));
 
     	addr.sll_family=AF_PACKET;
     	addr.sll_ifindex=ifindex;
@@ -390,7 +390,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 int peek_raw(packet_info_t &peek_info)
 {	static char peek_raw_buf[buf_len];
 	char *ip_begin=peek_raw_buf+link_level_header_len;
-	struct sockaddr saddr;
+	struct sockaddr saddr={0};
 	socklen_t saddr_size=sizeof(saddr);
 	int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,max_data_len, MSG_PEEK ,&saddr , &saddr_size);//change max_data_len to something smaller,we only need header here
 	iphdr * iph = (struct iphdr *) (ip_begin);
@@ -455,7 +455,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	static char recv_raw_ip_buf[buf_len];
 
 	iphdr *  iph;
-	struct sockaddr saddr;
+	struct sockaddr saddr={0};
 	socklen_t saddr_size = sizeof(saddr);
 	int flag=0;
 	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len, flag ,&saddr , &saddr_size);
