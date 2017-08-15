@@ -397,7 +397,7 @@ int peek_raw(packet_info_t &peek_info)
 	//mylog(log_info,"recv_len %d\n",recv_len);
 	if(recv_len<int(sizeof(iphdr)))
 	{
-		mylog(log_trace,"failed here %d \n",recv_len,int(sizeof(iphdr)));
+		mylog(log_trace,"failed here %d %d\n",recv_len,int(sizeof(iphdr)));
 		mylog(log_trace,"%s\n ",strerror(errno));
 		return -1;
 	}
