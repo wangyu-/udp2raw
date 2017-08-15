@@ -47,7 +47,7 @@ For example, if you use UDP2RAW + OpenVPN, OpenVPN won't lose connection after a
 ### Prerequisites
 A Linux host (including desktop Linux, OpenWRT router, or Raspberry PI) with root access.
 
-For Winodws/MacOS,virtual image with udp2raw pre-installed has been released,you can load it with Vmware/VirtualBox.The image has been set to auto obtain ip,udp2raw can be run imidiately after boot finished(make sure network mode of virtual machine has been set to bridged).
+For Winodws/MacOS,virtual image with udp2raw pre-installed has been released,you can load it with Vmware/VirtualBox.The virtual image has been set to auto obtain ip,udp2raw can be run imidiately after boot finished(make sure network mode of virtual machine has been set to bridged).
 
 ### Installing
 Download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
