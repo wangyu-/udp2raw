@@ -1,7 +1,7 @@
 # Udp2raw-tunnel
 ![image0](images/image0.PNG)
 
-An Encrpyted,Anti-Replay,Multiplexed UDP Tunnel which can help you Bypass UDP Block or QoS by tunneling UDP traffic through Fake-TCP or ICMP by using raw socket.It aslo acts as a Connection Stablizer.
+A UDP Tunnel which tunnels UDP via FakeTCP/UDP/ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
 
 [简体中文](/doc/README.zh-cn.md)
 # Features 
@@ -11,11 +11,11 @@ Fake-tcp/icmp headers help you bypass UDP blocking, UDP QOS or improper UDP NAT 
 ### Simulate TCP Handshake
 Simulates the 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated. Real-time delivery guaranteed, no TCP over TCP problem when using OpenVPN.
 
-### Encrpytion, Anti-Replay, Anti-MITM
+### Encrpytion, Anti-Replay, No MITM
 * Encrypt your traffic with AES-128-CBC.
 * Protect data integrity by MD5 or CRC32.
 * Defense replay attack with an anti-replay window, smiliar to IPSec and OpenVPN. 
-* Authenticate mutually, no more MITM attacks.
+* Authenticate mutually, no MITM attacks.
 
 ### Failure Dectection & Stablization (Connection Recovery)
 Conection failures are detected by heartbeats. If timed-out,client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild. 
@@ -185,3 +185,12 @@ https://github.com/ccsexyz/kcpraw
 Transparently tunnel your IP traffic through ICMP echo and reply packets.
 
 https://github.com/DhavalKapil/icmptunnel
+
+### Tcp Minion
+Tcp Minion is a project which modifid the code of tcp stack in kernel,and implemented real-time out-order udp packet delivery through this modified tcp stack.I failed to find the implementation,but there are some papers avaliable:
+
+https://arxiv.org/abs/1103.0463
+
+http://korz.cs.yale.edu/2009/tng/papers/pfldnet10.pdf
+
+https://pdfs.semanticscholar.org/9e6f/e2306f4385b4eb5416d1fcab16e9361d6ba3.pdf

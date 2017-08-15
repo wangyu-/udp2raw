@@ -1,6 +1,8 @@
 Udp2raw-tunnel 
 ![image2](/images/image2.PNG)
-加密、防重放攻击的、信道复用的udp tunnel，利用raw socket中转udp流量.同时有心跳保活，且在断线重连后保持上层连接不掉线的功能。
+UDP tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过UDP屏蔽或QoS，或在UDP不稳定的环境下提升稳定性。支持心跳保活、自动重连，重连后会恢复上次连接，在底层掉线的情况下可以保持上层不掉线。同时有加密、防重放攻击、信道复用的功能。
+
+**欢迎任何形式的转载**
 
 [English](/README.md)
 
@@ -49,7 +51,7 @@ epoll纯异步，高并发，除了回收过期连接外，所有操作的时间
 # 简明操作说明
 
 ### 环境要求
-Linux主机，有root权限。主机上最好安装了iptables命令(apt/yum很容易安装)。在windows和mac上可以开虚拟机（桥接模式和<del>NAT模式</del>经测试都可用）。
+Linux主机，有root权限。主机上最好安装了iptables命令(apt/yum很容易安装)。在windows和mac上可以开虚拟机（udp2raw跑在linux里，其他应用照常跑在windows上，桥接模式测试可用）。
 
 ### 安装
 下载编译好的二进制文件，解压到任意目录。
