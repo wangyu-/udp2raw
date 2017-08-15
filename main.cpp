@@ -2395,6 +2395,8 @@ void print_help()
 	printf("                                          1:increase every packet\n");
 	printf("                                          2:increase randomly, about every 3 packets (default)\n");
 //	printf("\n");
+	printf("    --lower-level         <string>        send packet at OSI level 2, format:'if_name#gateway_mac_adress'\n");
+	printf("                                          ie:'eth0#00:23:45:67:89:b9'.Beta.\n");
 	printf("    -h,--help                             print this help message\n");
 
 	//printf("common options,these options must be same on both side\n");
