@@ -2,6 +2,10 @@
 ![image0](images/image0.PNG)
 
 A UDP Tunnel which tunnels UDP via FakeTCP/UDP/ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
+### Support Platforms
+A Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
+
+For Winodws/MacOS,virtual image with udp2raw pre-installed has been released,you can load it with Vmware/VirtualBox.The virtual image has been set to auto obtain ip,udp2raw can be run imidiately after boot finished(make sure network mode of virtual machine has been set to bridged)(only udp2raw has to be run under virtual machine,all other programs runs under Windows/MacOS as usual).
 
 [简体中文](/doc/README.zh-cn.md)
 # Features 
@@ -44,11 +48,6 @@ For example, if you use UDP2RAW + OpenVPN, OpenVPN won't lose connection after a
 * UDP over TCP
 
 # Getting Started
-### Prerequisites
-A Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
-
-For Winodws/MacOS,virtual image with udp2raw pre-installed has been released,you can load it with Vmware/VirtualBox.The virtual image has been set to auto obtain ip,udp2raw can be run imidiately after boot finished(make sure network mode of virtual machine has been set to bridged)(only udp2raw has to be run under virtual machine,all other programs runs under Windows/MacOS as usual).
-
 ### Installing
 Download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
 
