@@ -70,9 +70,9 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 ./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp
 ```
 ###### Server端输出:
-![](images/output_server.PNG)
+![](/images/output_server.PNG)
 ###### Client端输出:
-![](images/output_client.PNG)
+![](/images/output_client.PNG)
 
 现在client和server之间建立起了，tunnel。想要在本地连接44.55.66.77:7777，只需要连接 127.0.0.1:3333。来回的所有的udp流量会被经过tunneling发送。在外界看起来是tcp流量，不会有udp流量暴露到公网。
 
