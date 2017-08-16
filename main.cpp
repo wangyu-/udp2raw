@@ -1889,7 +1889,7 @@ int get_src_adress(u32_t &ip)
 	}
 
 	struct sockaddr_in my_addr={0};
-	unsigned int len=sizeof(my_addr);
+	socklen_t len=sizeof(my_addr);
 
     if(getsockname(new_udp_fd, (struct sockaddr *) &my_addr, &len)!=0) return -1;
 
@@ -2545,7 +2545,9 @@ void process_arg(int argc, char *argv[])
 			mylog(log_debug,"option_index: %d\n",option_index);
 			if(strcmp(long_options[option_index].name,"clear")==0)
 			{
-				int ret =system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
+				//int ret =system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
+				int ret =system("iptables -S|sed -n '/udp2raw_dWRwMnJhdw/p'|sed -n 's/^-A/iptables -D/p'|sh");
+
 				//system("iptables-save |grep udp2raw_dWRwMnJhdw|sed 's/^-A/iptables -D/'|sh");
 				//system("iptables-save|grep -v udp2raw_dWRwMnJhdw|iptables-restore");
 				mylog(log_info,"tried to clear all iptables rule created previously,return value %d\n",ret);

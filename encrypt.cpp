@@ -216,7 +216,7 @@ int auth_crc32_verify(const char *data,int &len)
 {
 	if(len<int(sizeof(unsigned int)))
 	{
-		mylog(log_debug,"auth_crc32_verify len<16\n");
+		mylog(log_debug,"auth_crc32_verify len<%d\n",int(sizeof(unsigned int)));
 		return -1;
 	}
 	unsigned int  ret=crc32h((unsigned char *)data,len-sizeof(unsigned int));

@@ -62,6 +62,7 @@ int add_iptables_rule(char * s)
 	else
 	{
 		mylog(log_fatal,"auto added iptables failed by: %s\n",buf);
+		mylog(log_fatal,"reason : %s\n",strerror(errno));
 		myexit(-1);
 	}
 	return 0;
@@ -80,6 +81,7 @@ int clear_iptables_rule()
 		else
 		{
 			mylog(log_error,"clear iptables failed by: %s\n",buf);
+			mylog(log_error,"reason : %s\n",strerror(errno));
 		}
 
 	}
@@ -135,7 +137,7 @@ u64_t ntoh64(u64_t a)
 {
 	if(__BYTE_ORDER == __LITTLE_ENDIAN)
 	{
-		return __bswap_64( a);
+		return bswap_64( a);
 	}
 	else return a;
 
@@ -144,7 +146,7 @@ u64_t hton64(u64_t a)
 {
 	if(__BYTE_ORDER == __LITTLE_ENDIAN)
 	{
-		return __bswap_64( a);
+		return bswap_64( a);
 	}
 	else return a;
 
