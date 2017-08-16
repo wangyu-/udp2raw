@@ -23,6 +23,6 @@ iptables -I INPUT -s 44.55.66.77/32 -p tcp -m tcp --sport 9966 -j DROP
 ./udp2raw_arm -c -r 44.55.66.77:9966 0l 0.0.0.0:4000 -k1234 --cipher xor -a
 ```
 
-# Demostration (zoom in if its not large enough)
+# Demostration (zoom-in if not clear enough)
 
 ![](/images/android.png)
