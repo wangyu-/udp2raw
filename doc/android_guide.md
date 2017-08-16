@@ -1,12 +1,12 @@
-# how to run udp2raw on a rooted android device(arm cpu)
+# How to run udp2raw on a rooted android device(arm cpu)
 
 There is currently no GUI for udp2raw on android.Make sure you have installed Terminal to run it.
 
 Download udp2raw_arm from https://github.com/wangyu-/udp2raw-tunnel/releases.
 
-Copy udp2raw_arm to any dir of your **internal_storage** .Copying it to SD card wont work.
+Copy udp2raw_arm to any dir of your **internal storage** .Copying it to **SD card wont work**.
 
-# step
+# Steps
 1.  run udp2raw_arm  as usual, except you must change the -a option to -g
 ```
 ./udp2raw_arm -c -r 44.55.66.77:9966 0l 0.0.0.0:4000 -k1234 --cipher xor -g
@@ -23,6 +23,6 @@ iptables -I INPUT -s 44.55.66.77/32 -p tcp -m tcp --sport 9966 -j DROP
 ./udp2raw_arm -c -r 44.55.66.77:9966 0l 0.0.0.0:4000 -k1234 --cipher xor -a
 ```
 
-# demostration
+# Demostration (zoom in if its not large enough)
 
 ![](/images/android.png)
