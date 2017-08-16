@@ -1,8 +1,6 @@
 Udp2raw-tunnel 
 ![image2](/images/image2.PNG)
-udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过UDP屏蔽或QoS，或在UDP不稳定的环境下提升稳定性。支持心跳保活、自动重连，重连后会恢复上次连接，在底层掉线的情况下可以保持上层不掉线。同时有加密、防重放攻击、信道复用的功能。
-
-**欢迎任何形式的转载**
+udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过UDP屏蔽或QoS，或在UDP不稳定的环境下提升稳定性。支持心跳保活、自动重连，重连后会恢复上次连接，在底层掉线的情况下可以保持上层不掉线。同时有加密、防重放攻击、信道复用的功能。**欢迎任何形式的转载**
 
 [English](/README.md)
 
@@ -13,6 +11,12 @@ udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过
 如果你需要加速跨国网游、网页浏览，解决方案在另一个repo：
 
 https://github.com/wangyu-/UDPspeeder
+# 支持的平台
+Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
+
+在windows和mac上预装了udp2raw的虚拟机镜像已发布，可以用Vmware或VirtualBox加载，容量4.4mb，已经配置好了自动获取网卡ip，开机即用，稳定，性能很好。
+（udp2raw跑在虚拟机里，其他应用照常跑在windows上）（确保虚拟机网卡工作在桥接模式）（Vmware player 75mb,VirtualBox 118mb,很容易安装）。
+
 # 功能特性
 ### 把udp流量伪装成tcp /icmp
 用raw socket给udp包加上tcp/icmp包头，可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
@@ -50,9 +54,6 @@ epoll纯异步，高并发，除了回收过期连接外，所有操作的时间
 
 # 简明操作说明
 
-### 环境要求
-Linux主机，有root权限。主机上最好安装了iptables命令(apt/yum很容易安装)。在windows和mac上可以开虚拟机（udp2raw跑在linux里，其他应用照常跑在windows上，桥接模式测试可用）。
-
 ### 安装
 下载编译好的二进制文件，解压到任意目录。
 
@@ -71,6 +72,9 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 ```
 
 现在client和server之间建立起了，tunnel。想要在本地连接44.55.66.77:7777，只需要连接 127.0.0.1:3333。来回的所有的udp流量会被经过tunneling发送。在外界看起来是tcp流量，不会有udp流量暴露到公网。
+
+### 提醒
+如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
 # 进阶操作说明
 

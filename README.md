@@ -4,6 +4,12 @@
 A UDP Tunnel which tunnels UDP via FakeTCP/UDP/ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
 
 [简体中文](/doc/README.zh-cn.md)
+# Support Platforms
+A Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
+
+For Winodws/MacOS,virtual image with udp2raw pre-installed has been released,you can load it with Vmware/VirtualBox.The virtual image has been set to auto obtain ip,udp2raw can be run imidiately after boot finished(make sure network mode of virtual machine has been set to bridged)(only udp2raw has to be run under virtual machine,all other programs runs under Windows/MacOS as usual).
+
+
 # Features 
 ### Send / Receive UDP Packet with fake-tcp/icmp headers
 Fake-tcp/icmp headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. Raw packets with UDP headers are also supported.In UDP header mode,it behaves just like a normal UDP tunnel,and you can just make use of the other features.
@@ -44,11 +50,6 @@ For example, if you use UDP2RAW + OpenVPN, OpenVPN won't lose connection after a
 * UDP over TCP
 
 # Getting Started
-### Prerequisites
-A Linux host (including desktop Linux, OpenWRT router, or Raspberry PI) with root access.
-
-If you want to use it on MICRO$OFT Windows, you can use VMware or Hyper-V (both bridged mode and <del>NAT mode</del> are supported).
-
 ### Installing
 Download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
 
@@ -64,6 +65,8 @@ Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your
 ```
 
 Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
+### Note
+to run on Android, see [Android_Guide](/doc/android_guide.md)
 
 # Advanced Topic
 ### Usage
