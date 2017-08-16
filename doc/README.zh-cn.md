@@ -11,7 +11,7 @@ udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过
 如果你需要加速跨国网游、网页浏览，解决方案在另一个repo：
 
 https://github.com/wangyu-/UDPspeeder
-### 支持的平台
+# 支持的平台
 Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
 
 在windows和mac上预装了udp2raw的虚拟机镜像已发布，可以用Vmware或VirtualBox加载，容量4.4mb，已经配置好了自动获取网卡ip，开机即用，稳定，性能很好。
