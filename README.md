@@ -40,14 +40,7 @@ For example, if you use UDP2RAW + OpenVPN, OpenVPN won't lose connection after a
 * **OpenWRT Support** No dependencies, easy to build. Binary for ar71xx are included in release.
 
 ### Keywords
-* UDP QoS Bypass
-* UDP Blocking Bypass
-* OpenVPN TCP over TCP problem
-* OpenVPN over ICMP
-* UDP to ICMP tunnel
-* UDP to TCP tunnel
-* UDP over ICMP
-* UDP over TCP
+`UDP QoS Bypass` `UDP Blocking Bypass` `OpenVPN TCP over TCP problem` `OpenVPN over ICMP` `UDP to ICMP tunnel` `UDP to TCP tunnel` `UDP over ICMP` `UDP over TCP`
 
 # Getting Started
 ### Installing
