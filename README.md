@@ -57,14 +57,19 @@ Download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
 Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your server ip is 44.55.66.77, you have a service listening on udp port 7777.
 
 ```bash
-# Run at client side
-./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp
-
 # Run at server side:
 ./udp2raw_amd64 -s -l0.0.0.0:4096 -r 127.0.0.1:7777  -a -k "passwd" --raw-mode faketcp
+
+# Run at client side
+./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp
 ```
+###### Server Output:
+![](images/output_server.PNG)
+###### Client Output:
+![](images/output_client.PNG)
 
 Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
+
 ### Note
 to run on Android, see [Android_Guide](/doc/android_guide.md)
 
