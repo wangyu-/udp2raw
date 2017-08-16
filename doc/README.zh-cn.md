@@ -13,6 +13,12 @@ udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过
 如果你需要加速跨国网游、网页浏览，解决方案在另一个repo：
 
 https://github.com/wangyu-/UDPspeeder
+### 支持的平台
+Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
+
+在windows和mac上预装了udp2raw的虚拟机镜像已发布，可以用Vmware或VirtualBox加载，容量4.4mb，已经配置好了自动获取网卡ip，开机即用，稳定，性能很好。
+（udp2raw跑在虚拟机里，其他应用照常跑在windows上）（确保虚拟机网卡工作在桥接模式）（Vmware player 75mb,VirtualBox 118mb,很容易安装）。
+
 # 功能特性
 ### 把udp流量伪装成tcp /icmp
 用raw socket给udp包加上tcp/icmp包头，可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
@@ -49,12 +55,6 @@ epoll纯异步，高并发，除了回收过期连接外，所有操作的时间
 突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
 
 # 简明操作说明
-
-### 环境要求
-Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
-
-在windows和mac上预装了udp2raw的虚拟机镜像已发布，可以用Vmware或VirtualBox加载，容量4.4mb，已经配置好了自动获取网卡ip，开机即用，稳定，性能很好。
-（udp2raw跑在虚拟机里，其他应用照常跑在windows上）（确保虚拟机网卡工作在桥接模式）（Vmware player 75mb,VirtualBox 118mb,很容易安装）。
 
 ### 安装
 下载编译好的二进制文件，解压到任意目录。
