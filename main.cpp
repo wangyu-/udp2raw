@@ -2472,6 +2472,12 @@ void process_arg(int argc, char *argv[])
 			myexit(0);
 		}
 	}
+	if (argc == 1)
+	{
+		print_help();
+		myexit(-1);
+	}
+
 	for (i = 0; i < argc; i++)
 	{
 		if(strcmp(argv[i],"--log-level")==0)
@@ -2502,11 +2508,7 @@ void process_arg(int argc, char *argv[])
 	}
 	log_bare(log_info, "\n");
 
-	if (argc == 1)
-	{
-		print_help();
-		myexit(-1);
-	}
+
 
 	int no_l = 1, no_r = 1;
 	while ((opt = getopt_long(argc, argv, "l:r:schk:ag",long_options,&option_index)) != -1) {
