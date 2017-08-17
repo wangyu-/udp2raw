@@ -359,7 +359,7 @@ int read_file(const char * file,char * &output)
 	else if(len<0)
 	{
 		buf[0]=0;
-        mylog(log_error,"read fail %d\n");
+        mylog(log_error,"read fail %d\n",len);
         return -3;
 	}
 	else

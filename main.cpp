@@ -993,7 +993,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 		{
 			if(new_ip!=source_ip_uint32)
 			{
-				mylog(log_info,"source ip changed from %s to",my_ntoa(source_ip_uint32));
+				mylog(log_info,"source ip changed from %s to ",my_ntoa(source_ip_uint32));
 				log_bare(log_info,"%s\n",my_ntoa(new_ip));
 				source_ip_uint32=new_ip;
 				send_info.src_ip=new_ip;
