@@ -234,6 +234,8 @@ struct conv_manager_t  //TODO change map to unordered map
 		int size=conv_last_active_time.size();
 		int num_to_clean=size/conv_clear_ratio+conv_clear_min;   //clear 1/10 each time,to avoid latency glitch
 
+		num_to_clean=min(num_to_clean,size);
+
 		u64_t current_time=get_current_time();
 		for(;;)
 		{
@@ -959,8 +961,7 @@ int set_timer_server(int epollfd,int &timer_fd)
 	}
 	return 0;
 }
-
-
+int get_src_adress(u32_t &ip);
 int client_on_timer(conn_info_t &conn_info) //for client
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
@@ -984,6 +985,16 @@ int client_on_timer(conn_info_t &conn_info) //for client
 
 		conn_info.blob->anti_replay.re_init();
 		conn_info.my_id = get_true_random_number_nz(); ///todo no need to do this everytime
+
+		u32_t new_ip=0;
+		if(get_src_adress(new_ip)==0)
+		{
+			if(new_ip!=source_address_uint32)
+			{
+				source_address_uint32=new_ip;
+				send_info.src_ip=new_ip;
+			}
+		}
 
 		if (source_port == 0)
 		{
@@ -1899,6 +1910,7 @@ int get_src_adress(u32_t &ip)
 
     return 0;
 }
+
 int client_event_loop()
 {
 	char buf[buf_len];
@@ -2354,7 +2366,26 @@ int server_event_loop()
 	}
 	return 0;
 }
+void process_lower_level()
+{
+	if (strchr(optarg, '#') == 0) {
+		mylog(log_fatal,
+				"lower-level parameter invaild,should be if_name#mac_adress  ,ie eth0#00:23:45:67:89:b9\n");
+		myexit(-1);
+	}
+	lower_level = 1;
+	u32_t hw[6];
+	memset(hw, 0, sizeof(hw));
+	sscanf(optarg, "%[^#]#%x:%x:%x:%x:%x:%x", if_name, &hw[0], &hw[1], &hw[2],
+			&hw[3], &hw[4], &hw[5]);
 
+	mylog(log_warn,
+			"make sure this is correct:   ifname=<%s>  gateway_hw_hd=<%x:%x:%x:%x:%x:%x>  \n",
+			if_name, hw[0], hw[1], hw[2], hw[3], hw[4], hw[5]);
+	for (int i = 0; i < 6; i++) {
+		oppsite_hw_addr[i] = uint8_t(hw[i]);
+	}
+}
 void print_help()
 {
 	printf("udp2raw-tunnel\n");
@@ -2368,8 +2399,8 @@ void print_help()
 	printf("common options,these options must be same on both side:\n");
 	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp\n");
 	printf("    -k,--key              <string>        password to gen symetric key,default:\"secret key\"\n");
-	printf("    --auth-mode           <string>        avaliable values:aes128cbc(default),xor,none\n");
-	printf("    --cipher-mode         <string>        avaliable values:md5(default),crc32,simple,none\n");
+	printf("    --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none\n");
+	printf("    --auth-mode           <string>        avaliable values:md5(default),crc32,simple,none\n");
 	printf("    -a,--auto-rule                        auto add (and delete) iptables rule\n");
 	printf("    -g,--gen-rule                         generate iptables rule then exit\n");
 	printf("    --disable-anti-replay                 disable anti-replay,not suggested\n");
@@ -2545,8 +2576,9 @@ void process_arg(int argc, char *argv[])
 			mylog(log_debug,"option_index: %d\n",option_index);
 			if(strcmp(long_options[option_index].name,"clear")==0)
 			{
+				char *output;
 				//int ret =system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
-				int ret =system("iptables -S|sed -n '/udp2raw_dWRwMnJhdw/p'|sed -n 's/^-A/iptables -D/p'|sh");
+				int ret =run_command("iptables -S|sed -n '/udp2raw_dWRwMnJhdw/p'|sed -n 's/^-A/iptables -D/p'|sh",output);
 
 				//system("iptables-save |grep udp2raw_dWRwMnJhdw|sed 's/^-A/iptables -D/'|sh");
 				//system("iptables-save|grep -v udp2raw_dWRwMnJhdw|iptables-restore");
@@ -2611,7 +2643,7 @@ void process_arg(int argc, char *argv[])
 				}
 				if(i==cipher_end)
 				{
-					mylog(log_fatal,"no such cipher_mode %s\n",optarg);
+
 					myexit(-1);
 				}
 			}
@@ -2620,21 +2652,7 @@ void process_arg(int argc, char *argv[])
 			}
 			else if(strcmp(long_options[option_index].name,"lower-level")==0)
 			{
-				if(strchr(optarg,'#')==0)
-				{
-					mylog(log_fatal,"lower-level parameter invaild,should be if_name#mac_adress  ,ie eth0#00:23:45:67:89:b9\n");
-					myexit(-1);
-				}
-				lower_level=1;
-				u32_t hw[6];
-				memset(hw,0,sizeof(hw));
-				sscanf(optarg,"%[^#]#%x:%x:%x:%x:%x:%x",if_name,&hw[0],&hw[1],&hw[2],&hw[3],&hw[4],&hw[5]);
-
-				mylog(log_warn,"make sure this is correct:   ifname=<%s>  gateway_hw_hd=<%x:%x:%x:%x:%x:%x>  \n",if_name,hw[0],hw[1],hw[2],hw[3],hw[4],hw[5]);
-				for(int i=0;i<6;i++)
-				{
-					oppsite_hw_addr[i]=uint8_t(hw[i]);
-				}
+				process_lower_level();
 			}
 			else if(strcmp(long_options[option_index].name,"disable-color")==0)
 			{
@@ -2813,6 +2831,8 @@ void iptables_rule()
 }
 int main(int argc, char *argv[])
 {
+	//auto a=string_to_vec("a b c d ");
+	//printf("%d\n",(int)a.size());
 	//printf("%d %d %d %d",larger_than_u32(1,2),larger_than_u32(2,1),larger_than_u32(0xeeaaeebb,2),larger_than_u32(2,0xeeaaeebb));
 	//assert(0==1);
 	dup2(1, 2);//redirect stderr to stdout
@@ -2823,6 +2843,11 @@ int main(int argc, char *argv[])
 	signal(SIGQUIT, signal_handler);
 
 	process_arg(argc,argv);
+
+	if(geteuid() != 0)
+	{
+		mylog(log_error,"root check failed,make sure you run this program with root,we can try to continue,but it will likely fail\n");
+	}
 
 	local_address_uint32=inet_addr(local_address);
 	remote_address_uint32=inet_addr(remote_address);

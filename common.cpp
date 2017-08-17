@@ -55,14 +55,15 @@ int add_iptables_rule(char * s)
 	strcpy(iptables_rule,s);
 	char buf[300]="iptables -I ";
 	strcat(buf,s);
-	if(system(buf)==0)
+	char *output;
+	if(run_command(buf,output)==0)
 	{
 		mylog(log_warn,"auto added iptables rule by:  %s\n",buf);
 	}
 	else
 	{
 		mylog(log_fatal,"auto added iptables failed by: %s\n",buf);
-		mylog(log_fatal,"reason : %s\n",strerror(errno));
+		//mylog(log_fatal,"reason : %s\n",strerror(errno));
 		myexit(-1);
 	}
 	return 0;
@@ -74,14 +75,15 @@ int clear_iptables_rule()
 	{
 		char buf[300]="iptables -D ";
 		strcat(buf,iptables_rule);
-		if(system(buf)==0)
+		char *output;
+		if(run_command(buf,output)==0)
 		{
 			mylog(log_warn,"iptables rule cleared by: %s \n",buf);
 		}
 		else
 		{
 			mylog(log_error,"clear iptables failed by: %s\n",buf);
-			mylog(log_error,"reason : %s\n",strerror(errno));
+			//mylog(log_error,"reason : %s\n",strerror(errno));
 		}
 
 	}
@@ -312,3 +314,101 @@ bool larger_than_u16(uint16_t a,uint16_t b)
 		}
 	}
 }
+vector<string> string_to_vec(const char * s,const char * sp) {
+	  vector<string> res;
+	  string str=s;
+	  char *p = strtok ((char *)str.c_str(),sp);
+	  while (p != NULL)
+	  {
+		 res.push_back(p);
+	    //printf ("%s\n",p);
+	    p = strtok (NULL, sp);
+	  }
+	  return res;
+}
+
+vector< vector <string> > string_to_vec2(const char * s)
+{
+	vector< vector <string> > res;
+	vector<string> lines=string_to_vec(s,"\n");
+	for(int i=0;i<int(lines.size());i++)
+	{
+		vector<string> tmp;
+		tmp=string_to_vec(lines[i].c_str(),"\t ");
+		res.push_back(tmp);
+	}
+	return res;
+}
+int read_file(const char * file,char * &output)
+{
+    static char buf[1024*1024+100];
+    buf[sizeof(buf)-1]=0;
+	int fd=open(file,O_RDONLY);
+	if(fd==-1)
+	{
+		 mylog(log_error,"read_file %s fail\n",file);
+		 return -1;
+	}
+	int len=read(fd,buf,1024*1024);
+	if(len==1024*1024)
+	{
+		buf[0]=0;
+        mylog(log_error,"too long,buf not larger enough\n");
+        return -2;
+	}
+	else if(len<0)
+	{
+		buf[0]=0;
+        mylog(log_error,"read fail %d\n");
+        return -3;
+	}
+	else
+	{
+		output=buf;
+		buf[len]=0;
+	}
+	return 0;
+}
+int run_command(const char * command,char * &output) {
+    FILE *in;
+    mylog(log_debug,"run_command %s\n",command);
+    static char buf[1024*1024+100];
+    buf[sizeof(buf)-1]=0;
+    if(!(in = popen(command, "r"))){
+        mylog(log_error,"command %s popen failed,errno %s\n",command,strerror(errno));
+        return -1;
+    }
+
+    int len =fread(buf, 1024*1024, 1, in);
+    if(len==1024*1024)
+    {
+    	buf[0]=0;
+        mylog(log_error,"too long,buf not larger enough\n");
+        return -2;
+    }
+    else
+    {
+       	buf[len]=0;
+    }
+    int ret;
+    if(( ret=ferror(in) ))
+    {
+        mylog(log_error,"command %s fread failed,ferror return value %d \n",command,ret);
+        return -2;
+    }
+    //if(output!=0)
+    output=buf;
+    ret= pclose(in);
+
+    int ret2=WEXITSTATUS(ret);
+
+    if(ret!=0||ret2!=0)
+    {
+    	mylog(log_error,"commnad %s ,pclose returned %d ,WEXITSTATUS %d,errnor :%s \n",command,ret,ret2,strerror(errno));
+    	return -3;
+    }
+
+    return 0;
+
+}
+

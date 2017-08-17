@@ -47,6 +47,8 @@
 
 
 #include<unordered_map>
+#include<vector>
+#include<string>
 using  namespace std;
 
 
@@ -142,5 +144,11 @@ void myexit(int a);
 int add_iptables_rule(char *);
 
 int clear_iptables_rule();
+
+int run_command(const char * command,char * &output);
+int read_file(const char * file,char * &output);
+
+vector<string> string_to_vec(const char * s,const char * sp);
+vector< vector <string> > string_to_vec2(const char * s);
 
 #endif /* COMMON_H_ */
