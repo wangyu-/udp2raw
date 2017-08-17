@@ -22,7 +22,7 @@ udp2raw也支持把udp流量包装成Icmp发送，本教程不做演示。
 ### 安装
 下载好udp2raw的压缩包，解压分别解压到服务器和本地的虚拟机。
 
-https://github.com/xtaci/kcptun/releases
+https://github.com/wangyu-/udp2raw-tunnel/releases
 
 在服务器端安装好finalspeed服务端，在本地windows安装好finalspeed的客户端。服务端我以前是用91yun的一键安装脚本安装的，没装过的可以去网上搜一键安装脚本。
 
