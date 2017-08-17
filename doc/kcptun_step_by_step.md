@@ -4,7 +4,9 @@
 本教程会一步一步演示用udp2raw+kcptun加速SSH流量的过程。加速任何其他tcp流量也一样，包括ss；本文避免涉及科学上网，所以演示ssh。
 
 ### 环境要求
-两边的主机都是linux，有root权限。 可以是openwrt路由器或树莓派，windows上桥接模式的虚拟机也可用
+两边的主机都是linux，有root权限。 可以是openwrt路由器或树莓派，也可以是root了的android。
+
+(windows和mac可以用release里发布的预装了udp2raw的openwrt_x86虚拟机镜像，容量4.4mb,开机即用)
 
 
 ### 安装

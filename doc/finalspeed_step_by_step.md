@@ -8,7 +8,7 @@
 ##### 摘要
 udp2raw是一个把udp流量通过raw socket包装成tcp流量的工具。通过用udp2raw配合udp模式的 finalspeed一样可以达到在底层发tcp包，绕过QOS的效果。支持openvz,稳定性也好很多。原理上相当于在finalspeed外面再包了一层tunnel。
 
-本教程会一步一步演示用udp2raw+kcptun加速http流量的过程。加速任何其他tcp流量也一样。
+本教程会一步一步演示用udp2raw+finalspeed加速http流量的过程。加速任何其他tcp流量也一样，包括ss。本文避免讨论科学上网，所以只演示加速http流量。
 
 udp2raw也支持把udp流量包装成Icmp发送，本教程不做演示。
 
@@ -17,12 +17,14 @@ udp2raw也支持把udp流量包装成Icmp发送，本教程不做演示。
 
 本地主机是windows,本地有openwrt路由器或树莓派或安装了linux虚拟机（网卡设置为桥接模式）。
 
-(如果嫌给虚拟机安装linux麻烦，可以下载别人提供好的linux虚拟机镜像，比如https://www.kali.org/downloads/ ，不过我没有测试过这个镜像,我用的是debian 7)
+(如果嫌给虚拟机安装linux麻烦，可以用release里发布的预装了udp2raw的openwrt_x86虚拟机镜像，容量4.4mb)
+
+下面的教程按虚拟机演示，如果你有openwrt路由器或树莓派，可以直接运行再路由器或树莓派上，就不需要虚拟机了。
 
 ### 安装
 下载好udp2raw的压缩包，解压分别解压到服务器和本地的虚拟机。
 
-https://github.com/xtaci/kcptun/releases
+https://github.com/wangyu-/udp2raw-tunnel/releases
 
 在服务器端安装好finalspeed服务端，在本地windows安装好finalspeed的客户端。服务端我以前是用91yun的一键安装脚本安装的，没装过的可以去网上搜一键安装脚本。
 
@@ -52,7 +54,7 @@ netstat -nlp|grep java
 
 记下红框中的ip,这是虚拟机的网卡ip
 
-在server端也会显示server_reay
+在server端也会显示server_ready
 ![image](finalspeed_step_by_step/Capture4.PNG)
 
 4.在本地windows,按图配置好finalspeed的客户端。注意，192.168.205.8改成你刚才记下来的IP，带宽也要按实际的填。传输协议要选UDP.
