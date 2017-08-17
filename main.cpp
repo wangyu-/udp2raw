@@ -3,8 +3,10 @@
 #include "log.h"
 #include "lib/md5.h"
 
-char local_address[100]="0.0.0.0", remote_address[100]="255.255.255.255",source_address[100]="0.0.0.0";
-u32_t local_address_uint32,remote_address_uint32,source_address_uint32;
+char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";
+u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;
+
+int force_source_ip=0;
 int source_port=0,local_port = -1, remote_port = -1;
 
 id_t const_id=0;
@@ -867,7 +869,7 @@ int try_to_list_and_bind(int port)
 
      temp_bind_addr.sin_family = AF_INET;
      temp_bind_addr.sin_port = htons(port);
-     temp_bind_addr.sin_addr.s_addr = local_address_uint32;
+     temp_bind_addr.sin_addr.s_addr = local_ip_uint32;
 
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
@@ -987,11 +989,13 @@ int client_on_timer(conn_info_t &conn_info) //for client
 		conn_info.my_id = get_true_random_number_nz(); ///todo no need to do this everytime
 
 		u32_t new_ip=0;
-		if(get_src_adress(new_ip)==0)
+		if(!force_source_ip&&get_src_adress(new_ip)==0)
 		{
-			if(new_ip!=source_address_uint32)
+			if(new_ip!=source_ip_uint32)
 			{
-				source_address_uint32=new_ip;
+				mylog(log_info,"source ip changed from %s to",my_ntoa(source_ip_uint32));
+				log_bare(log_info,"%s\n",my_ntoa(new_ip));
+				source_ip_uint32=new_ip;
 				send_info.src_ip=new_ip;
 			}
 		}
@@ -1685,7 +1689,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 			//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
 			remote_addr_in.sin_family = AF_INET;
 			remote_addr_in.sin_port = htons(remote_port);
-			remote_addr_in.sin_addr.s_addr = remote_address_uint32;
+			remote_addr_in.sin_addr.s_addr = remote_ip_uint32;
 
 			int new_udp_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 			if (new_udp_fd < 0) {
@@ -1879,7 +1883,7 @@ int get_src_adress(u32_t &ip)
 	//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
 	remote_addr_in.sin_family = AF_INET;
 	remote_addr_in.sin_port = htons(remote_port);
-	remote_addr_in.sin_addr.s_addr = remote_address_uint32;
+	remote_addr_in.sin_addr.s_addr = remote_ip_uint32;
 
 
 	int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -1888,7 +1892,7 @@ int get_src_adress(u32_t &ip)
 		mylog(log_warn,"create udp_fd error\n");
 		return -1;
 	}
-	set_buf_size(new_udp_fd);
+	//set_buf_size(new_udp_fd);
 
 	mylog(log_debug,"created new udp_fd %d\n",new_udp_fd);
 	int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in, slen);
@@ -1923,17 +1927,17 @@ int client_event_loop()
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
 	//printf("?????\n");
-	if(source_address_uint32==0)
+	if(source_ip_uint32==0)
 	{
 		mylog(log_info,"get_src_adress called\n");
-		if(get_src_adress(source_address_uint32)!=0)
+		if(get_src_adress(source_ip_uint32)!=0)
 		{
 			mylog(log_fatal,"the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
 			myexit(-1);
 		}
 	}
 	in_addr tmp;
-	tmp.s_addr=source_address_uint32;
+	tmp.s_addr=source_ip_uint32;
 	mylog(log_info,"source ip = %s\n",inet_ntoa(tmp));
 	//printf("done\n");
 
@@ -1944,13 +1948,13 @@ int client_event_loop()
 		myexit(-1);
 	}
 	send_info.src_port=source_port;
-	send_info.src_ip = source_address_uint32;
+	send_info.src_ip = source_ip_uint32;
 
 	int i, j, k;int ret;
 	init_raw_socket();
 
 	//init_filter(source_port);
-	send_info.dst_ip=remote_address_uint32;
+	send_info.dst_ip=remote_ip_uint32;
 	send_info.dst_port=remote_port;
 
 	//g_packet_info.src_ip=source_address_uint32;
@@ -1968,7 +1972,7 @@ int client_event_loop()
 	//memset(&local_me, 0, sizeof(local_me));
 	local_me.sin_family = AF_INET;
 	local_me.sin_port = htons(local_port);
-	local_me.sin_addr.s_addr = local_address_uint32;
+	local_me.sin_addr.s_addr = local_ip_uint32;
 
 
 	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
@@ -2137,7 +2141,7 @@ int server_event_loop()
 
 	int i, j, k;int ret;
 
-	bind_address_uint32=local_address_uint32;//only server has bind adress,client sets it to zero
+	bind_address_uint32=local_ip_uint32;//only server has bind adress,client sets it to zero
 
 
 	 if(raw_mode==mode_faketcp)
@@ -2154,7 +2158,7 @@ int server_event_loop()
 
      temp_bind_addr.sin_family = AF_INET;
      temp_bind_addr.sin_port = htons(local_port);
-     temp_bind_addr.sin_addr.s_addr = local_address_uint32;
+     temp_bind_addr.sin_addr.s_addr = local_ip_uint32;
 
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
@@ -2370,7 +2374,7 @@ void process_lower_level()
 {
 	if (strchr(optarg, '#') == 0) {
 		mylog(log_fatal,
-				"lower-level parameter invaild,should be if_name#mac_adress  ,ie eth0#00:23:45:67:89:b9\n");
+				"lower-level parameter invaild,check help page for format\n");
 		myexit(-1);
 	}
 	lower_level = 1;
@@ -2380,10 +2384,10 @@ void process_lower_level()
 			&hw[3], &hw[4], &hw[5]);
 
 	mylog(log_warn,
-			"make sure this is correct:   ifname=<%s>  gateway_hw_hd=<%x:%x:%x:%x:%x:%x>  \n",
+			"make sure this is correct:   if_name=<%s>  dest_mac_adress=<%02x:%02x:%02x:%02x:%02x:%02x>  \n",
 			if_name, hw[0], hw[1], hw[2], hw[3], hw[4], hw[5]);
 	for (int i = 0; i < 6; i++) {
-		oppsite_hw_addr[i] = uint8_t(hw[i]);
+		dest_hw_addr[i] = uint8_t(hw[i]);
 	}
 }
 void print_help()
@@ -2426,7 +2430,7 @@ void print_help()
 	printf("                                          1:increase every packet\n");
 	printf("                                          2:increase randomly, about every 3 packets (default)\n");
 //	printf("\n");
-	printf("    --lower-level         <string>        send packet at OSI level 2, format:'if_name#gateway_mac_adress'\n");
+	printf("    --lower-level         <string>        send packet at OSI level 2, format:'if_name#dest_mac_adress'\n");
 	printf("                                          ie:'eth0#00:23:45:67:89:b9'.Beta.\n");
 	printf("    -h,--help                             print this help message\n");
 
@@ -2512,7 +2516,7 @@ void process_arg(int argc, char *argv[])
 		case 'l':
 			no_l = 0;
 			if (strchr(optarg, ':') != 0) {
-				sscanf(optarg, "%[^:]:%d", local_address, &local_port);
+				sscanf(optarg, "%[^:]:%d", local_ip, &local_port);
 				if(local_port==22)
 				{
 					mylog(log_fatal,"port 22 not allowed\n");
@@ -2527,7 +2531,7 @@ void process_arg(int argc, char *argv[])
 		case 'r':
 			no_r = 0;
 			if (strchr(optarg, ':') != 0) {
-				sscanf(optarg, "%[^:]:%d", remote_address, &remote_port);
+				sscanf(optarg, "%[^:]:%d", remote_ip, &remote_port);
 				if(remote_port==22)
 				{
 					mylog(log_fatal,"port 22 not allowed\n");
@@ -2588,8 +2592,9 @@ void process_arg(int argc, char *argv[])
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
 			{
 				mylog(log_debug,"parsing long option :source-ip\n");
-				sscanf(optarg, "%s", source_address);
-				mylog(log_debug,"source: %s\n",source_address);
+				sscanf(optarg, "%s", source_ip);
+				mylog(log_debug,"source: %s\n",source_ip);
+				force_source_ip=1;
 			}
 			else if(strcmp(long_options[option_index].name,"source-port")==0)
 			{
@@ -2738,11 +2743,11 @@ void process_arg(int argc, char *argv[])
 
 	 log_bare(log_info,"key=%s ",key_string);
 
-	 log_bare(log_info,"local_ip=%s ",local_address);
+	 log_bare(log_info,"local_ip=%s ",local_ip);
 	 log_bare(log_info,"local_port=%d ",local_port);
-	 log_bare(log_info,"remote_ip=%s ",remote_address);
+	 log_bare(log_info,"remote_ip=%s ",remote_ip);
 	 log_bare(log_info,"remote_port=%d ",remote_port);
-	 log_bare(log_info,"source_ip=%s ",source_address);
+	 log_bare(log_info,"source_ip=%s ",source_ip);
 	 log_bare(log_info,"source_port=%d ",source_port);
 
 	 log_bare(log_info,"socket_buf_size=%d ",socket_buf_size);
@@ -2756,17 +2761,17 @@ void iptables_rule()
 	{
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(rule,"INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP",remote_address,remote_port);
+			sprintf(rule,"INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP",remote_ip,remote_port);
 			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP\n",remote_address,remote_port);
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(rule,"INPUT -s %s/32 -p udp -m udp --sport %d -j DROP",remote_address,remote_port);
+			sprintf(rule,"INPUT -s %s/32 -p udp -m udp --sport %d -j DROP",remote_ip,remote_port);
 			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p udp -m udp --sport %d -j DROP\n",remote_address,remote_port);
 		}
 		if(raw_mode==mode_icmp)
 		{
-			sprintf(rule,"INPUT -s %s/32 -p icmp -j DROP",remote_address);
+			sprintf(rule,"INPUT -s %s/32 -p icmp -j DROP",remote_ip);
 			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p icmp -j DROP\n",remote_address);
 		}
 	}
@@ -2785,14 +2790,14 @@ void iptables_rule()
 		}
 		if(raw_mode==mode_icmp)
 		{
-			if(local_address_uint32==0)
+			if(local_ip_uint32==0)
 			{
 				sprintf(rule,"INPUT -p icmp -j DROP");
 				//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p icmp -j DROP\n");
 			}
 			else
 			{
-				sprintf(rule,"INPUT -d %s/32 -p icmp -j DROP",local_address);
+				sprintf(rule,"INPUT -d %s/32 -p icmp -j DROP",local_ip);
 				//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -d %s/32 -p icmp -j DROP\n",local_address);
 			}
 		}
@@ -2849,9 +2854,9 @@ int main(int argc, char *argv[])
 		mylog(log_error,"root check failed,make sure you run this program with root,we can try to continue,but it will likely fail\n");
 	}
 
-	local_address_uint32=inet_addr(local_address);
-	remote_address_uint32=inet_addr(remote_address);
-	source_address_uint32=inet_addr(source_address);
+	local_ip_uint32=inet_addr(local_ip);
+	remote_ip_uint32=inet_addr(remote_ip);
+	source_ip_uint32=inet_addr(source_ip);
 
 
 	//current_time_rough=get_current_time();

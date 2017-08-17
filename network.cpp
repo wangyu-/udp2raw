@@ -26,7 +26,7 @@ char if_name[100]="";
 
 unsigned short g_ip_id_counter=0;
 
-unsigned char oppsite_hw_addr[6]=
+unsigned char dest_hw_addr[6]=
     {0xff,0xff,0xff,0xff,0xff,0xff};
 //{0x00,0x23,0x45,0x67,0x89,0xb9};
 
@@ -371,7 +371,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     	addr.sll_ifindex=ifindex;
     	addr.sll_halen=ETHER_ADDR_LEN;
     	addr.sll_protocol=htons(ETH_P_IP);
-    	memcpy(addr.sll_addr,oppsite_hw_addr,ETHER_ADDR_LEN);
+    	memcpy(addr.sll_addr,dest_hw_addr,ETHER_ADDR_LEN);
     	ret = sendto(raw_send_fd, send_raw_ip_buf, ip_tot_len ,  0, (struct sockaddr *) &addr, sizeof (addr));
     }
     if(ret==-1)

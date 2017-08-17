@@ -17,7 +17,7 @@ extern int disable_bpf_filter;
 
 extern int lower_level;
 extern char if_name[100];
-extern unsigned char oppsite_hw_addr[];
+extern unsigned char dest_hw_addr[];
 
 struct icmphdr
 {
