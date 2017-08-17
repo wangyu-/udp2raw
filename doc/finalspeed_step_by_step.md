@@ -52,7 +52,7 @@ netstat -nlp|grep java
 
 记下红框中的ip,这是虚拟机的网卡ip
 
-在server端也会显示server_reay
+在server端也会显示server_ready
 ![image](finalspeed_step_by_step/Capture4.PNG)
 
 4.在本地windows,按图配置好finalspeed的客户端。注意，192.168.205.8改成你刚才记下来的IP，带宽也要按实际的填。传输协议要选UDP.
