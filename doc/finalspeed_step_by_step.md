@@ -17,7 +17,7 @@ udp2raw也支持把udp流量包装成Icmp发送，本教程不做演示。
 
 本地主机是windows,本地有openwrt路由器或树莓派或安装了linux虚拟机（网卡设置为桥接模式）。
 
-(如果嫌给虚拟机安装linux麻烦，可以下载别人提供好的linux虚拟机镜像，比如https://www.kali.org/downloads/ ，不过我没有测试过这个镜像,我用的是debian 7)
+(如果嫌给虚拟机安装linux麻烦，可以用release里发布的预装了udp2raw的openwrt_x86虚拟机镜像，容量4.4mb)
 
 ### 安装
 下载好udp2raw的压缩包，解压分别解压到服务器和本地的虚拟机。
