@@ -88,7 +88,7 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 ### 命令选项
 ```
 udp2raw-tunnel
-version: Aug  5 2017 21:03:54
+version: Aug 18 2017 00:29:11
 repository: https://github.com/wangyu-/udp2raw-tunnel
 
 usage:
@@ -98,8 +98,8 @@ usage:
 common options,these options must be same on both side:
     --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp
     -k,--key              <string>        password to gen symetric key,default:"secret key"
-    --auth-mode           <string>        avaliable values:aes128cbc(default),xor,none
-    --cipher-mode         <string>        avaliable values:md5(default),crc32,simple,none
+    --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none
+    --auth-mode           <string>        avaliable values:md5(default),crc32,simple,none
     -a,--auto-rule                        auto add (and delete) iptables rule
     -g,--gen-rule                         generate iptables rule then exit
     --disable-anti-replay                 disable anti-replay,not suggested
@@ -119,6 +119,8 @@ other options:
                                           0:dont increase
                                           1:increase every packet
                                           2:increase randomly, about every 3 packets (default)
+    --lower-level         <string>        send packet at OSI level 2, format:'if_name#dest_mac_adress'
+                                          ie:'eth0#00:23:45:67:89:b9'.Beta.
     -h,--help                             print this help message
 ```
 ### iptables 规则
