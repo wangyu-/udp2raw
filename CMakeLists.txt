@@ -2,11 +2,10 @@ cmake_minimum_required(VERSION 3.7)
 project(udp2raw_tunnel)
 
 set(CMAKE_CXX_STANDARD 11)
-FILE(GLOB AES_FILES lib/aes*.c)
-set_source_files_properties(${AES_FILES} lib/md5.c PROPERTIES LANGUAGE CXX )
+set_source_files_properties(lib/aes.c lib/md5.c PROPERTIES LANGUAGE CXX )
 
 set(SOURCE_FILES
-        ${AES_FILES}
+        lib/aes.c
         lib/md5.c
         common.cpp
         encrypt.cpp
@@ -14,7 +13,7 @@ set(SOURCE_FILES
         main.cpp
         network.cpp
         )
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -static")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers  -static")
 #set(CMAKE_LINK_LIBRARY_FLAG "-lrt")
-add_executable(udp2raw_tunnel ${SOURCE_FILES})
-target_link_libraries(udp2raw_tunnel rt)
+add_executable(udp2raw_cmake ${SOURCE_FILES})
+target_link_libraries(udp2raw_cmake rt)
