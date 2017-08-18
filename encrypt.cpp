@@ -1,4 +1,4 @@
-#include "lib/aesacc.h"
+#include "lib/aes.h"
 #include "lib/md5.h"
 #include <string.h>
 #include <stdint.h>
@@ -209,7 +209,7 @@ int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 	buf[len-1]=(unsigned char)( ((uint16_t(ori_len))<<8)>>8) ;*/
 	if(padding(buf,len,16)<0) return -1;
 
-	AESACC_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	AES_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	return 0;
 }
 int auth_crc32_verify(const char *data,int &len)
@@ -240,7 +240,7 @@ int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 
 	if(len%16 !=0) {mylog(log_debug,"len%%16!=0\n");return -1;}
 	//if(len<0) {mylog(log_debug,"len <0\n");return -1;}
-	AESACC_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	if(de_padding(output,len,16)<0) return -1;
 	return 0;
 }
@@ -316,6 +316,7 @@ int my_encrypt(const char *data,char *output,int &len,char * key)
 	return 0;
 
 }
+
 int my_decrypt(const char *data,char *output,int &len,char * key)
 {
 	if(len<0) return -1;
@@ -326,7 +327,7 @@ int my_decrypt(const char *data,char *output,int &len,char * key)
 
 	return 0;
 }
-
+/*
 int my_encrypt_old(const char *data0,char *output,int &len,char * key)
 {
 	static const int disable_all=0;
@@ -418,7 +419,7 @@ int my_decrypt_old(const char *data0,char *output,int &len,char * key)
 	len=((unsigned char)output[len-16-2])*256u+((unsigned char)output[len-16-1]);  //this may be broken because of sign
 
 	return 0;
-}
+}*/
 
 int my_encrypt_pesudo_header(uint8_t *data,uint8_t *output,int &len,uint8_t * key,uint8_t *header,int hlen)
 {

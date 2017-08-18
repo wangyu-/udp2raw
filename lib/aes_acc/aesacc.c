@@ -2,7 +2,7 @@
  * This file is adapted from PolarSSL 1.3.19 (GPL)
  */
 
-#include "aes.h"
+#include "aes0.h"
 #include "aesni.h"
 #include "aesarm.h"
 #include "aesacc.h"
@@ -301,7 +301,7 @@ int AESACC_supported(void)
 #endif
 }
 
-void AESACC_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+void AES_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
 #if defined(HAVE_ACC)
   uint8_t iv_tmp[16];
@@ -321,10 +321,10 @@ void AESACC_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length,
   }
 #endif
 
-  AES_CBC_encrypt_buffer(output, input, length, key, iv);
+  AES_CBC_encrypt_buffer0(output, input, length, key, iv);
 }
 
-void AESACC_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
 #if defined(HAVE_ACC)
   uint8_t iv_tmp[16];
@@ -344,10 +344,10 @@ void AESACC_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length,
   }
 #endif
 
-  AES_CBC_decrypt_buffer(output, input, length, key, iv);
+  AES_CBC_decrypt_buffer0(output, input, length, key, iv);
 }
 
-void AESACC_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output, const uint32_t length)
+void AES_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output, const uint32_t length)
 {
 #if defined(HAVE_ACC)
   uint8_t rk[AES_RKSIZE];
@@ -364,10 +364,10 @@ void AESACC_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* outpu
   }
 #endif
 
-  AES_ECB_encrypt(input, key, output, length);
+  AES_ECB_encrypt0(input, key, output, length);
 }
 
-void AESACC_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, const uint32_t length)
+void AES_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, const uint32_t length)
 {
 #if defined(HAVE_ACC)
   uint8_t rk[AES_RKSIZE];
@@ -384,5 +384,5 @@ void AESACC_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *outpu
   }
 #endif
 
-  AES_ECB_decrypt(input, key, output, length);
+  AES_ECB_decrypt0(input, key, output, length);
 }

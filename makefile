@@ -4,7 +4,10 @@ cc_ar71xx=/home/wangyu/OpenWrt-SDK-ar71xx-for-linux-x86_64-gcc-4.8-linaro_uClibc
 cc_bcm2708=/home/wangyu/raspberry/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/arm-linux-gnueabihf-g++ 
 cc_arm=/home/wangyu/Desktop/arm-2014.05/bin/arm-none-linux-gnueabi-g++
 FLAGS= -std=c++11 -Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers
-SOURCES=main.cpp $(wildcard lib/aes*.c) lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp
+
+SOURCES=main.cpp lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp
+SOURCES_AES_ACC=main.cpp $(wildcard lib/aes_acc/aes*.c) lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp
+
 NAME=udp2raw
 TAR=${NAME}_binaries.tar.gz ${NAME}_amd64  ${NAME}_x86  ${NAME}_ar71xx ${NAME}_bcm2708 ${NAME}_arm
 
@@ -24,8 +27,12 @@ bcm2708:
 	${cc_bcm2708} -o ${NAME}_bcm2708  -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 amd64:
 	${cc_local}   -o ${NAME}_amd64    -I. ${SOURCES} ${FLAGS} -lrt -static -O3
+amd64_hw_aes:
+	${cc_local}   -o ${NAME}_amd64_hw_aes   -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3
 x86:
 	${cc_local}   -o ${NAME}_x86      -I. ${SOURCES} ${FLAGS} -lrt -static -O3 -m32
+x86_asm_aes:
+	${cc_local}   -o ${NAME}_x86_asm_aes    -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3 -m32 -DHAVE_ASM lib/asm/x86.S
 arm:
 	${cc_cross}   -o ${NAME}_arm      -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 
