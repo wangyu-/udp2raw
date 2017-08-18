@@ -9,7 +9,7 @@ SOURCES=main.cpp lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp
 SOURCES_AES_ACC=main.cpp $(wildcard lib/aes_acc/aes*.c) lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp
 
 NAME=udp2raw
-TAR=${NAME}_binaries.tar.gz ${NAME}_amd64  ${NAME}_x86  ${NAME}_ar71xx ${NAME}_bcm2708 ${NAME}_arm ${NAME}_amd64_hw_aes
+TAR=${NAME}_binaries.tar.gz ${NAME}_amd64  ${NAME}_x86  ${NAME}_ar71xx ${NAME}_bcm2708 ${NAME}_arm ${NAME}_amd64_hw_aes ${NAME}_arm_asm_aes
 
 all:
 	rm -f ${NAME}
@@ -48,7 +48,7 @@ cross2:
 cross3:
 	${cc_cross}   -o ${NAME}_cross    -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 
-release: amd64 x86 ar71xx bcm2708 arm amd64_hw_aes
+release: amd64 x86 ar71xx bcm2708 arm amd64_hw_aes arm_asm_aes
 	tar -zcvf ${TAR}
 
 clean:	
