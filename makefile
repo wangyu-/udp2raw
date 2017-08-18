@@ -36,6 +36,9 @@ x86_asm_aes:
 arm:
 	${cc_cross}   -o ${NAME}_arm      -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 
+arm_asm_aes:
+	${cc_cross}   -o ${NAME}_arm_asm_aes    -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3  -DHAVE_ASM lib/aes_acc/asm/arm.S
+
 cross:
 	${cc_cross}   -o ${NAME}_cross    -I. ${SOURCES} ${FLAGS} -lrt -O3
 
