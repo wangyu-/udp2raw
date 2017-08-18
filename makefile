@@ -6,7 +6,7 @@ cc_arm=/home/wangyu/Desktop/arm-2014.05/bin/arm-none-linux-gnueabi-g++
 FLAGS= -std=c++11 -Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers
 
 SOURCES=main.cpp lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp
-SOURCES_AES_ACC=main.cpp $(wildcard lib/aes_acc/aes*.c) lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp
+SOURCES_AES_ACC=$(filter-out lib/aes.c,$(SOURCES)) $(wildcard lib/aes_acc/aes*.c)
 
 NAME=udp2raw
 TAR=${NAME}_binaries.tar.gz ${NAME}_amd64  ${NAME}_x86  ${NAME}_x86_asm_aes ${NAME}_ar71xx ${NAME}_bcm2708 ${NAME}_arm ${NAME}_amd64_hw_aes ${NAME}_arm_asm_aes
@@ -32,16 +32,16 @@ bcm2708:
 amd64:
 	${cc_local}   -o ${NAME}_amd64    -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 amd64_hw_aes:
-	${cc_local}   -o ${NAME}_amd64_hw_aes   -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3
+	${cc_local}   -o ${NAME}_amd64_hw_aes   -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3 lib/aes_acc/asm/x64.S
 x86:
 	${cc_local}   -o ${NAME}_x86      -I. ${SOURCES} ${FLAGS} -lrt -static -O3 -m32
 x86_asm_aes:
-	${cc_local}   -o ${NAME}_x86_asm_aes    -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3 -m32 -DHAVE_ASM lib/aes_acc/asm/x86.S
+	${cc_local}   -o ${NAME}_x86_asm_aes    -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3 -m32 lib/aes_acc/asm/x86.S
 arm:
 	${cc_cross}   -o ${NAME}_arm      -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 
 arm_asm_aes:
-	${cc_cross}   -o ${NAME}_arm_asm_aes    -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3  -DHAVE_ASM lib/aes_acc/asm/arm.S
+	${cc_cross}   -o ${NAME}_arm_asm_aes    -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3 lib/aes_acc/asm/arm.S
 
 cross:
 	${cc_cross}   -o ${NAME}_cross    -I. ${SOURCES} ${FLAGS} -lrt -O3

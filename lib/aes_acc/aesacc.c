@@ -2,27 +2,25 @@
  * This file is adapted from PolarSSL 1.3.19 (GPL)
  */
 
-#include "aes0.h"
 #include "aesni.h"
 #include "aesarm.h"
-#include "aesacc.h"
-
+#include <stdint.h>
 #include <string.h>
 
 #if defined(AES256) && (AES256 == 1)
 #define AES_KEYSIZE 256
 #ifdef HAVE_AMD64
-  #define aes_setkey_enc aesni_setkey_enc_256
+  #define aeshw_setkey_enc aesni_setkey_enc_256
 #endif
 #elif defined(AES192) && (AES192 == 1)
 #define AES_KEYSIZE 192
 #ifdef HAVE_AMD64
-  #define aes_setkey_enc aesni_setkey_enc_192
+  #define aeshw_setkey_enc aesni_setkey_enc_192
 #endif
 #else
 #define AES_KEYSIZE 128
 #ifdef HAVE_AMD64
-  #define aes_setkey_enc aesni_setkey_enc_128
+  #define aeshw_setkey_enc aesni_setkey_enc_128
 #endif
 #endif
 
@@ -31,15 +29,15 @@
 
 #ifdef HAVE_AMD64
 #define HAVE_HARDAES 1
-#define aes_supported aesni_supported
-#define aes_crypt_ecb aesni_crypt_ecb
-#define aes_inverse_key(a,b) aesni_inverse_key(a,b,AES_NR)
+#define aeshw_supported aesni_supported
+#define aeshw_crypt_ecb aesni_crypt_ecb
+#define aeshw_inverse_key(a,b) aesni_inverse_key(a,b,AES_NR)
 #endif /* HAVE_AMD64 */
 
 #ifdef HAVE_ARM64
 #define HAVE_HARDAES 1
-#define aes_supported aesarm_supported
-#define aes_crypt_ecb aesarm_crypt_ecb
+#define aeshw_supported aesarm_supported
+#define aeshw_crypt_ecb aesarm_crypt_ecb
 
 #include "aesarm_table.h"
 
@@ -53,7 +51,7 @@
 }
 #endif
 
-static void aes_setkey_enc(uint8_t *rk, const uint8_t *key)
+static void aeshw_setkey_enc(uint8_t *rk, const uint8_t *key)
 {
     unsigned int i;
     uint32_t *RK;
@@ -129,7 +127,7 @@ static void aes_setkey_enc(uint8_t *rk, const uint8_t *key)
     }
 }
 
-static void aes_inverse_key(uint8_t *invkey, const uint8_t *fwdkey)
+static void aeshw_inverse_key(uint8_t *invkey, const uint8_t *fwdkey)
 {
   int i, j;
   uint32_t *RK;
@@ -159,17 +157,31 @@ static void aes_inverse_key(uint8_t *invkey, const uint8_t *fwdkey)
   *RK++ = *SK++;
   *RK++ = *SK++;
 }
-
 #endif /* HAVE_ARM64 */
 
-#ifdef HAVE_ASM
+#ifdef HAVE_HARDAES
+static void aeshw_setkey_dec(uint8_t *rk, const uint8_t *key)
+{
+  uint8_t rk_tmp[AES_RKSIZE];
+  aeshw_setkey_enc(rk_tmp, key);
+  aeshw_inverse_key(rk, rk_tmp);
+}
+#endif /* HAVE_HARDAES */
 
+/* OpenSSL assembly functions */
 #define AES_MAXNR 14
-
 typedef struct {
   uint32_t rd_key[4 * (AES_MAXNR + 1)];
-  int rounds;
+  uint32_t rounds;
 } AES_KEY;
+
+#if defined(__amd64__) || defined(__x86_64__) || \
+    defined(__aarch64__)
+#define AES_set_encrypt_key vpaes_set_encrypt_key
+#define AES_set_decrypt_key vpaes_set_decrypt_key
+#define AES_encrypt vpaes_encrypt
+#define AES_decrypt vpaes_decrypt
+#endif /* VPAES for 64-bit Intel and ARM */
 
 #ifdef __cplusplus
 extern "C" {
@@ -189,69 +201,51 @@ void AES_decrypt(const unsigned char *in, unsigned char *out,
 }
 #endif
 
-static int aes_supported(void)
-{
-  return 2;
-}
-
 static void aes_crypt_ecb( int nr,
                            unsigned char *rk,
                            int mode,
                            const unsigned char input[16],
                            unsigned char output[16] )
 {
-  AES_KEY *ctx;
-  ctx = (AES_KEY *) rk;
-  ctx->rounds = nr;
   if (mode == AES_DECRYPT) {
-    AES_decrypt(input, output, ctx);
+    AES_decrypt(input, output, (AES_KEY *) rk);
   } else {
-    AES_encrypt(input, output, ctx);
+    AES_encrypt(input, output, (AES_KEY *) rk);
   }
 }
 
 static void aes_setkey_enc(uint8_t *rk, const uint8_t *key)
 {
-  AES_KEY *ctx;
-  ctx = (AES_KEY *) rk;
-  ctx->rounds = AES_NR;
-  AES_set_encrypt_key(key, AES_KEYSIZE, ctx);
+  AES_set_encrypt_key(key, AES_KEYSIZE, (AES_KEY *) rk);
 }
 
 static void aes_setkey_dec(uint8_t *rk, const uint8_t *key)
 {
-  AES_KEY *ctx;
-  ctx = (AES_KEY *) rk;
-  ctx->rounds = AES_NR;
-  AES_set_decrypt_key(key, AES_KEYSIZE, ctx);
+  AES_set_decrypt_key(key, AES_KEYSIZE, (AES_KEY *) rk);
 }
 
-#endif
+static void (*crypt_ecb) ( int nr,
+                           unsigned char *rk,
+                           int mode,
+                           const unsigned char input[16],
+                           unsigned char output[16] )
+  = aes_crypt_ecb;
 
-#ifdef HAVE_HARDAES
+static void (*setkey_enc) (uint8_t *rk, const uint8_t *key)
+  = aes_setkey_enc;
 
-static void aes_setkey_dec(uint8_t *rk, const uint8_t *key)
-{
-  uint8_t rk_tmp[AES_RKSIZE];
-  aes_setkey_enc(rk_tmp, key);
-  aes_inverse_key(rk, rk_tmp);
-}
-
-#endif
-
-#if defined(HAVE_HARDAES) || defined(HAVE_ASM)
-
-#define HAVE_ACC 1
+static void (*setkey_dec) (uint8_t *rk, const uint8_t *key)
+  = aes_setkey_dec;
 
 /*
  * AESNI-CBC buffer encryption/decryption
  */
-static void aes_crypt_cbc( int mode,
-                           uint8_t* rk,
-                           uint32_t length,
-                           uint8_t iv[16],
-                           const uint8_t *input,
-                           uint8_t *output )
+static void crypt_cbc( int mode,
+                       uint8_t* rk,
+                       uint32_t length,
+                       uint8_t iv[16],
+                       const uint8_t *input,
+                       uint8_t *output )
 {
     int i;
     uint8_t temp[16];
@@ -261,7 +255,7 @@ static void aes_crypt_cbc( int mode,
         while( length > 0 )
         {
             memcpy( temp, input, 16 );
-            aes_crypt_ecb( AES_NR, rk, mode, input, output );
+            crypt_ecb( AES_NR, rk, mode, input, output );
 
             for( i = 0; i < 16; i++ )
                 output[i] = (uint8_t)( output[i] ^ iv[i] );
@@ -280,7 +274,7 @@ static void aes_crypt_cbc( int mode,
             for( i = 0; i < 16; i++ )
                 output[i] = (uint8_t)( input[i] ^ iv[i] );
 
-            aes_crypt_ecb( AES_NR, rk, mode, output, output );
+            crypt_ecb( AES_NR, rk, mode, output, output );
             memcpy( iv, output, 16 );
 
             input  += 16;
@@ -290,12 +284,26 @@ static void aes_crypt_cbc( int mode,
     }
 }
 
-#endif /* HAVE_HARDAES or HAVE_ASM */
 
-int AESACC_supported(void)
+static void aeshw_init(void)
 {
-#if defined(HAVE_ACC)
-  return aes_supported();
+#ifdef HAVE_HARDAES
+  static int done = 0;
+  if (!done) {
+    if (aeshw_supported()) {
+      crypt_ecb = aeshw_crypt_ecb;
+      setkey_enc = aeshw_setkey_enc;
+      setkey_dec = aeshw_setkey_dec;
+    }
+    done = 1;
+  }
+#endif
+}
+
+int AES_support_hwaccel(void)
+{
+#ifdef HAVE_HARDAES
+  return aeshw_supported();
 #else
   return 0;
 #endif
@@ -303,86 +311,59 @@ int AESACC_supported(void)
 
 void AES_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
-#if defined(HAVE_ACC)
   uint8_t iv_tmp[16];
   uint8_t rk[AES_RKSIZE];
 
-  if (aes_supported())
+  if (key == NULL || iv == NULL)
   {
-    if (key == NULL || iv == NULL)
-    {
-      return;
-    }
-    memcpy(iv_tmp, iv, 16);
-    aes_setkey_enc(rk, key);
-    aes_crypt_cbc(AES_ENCRYPT, rk, \
-                  length, iv_tmp, input, output);
     return;
   }
-#endif
-
-  AES_CBC_encrypt_buffer0(output, input, length, key, iv);
+  aeshw_init();
+  memcpy(iv_tmp, iv, 16);
+  setkey_enc(rk, key);
+  crypt_cbc(AES_ENCRYPT, rk, \
+            length, iv_tmp, input, output);
 }
 
 void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
-#if defined(HAVE_ACC)
   uint8_t iv_tmp[16];
   uint8_t rk[AES_RKSIZE];
 
-  if (aes_supported())
+  if (key == NULL || iv == NULL)
   {
-    if (key == NULL || iv == NULL)
-    {
-      return;
-    }
-    memcpy(iv_tmp, iv, 16);
-    aes_setkey_dec(rk, key);
-    aes_crypt_cbc(AES_DECRYPT, rk, \
-                  length, iv_tmp, input, output);
     return;
   }
-#endif
+  aeshw_init();
+  memcpy(iv_tmp, iv, 16);
+  setkey_dec(rk, key);
+  crypt_cbc(AES_DECRYPT, rk, \
+            length, iv_tmp, input, output);
 
-  AES_CBC_decrypt_buffer0(output, input, length, key, iv);
 }
 
 void AES_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output, const uint32_t length)
 {
-#if defined(HAVE_ACC)
   uint8_t rk[AES_RKSIZE];
 
-  if (aes_supported())
+  if (key == NULL)
   {
-    if (key == NULL)
-    {
-      return;
-    }
-    aes_setkey_enc(rk, key);
-    aes_crypt_ecb(AES_NR, rk, AES_ENCRYPT, input, output);
     return;
   }
-#endif
-
-  AES_ECB_encrypt0(input, key, output, length);
+  aeshw_init();
+  setkey_enc(rk, key);
+  crypt_ecb(AES_NR, rk, AES_ENCRYPT, input, output);
 }
 
 void AES_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, const uint32_t length)
 {
-#if defined(HAVE_ACC)
   uint8_t rk[AES_RKSIZE];
 
-  if (aes_supported())
+  if (key == NULL)
   {
-    if (key == NULL)
-    {
-      return;
-    }
-    aes_setkey_dec(rk, key);
-    aes_crypt_ecb(AES_NR, rk, AES_DECRYPT, input, output);
     return;
   }
-#endif
-
-  AES_ECB_decrypt0(input, key, output, length);
+  aeshw_init();
+  setkey_dec(rk, key);
+  crypt_ecb(AES_NR, rk, AES_DECRYPT, input, output);
 }

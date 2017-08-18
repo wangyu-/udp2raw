@@ -86,11 +86,11 @@ int aesni_supported( void )
 /*
  * AES-NI AES-ECB block en(de)cryption
  */
-int aesni_crypt_ecb( int nr,
-                     unsigned char *rk,
-                     int mode,
-                     const unsigned char input[16],
-                     unsigned char output[16] )
+void aesni_crypt_ecb( int nr,
+                      unsigned char *rk,
+                      int mode,
+                      const unsigned char input[16],
+                      unsigned char output[16] )
 {
     asm( "movdqu    (%3), %%xmm0    \n\t" // load input
          "movdqu    (%1), %%xmm1    \n\t" // load round key 0
@@ -124,9 +124,6 @@ int aesni_crypt_ecb( int nr,
          :
          : "r" (nr), "r" (rk), "r" (mode), "r" (input), "r" (output)
          : "memory", "cc", "xmm0", "xmm1" );
-
-
-    return( 0 );
 }
 
 /*
