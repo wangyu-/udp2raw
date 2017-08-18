@@ -1,4 +1,4 @@
-#include "lib/aes.h"
+#include "lib/aesacc.h"
 #include "lib/md5.h"
 #include <string.h>
 #include <stdint.h>
@@ -209,7 +209,7 @@ int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 	buf[len-1]=(unsigned char)( ((uint16_t(ori_len))<<8)>>8) ;*/
 	if(padding(buf,len,16)<0) return -1;
 
-	AES_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	AESACC_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	return 0;
 }
 int auth_crc32_verify(const char *data,int &len)
@@ -240,7 +240,7 @@ int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 
 	if(len%16 !=0) {mylog(log_debug,"len%%16!=0\n");return -1;}
 	//if(len<0) {mylog(log_debug,"len <0\n");return -1;}
-	AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	AESACC_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	if(de_padding(output,len,16)<0) return -1;
 	return 0;
 }
@@ -368,7 +368,7 @@ int my_encrypt_old(const char *data0,char *output,int &len,char * key)
 	}
 	else
 	{
-		AES_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
+		AESACC_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 		//it doesnt allow over lap
 	}
 
@@ -400,7 +400,7 @@ int my_decrypt_old(const char *data0,char *output,int &len,char * key)
 	}
 	else
 	{
-		AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
+		AESACC_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	}
 
 
