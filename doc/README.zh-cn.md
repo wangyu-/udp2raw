@@ -142,6 +142,7 @@ facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和
 ##### client端获得--lower-level参数的办法
 在client 端，运行`traceroute <server_ip>`，记下第一跳的地址，这个就是`网关ip`。再运行`arp -s <网关ip>`，可以同时查到出口网卡名和mac。
 
+![](/images/lower_level.PNG)
 ##### server端获得--lower-level参数的办法
 如果client有公网ip，就`traceroute <client_ip>`。下一步和client端的方法一样。
 
