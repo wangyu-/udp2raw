@@ -2205,6 +2205,7 @@ int server_event_loop()
 	u64_t begin_time=0;
 	u64_t end_time=0;
 
+	mylog(log_info,"now listening at %s:%d\n",my_ntoa(local_ip_uint32),local_port);
 	while(1)////////////////////////
 	{
 

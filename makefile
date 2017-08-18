@@ -23,6 +23,10 @@ debug:
 
 ar71xx: 
 	${cc_ar71xx}  -o ${NAME}_ar71xx   -I. ${SOURCES} ${FLAGS} -lrt -lgcc_eh -static -O3
+
+#ar71xx_asm_aes: 
+#	${cc_ar71xx}  -o ${NAME}_ar71xx_asm_aes   -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -lgcc_eh -static -O3 -DHAVE_ASM lib/aes_acc/asm/mips.S
+
 bcm2708:
 	${cc_bcm2708} -o ${NAME}_bcm2708  -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 amd64:
