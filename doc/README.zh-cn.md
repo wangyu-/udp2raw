@@ -133,6 +133,23 @@ other options:
 ### seq-mode
 facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和真正的tcp流量区分开来（虽然大部分ISP不太可能做这种程度的包检测）。seq-mode可以改变一些seq ack的行为。如果遇到了连接问题，可以尝试更改。在我这边的移动线路用3种模式都没问题。
 
+### lower-level
+大部分udp2raw不能连通的情况都是设置了不兼容的iptables造成的。--lower-level选项允许绕过本地iptables。在一些iptables不好改动的情况下尤其有效（比如你用的是梅林固件，iptables全是固件自己生成的）。
+
+格式 `eth0#00:23:45:67:89:b9` 。eth0换成你的出口网卡名。00:23:45:67:89:b9换成网关的mac地址（如果client和server在同一个局域网内，可能不需要网关，这时候直接用对方主机的mac地址）。
+
+###### client端获得--lower-level参数的办法
+在client 端，运行`traceroute <server_ip>`，记下第一跳的地址，这个就是`网关ip`。再运行`arp -s <网关ip>`，可以同时查到出口网卡名和mac。
+
+###### server端获得--lower-level参数的办法
+如果client有公网ip，就`traceroute <client_ip>`。下一步和client端的方法一样。
+
+如果client没有公网ip，就`traceroute google.com` 或`traceroute baidu.com`。绝大部分情况都是可以的。下一步和client端的方法一样。
+
+###### 注意
+如果用了`--lower-level`选项。server虽然还可以bind在0.0.0.0，但是因为你显式指定了网络接口，就只能工作在这一个网络接口了。
+
+
 # 性能测试
 iperf3 的UDP模式有BUG，所以，这里用iperf3的tcp模式，配合Openvpn，测试udp2raw的性能。（iperf3 udp issue ,https://github.com/esnet/iperf/issues/296 ）
 
