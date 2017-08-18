@@ -46,8 +46,8 @@ struct sock_filter code_tcp_old[] = {
 		{ 0x6, 0, 0, 0x00000000 },//12
 };
 struct sock_filter code_tcp[] = {
-{ 0x5, 0, 0, 0x00000001 },//0    //jump to 2,dirty hack from tcpdump -d's output
-{ 0x5, 0, 0, 0x00000000 },//1
+//{ 0x5, 0, 0, 0x00000001 },//0    //jump to 2,dirty hack from tcpdump -d's output
+//{ 0x5, 0, 0, 0x00000000 },//1
 { 0x30, 0, 0, 0x00000009 },//2
 { 0x15, 0, 6, 0x00000006 },//3
 { 0x28, 0, 0, 0x00000006 },//4
@@ -58,11 +58,11 @@ struct sock_filter code_tcp[] = {
 { 0x6, 0, 0, 0x0000ffff },//9
 { 0x6, 0, 0, 0x00000000 },//10
 };
-int code_tcp_port_index=8;
+int code_tcp_port_index=6;
 
 struct sock_filter code_udp[] = {
-{ 0x5, 0, 0, 0x00000001 },
-{ 0x5, 0, 0, 0x00000000 },
+//{ 0x5, 0, 0, 0x00000001 },
+//{ 0x5, 0, 0, 0x00000000 },
 { 0x30, 0, 0, 0x00000009 },
 { 0x15, 0, 6, 0x00000011 },
 { 0x28, 0, 0, 0x00000006 },
@@ -73,10 +73,10 @@ struct sock_filter code_udp[] = {
 { 0x6, 0, 0, 0x0000ffff },
 { 0x6, 0, 0, 0x00000000 },
 };
-int code_udp_port_index=8;
+int code_udp_port_index=6;
 struct sock_filter code_icmp[] = {
-{ 0x5, 0, 0, 0x00000001 },
-{ 0x5, 0, 0, 0x00000000 },
+//{ 0x5, 0, 0, 0x00000001 },
+//{ 0x5, 0, 0, 0x00000000 },
 { 0x30, 0, 0, 0x00000009 },
 { 0x15, 0, 1, 0x00000001 },
 { 0x6, 0, 0, 0x0000ffff },
