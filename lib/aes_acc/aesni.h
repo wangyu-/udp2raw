@@ -64,14 +64,12 @@ int aesni_supported( void );
  * \param mode     AES_ENCRYPT or AES_DECRYPT
  * \param input    16-byte input block
  * \param output   16-byte output block
- *
- * \return         0 on success (cannot fail)
  */
-int aesni_crypt_ecb( int nr,
-                     unsigned char *rk,
-                     int mode,
-                     const unsigned char input[16],
-                     unsigned char output[16] );
+void aesni_crypt_ecb( int nr,
+                      unsigned char *rk,
+                      int mode,
+                      const unsigned char input[16],
+                      unsigned char output[16] );
 
 /**
  * \brief           Compute decryption round keys from encryption round keys
