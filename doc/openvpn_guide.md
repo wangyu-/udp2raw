@@ -3,14 +3,19 @@
 
 ![image4](/images/image4.PNG)
 # udp2raw command
+
+It is always recommended to run `udp2raw` under a NON-ROOT user. For the following commands to work, please read [README](/README.md) first.
+
 #### run at server side
-```
-./udp2raw_amd64 -s -l0.0.0.0:8855 -r 127.0.0.1:7777 -k "passwd" --raw-mode faketcp -a
+```bash
+sudo iptables -I INPUT -p tcp --dport 8855 -j DROP
+./udp2raw_amd64 -s -l0.0.0.0:8855 -r 127.0.0.1:7777 -k "passwd" --raw-mode faketcp
 ```
 #### run at client side
 assume server ip is 45.66.77.88
 ```
-./udp2raw_amd64 -s -l0.0.0.0:3333 -r 45.66.77.88:8855 -k "passwd" --raw-mode faketcp -a
+sudo iptables -I INPUT -s 45.66.77.88 -p tcp --sport 8855 -j DROP
+./udp2raw_amd64 -s -l0.0.0.0:3333 -r 45.66.77.88:8855 -k "passwd" --raw-mode faketcp
 ```
 
 
