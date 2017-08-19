@@ -4,7 +4,7 @@
 ![image4](/images/image4.PNG)
 # udp2raw command
 
-It is always recommended to run `udp2raw` under a NON-ROOT user. For the following commands to work, please read [README](/README.md) first.
+It is always recommended to run `udp2raw` under a NON-ROOT user. For the following commands to work, please read [this document](/README.md#security-important) first.
 
 #### run at server side
 ```bash
