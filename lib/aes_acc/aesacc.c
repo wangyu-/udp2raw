@@ -166,6 +166,22 @@ static void aeshw_setkey_dec(uint8_t *rk, const uint8_t *key)
   aeshw_setkey_enc(rk_tmp, key);
   aeshw_inverse_key(rk, rk_tmp);
 }
+
+static void aeshw_encrypt_ecb( int nr,
+                               unsigned char *rk,
+                               const unsigned char input[16],
+                               unsigned char output[16] )
+{
+  aeshw_crypt_ecb(nr, rk, AES_ENCRYPT, input, output);
+}
+
+static void aeshw_decrypt_ecb( int nr,
+                               unsigned char *rk,
+                               const unsigned char input[16],
+                               unsigned char output[16] )
+{
+  aeshw_crypt_ecb(nr, rk, AES_DECRYPT, input, output);
+}
 #endif /* HAVE_HARDAES */
 
 /* OpenSSL assembly functions */
@@ -201,17 +217,20 @@ void AES_decrypt(const unsigned char *in, unsigned char *out,
 }
 #endif
 
-static void aes_crypt_ecb( int nr,
-                           unsigned char *rk,
-                           int mode,
-                           const unsigned char input[16],
-                           unsigned char output[16] )
+static void aes_encrypt_ecb( int nr,
+                             unsigned char *rk,
+                             const unsigned char input[16],
+                             unsigned char output[16] )
 {
-  if (mode == AES_DECRYPT) {
-    AES_decrypt(input, output, (AES_KEY *) rk);
-  } else {
-    AES_encrypt(input, output, (AES_KEY *) rk);
-  }
+  AES_encrypt(input, output, (AES_KEY *) rk);
+}
+
+static void aes_decrypt_ecb( int nr,
+                             unsigned char *rk,
+                             const unsigned char input[16],
+                             unsigned char output[16] )
+{
+  AES_decrypt(input, output, (AES_KEY *) rk);
 }
 
 static void aes_setkey_enc(uint8_t *rk, const uint8_t *key)
@@ -224,12 +243,17 @@ static void aes_setkey_dec(uint8_t *rk, const uint8_t *key)
   AES_set_decrypt_key(key, AES_KEYSIZE, (AES_KEY *) rk);
 }
 
-static void (*crypt_ecb) ( int nr,
-                           unsigned char *rk,
-                           int mode,
-                           const unsigned char input[16],
-                           unsigned char output[16] )
-  = aes_crypt_ecb;
+static void (*encrypt_ecb) ( int nr,
+                             unsigned char *rk,
+                             const unsigned char input[16],
+                             unsigned char output[16] )
+  = aes_encrypt_ecb;
+
+static void (*decrypt_ecb) ( int nr,
+                             unsigned char *rk,
+                             const unsigned char input[16],
+                             unsigned char output[16] )
+  = aes_decrypt_ecb;
 
 static void (*setkey_enc) (uint8_t *rk, const uint8_t *key)
   = aes_setkey_enc;
@@ -240,50 +264,53 @@ static void (*setkey_dec) (uint8_t *rk, const uint8_t *key)
 /*
  * AESNI-CBC buffer encryption/decryption
  */
-static void crypt_cbc( int mode,
-                       uint8_t* rk,
-                       uint32_t length,
-                       uint8_t iv[16],
-                       const uint8_t *input,
-                       uint8_t *output )
+static void encrypt_cbc( uint8_t* rk,
+                         uint32_t length,
+                         uint8_t iv[16],
+                         const uint8_t *input,
+                         uint8_t *output )
 {
     int i;
     uint8_t temp[16];
 
-    if( mode == AES_DECRYPT )
+    while( length > 0 )
     {
-        while( length > 0 )
-        {
-            memcpy( temp, input, 16 );
-            crypt_ecb( AES_NR, rk, mode, input, output );
+        for( i = 0; i < 16; i++ )
+            output[i] = (uint8_t)( input[i] ^ iv[i] );
 
-            for( i = 0; i < 16; i++ )
-                output[i] = (uint8_t)( output[i] ^ iv[i] );
+        encrypt_ecb( AES_NR, rk, output, output );
+        memcpy( iv, output, 16 );
 
-            memcpy( iv, temp, 16 );
-
-            input  += 16;
-            output += 16;
-            length -= 16;
-        }
-    }
-    else
-    {
-        while( length > 0 )
-        {
-            for( i = 0; i < 16; i++ )
-                output[i] = (uint8_t)( input[i] ^ iv[i] );
-
-            crypt_ecb( AES_NR, rk, mode, output, output );
-            memcpy( iv, output, 16 );
-
-            input  += 16;
-            output += 16;
-            length -= 16;
-        }
+        input  += 16;
+        output += 16;
+        length -= 16;
     }
 }
 
+static void decrypt_cbc( uint8_t* rk,
+                         uint32_t length,
+                         uint8_t iv[16],
+                         const uint8_t *input,
+                         uint8_t *output )
+{
+    int i;
+    uint8_t temp[16];
+
+    while( length > 0 )
+    {
+        memcpy( temp, input, 16 );
+        decrypt_ecb( AES_NR, rk, input, output );
+
+        for( i = 0; i < 16; i++ )
+            output[i] = (uint8_t)( output[i] ^ iv[i] );
+
+        memcpy( iv, temp, 16 );
+
+        input  += 16;
+        output += 16;
+        length -= 16;
+    }
+}
 
 static void aeshw_init(void)
 {
@@ -291,7 +318,8 @@ static void aeshw_init(void)
   static int done = 0;
   if (!done) {
     if (aeshw_supported()) {
-      crypt_ecb = aeshw_crypt_ecb;
+      encrypt_ecb = aeshw_encrypt_ecb;
+      decrypt_ecb = aeshw_decrypt_ecb;
       setkey_enc = aeshw_setkey_enc;
       setkey_dec = aeshw_setkey_dec;
     }
@@ -321,8 +349,7 @@ void AES_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
   aeshw_init();
   memcpy(iv_tmp, iv, 16);
   setkey_enc(rk, key);
-  crypt_cbc(AES_ENCRYPT, rk, \
-            length, iv_tmp, input, output);
+  encrypt_cbc(rk, length, iv_tmp, input, output);
 }
 
 void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
@@ -337,9 +364,7 @@ void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
   aeshw_init();
   memcpy(iv_tmp, iv, 16);
   setkey_dec(rk, key);
-  crypt_cbc(AES_DECRYPT, rk, \
-            length, iv_tmp, input, output);
-
+  decrypt_cbc(rk, length, iv_tmp, input, output);
 }
 
 void AES_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output, const uint32_t length)
@@ -352,7 +377,7 @@ void AES_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output, 
   }
   aeshw_init();
   setkey_enc(rk, key);
-  crypt_ecb(AES_NR, rk, AES_ENCRYPT, input, output);
+  encrypt_ecb(AES_NR, rk, input, output);
 }
 
 void AES_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, const uint32_t length)
@@ -365,5 +390,5 @@ void AES_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, 
   }
   aeshw_init();
   setkey_dec(rk, key);
-  crypt_ecb(AES_NR, rk, AES_DECRYPT, input, output);
+  decrypt_ecb(AES_NR, rk, input, output);
 }
