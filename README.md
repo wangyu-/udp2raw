@@ -62,8 +62,36 @@ Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your
 
 Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
 
+### Security (IMPORTANT)
+
+Running the whole process with root previlege may bring security exploits. With root previleges, any bug in this program could endanger the entire system. This is especially true for bugs that may bring possibilities to execute any arbitary code within the program. For this reason, it is always recommended that the process should not be running as root.
+
+Instead, under Linux, one should use [Capabilities](http://man7.org/linux/man-pages/man7/capabilities.7.html), or more specifically, `CAP_NET_RAW` and `CAP_NET_ADMIN` for this program, and then run the process under some normal users or even with `nobody`. You will not be able to use the `-a` option under such circumstance, therefore the `iptables` rules (as is shown by running the program) will need to be inserted manually. This ensures that no unnecessary permissions are granted to the program and decreases security risk.
+
+For example, to run the above example without root, first you need to set capabilities to the binary (the following shell commands should be all executed under a non-root user, except the `sudo` lines)
+
+```bash
+sudo setcap cap_net_raw,cap_net_admin+ep udp2raw_amd64
+```
+
+Afterwards
+
+```bash
+# Server side:
+sudo iptables -I INPUT -p tcp --dport 4096 -j DROP
+./udp2raw_amd64 -s -l0.0.0.0:4096 -r 127.0.0.1:7777  -k "passwd" --raw-mode faketcp
+
+# Client side
+sudo iptables -I INPUT -s 44.55.66.77 -p tcp --sport 4096 -j DROP
+./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -k "passwd" --raw-mode faketcp
+```
+
+You have now been warned of the security risks to run this program as root. If you insist on doing so, please always notice that you should take your own risk on such operations, since there is no guarantee that this program has no security exploits. After all, this is a personal project, without any dedicated security team.
+
 ### Note
 to run on Android, see [Android_Guide](/doc/android_guide.md)
+
+For `systemd` users, you can use the configuration as is shown in [this example](/doc/systemd_example.md) for better security and convenience.
 
 # Advanced Topic
 ### Usage

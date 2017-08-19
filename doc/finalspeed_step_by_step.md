@@ -28,6 +28,11 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 在服务器端安装好finalspeed服务端，在本地windows安装好finalspeed的客户端。服务端我以前是用91yun的一键安装脚本安装的，没装过的可以去网上搜一键安装脚本。
 
+
+### 安全
+
+使用 ROOT 运行 `udp2raw` 可能带来安全隐患，因此，以下 `udp2raw` 命令将全部以非 ROOT 用户执行。请先阅读 [这个文档](/README.md#security-important) 以确保以下指令能够正确执行。
+
 ### 运行
 1.先在服务器主机运行如下命令，确定finalspeed服务端已经正常启动了。
 
@@ -40,13 +45,15 @@ netstat -nlp|grep java
 
 2.在服务器启动udp2raw server
 ```
- ./udp2raw_amd64 -s -l0.0.0.0:8855 -r 127.0.0.1:150  -a -k "passwd" --raw-mode faketcp
+sudo iptables -I INPUT -p tcp --dport 8855 -j DROP
+ ./udp2raw_amd64 -s -l0.0.0.0:8855 -r 127.0.0.1:150 -k "passwd" --raw-mode faketcp
 ```
 ![image](finalspeed_step_by_step/Capture2.PNG)
 
 3.在本地的虚拟机上启动udp2raw client  ,假设服务器ip是45.66.77.88
 ```
-./udp2raw_amd64 -c -r45.66.77.88:8855 -l0.0.0.0:150 --raw-mode faketcp -a -k"passwd"
+sudo iptables -I INPUT -s 45.66.77.88 -p tcp --sport 8855 -j DROP
+./udp2raw_amd64 -c -r45.66.77.88:8855 -l0.0.0.0:150 --raw-mode faketcp -k"passwd"
 ```
 如果一切正常，client端会显示client_ready:
 

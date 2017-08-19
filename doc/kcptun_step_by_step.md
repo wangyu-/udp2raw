@@ -18,16 +18,22 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 解压好后，如图：
 ![image](kcptun_step_by_step/Capture0.PNG)
 
+### 安全
+
+使用 ROOT 运行 `udp2raw` 可能带来安全隐患，因此，以下 `udp2raw` 命令将全部以非 ROOT 用户执行。请先阅读 [这个文档](/README.md#security-important) 以确保以下指令能够正确执行。
+
 ### 运行
 1.在远程服务器运行 udp2raw_amd64 server模式：
-```
-./udp2raw_amd64 -s -l0.0.0.0:8855 -r 127.0.0.1:4000 -k "passwd" --raw-mode faketcp -a
+```bash
+sudo iptables -I INPUT -p tcp --dport 8855 -j DROP
+./udp2raw_amd64 -s -l0.0.0.0:8855 -r 127.0.0.1:4000 -k "passwd" --raw-mode faketcp
 ```
 ![image](kcptun_step_by_step/Capture.PNG)
 
 2.在本地运行udp2raw_amd64 client模式，假设server ip是45.66.77.88：
-```
-./udp2raw_amd64 -c -r45.66.77.88:8855 -l0.0.0.0:4000 --raw-mode faketcp -a -k"passwd"
+```bash
+sudo iptables -I INPUT -p tcp -s 45.66.77.88 --sport 8855 -j DROP
+./udp2raw_amd64 -c -r45.66.77.88:8855 -l0.0.0.0:4000 --raw-mode faketcp -k"passwd"
 ```
 如果一切正常client端输出如下，显示client_ready：
 ![image](kcptun_step_by_step/Capture2.PNG)
