@@ -91,6 +91,8 @@ You have now been warned of the security risks to run this program as root. If y
 ### Note
 to run on Android, see [Android_Guide](/doc/android_guide.md)
 
+For `systemd` users, you can use the configuration as is shown in [this example](/doc/systemd_example.md) for better security and convenience.
+
 # Advanced Topic
 ### Usage
 ```
