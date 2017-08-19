@@ -82,7 +82,7 @@ sudo iptables -I INPUT -p tcp --dport 4096 -j DROP
 ./udp2raw_amd64 -s -l0.0.0.0:4096 -r 127.0.0.1:7777  -k "passwd" --raw-mode faketcp
 
 # Client side
-sudo iptables -I INPUT -s 44.55.66.77:4096 -p tcp --sport 4096 -j DROP
+sudo iptables -I INPUT -s 44.55.66.77 -p tcp --sport 4096 -j DROP
 ./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -k "passwd" --raw-mode faketcp
 ```
 
