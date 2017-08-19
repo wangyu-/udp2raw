@@ -17,11 +17,10 @@ Fake-tcp/icmp headers help you bypass UDP blocking, UDP QOS or improper UDP NAT 
 ### Simulate TCP Handshake
 Simulates the 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated. Real-time delivery guaranteed, no TCP over TCP problem when using OpenVPN.
 
-### Encrpytion, Anti-Replay, No MITM
+### Encrpytion, Anti-Replay
 * Encrypt your traffic with AES-128-CBC.
 * Protect data integrity by MD5 or CRC32.
 * Defense replay attack with an anti-replay window, smiliar to IPSec and OpenVPN. 
-* Authenticate mutually, no MITM attacks.
 
 ### Failure Dectection & Stablization (Connection Recovery)
 Conection failures are detected by heartbeats. If timed-out,client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild. 
