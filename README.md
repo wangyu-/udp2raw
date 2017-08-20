@@ -145,13 +145,15 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 # Application
 ## Tunneling any traffic via raw traffic by using udp2raw +openvpn
 ![image_vpn](images/openvpn.PNG)
-1. bypasses UDP block/UDP QOS
+1. Bypasses UDP block/UDP QOS
 
-2. no TCP ovr tcp problem (tcp over tcp problem http://sites.inka.de/bigred/devel/tcp-tcp.html ,https://community.openvpn.net/openvpn/ticket/2 )
+2. No TCP ovr TCP problem (TCP over TCP problem http://sites.inka.de/bigred/devel/tcp-tcp.html ,https://community.openvpn.net/openvpn/ticket/2 )
 
-3. openvpn over icmp also becomes a choice
+3. OpenVpn over ICMP also becomes a choice
 
-more details at [openvpn+udp2raw_guide](/doc/openvpn_guide.md)
+4. Supports almost any UDP-based VPN
+
+More details at [openvpn+udp2raw_guide](/doc/openvpn_guide.md)
 ## Speed-up tcp connection via raw traffic by using udp2raw+kcptun
 kcptun is a tcp connection speed-up program,it speeds-up tcp connection by using kcp protocol on-top of udp.by using udp2raw,you can use kcptun while udp is QoSed or blocked.
 (kcptun, https://github.com/xtaci/kcptun)
