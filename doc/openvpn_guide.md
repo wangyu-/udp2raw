@@ -38,7 +38,7 @@ mute 20
 
 comp-lzo no
 cipher none      ##### disable openvpn 's cipher and auth for maxmized peformance. 
-auth none        ##### you can enable openvpn's cipher and auth,if you dont care about peformance,oryou dont trust udp2raw 's encryption
+auth none        ##### you can enable openvpn's cipher and auth,if you dont care about peformance,or you dont trust udp2raw 's encryption
 
 fragment 1200       ##### very important    you can turn it up a bit. but,the lower the safer
 mssfix 1200         ##### very important
@@ -80,7 +80,7 @@ mute 20
 
 comp-lzo no
 cipher none      ##### disable openvpn 's cipher and auth for maxmized peformance. 
-auth none        ##### you can enable openvpn's cipher and auth,if you dont care about peformance,oryou dont trust udp2raw 's encryption
+auth none        ##### you can enable openvpn's cipher and auth,if you dont care about peformance,or you dont trust udp2raw 's encryption
 
 fragment 1200       ##### very important    you can turn it up a bit. but,the lower the safer
 mssfix 1200         ##### very important
