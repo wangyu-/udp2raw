@@ -32,8 +32,12 @@ int fail_time_counter=0;
 int epoll_trigger_counter=0;
 int debug_flag=0;
 
+
+int simple_rule=0;
+int keep_rule=0;
 int auto_add_iptables_rule=0;
 int generate_iptables_rule=0;
+int generate_iptables_rule_add=0;
 
 int debug_resend=0;
 int disable_anti_replay=0;
@@ -966,6 +970,7 @@ int set_timer_server(int epollfd,int &timer_fd)
 int get_src_adress(u32_t &ip);
 int client_on_timer(conn_info_t &conn_info) //for client
 {
+	//keep_iptables_rule();
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
@@ -975,6 +980,9 @@ int client_on_timer(conn_info_t &conn_info) //for client
 	mylog(log_trace,"roller my %d,oppsite %d,%lld\n",int(conn_info.my_roller),int(conn_info.oppsite_roller),conn_info.last_oppsite_roller_time);
 
 	mylog(log_trace,"<client_on_timer,send_info.ts_ack= %u>\n",send_info.ts_ack);
+
+
+
 
 	if(conn_info.state.client_current_state==client_idle)
 	{
@@ -1202,6 +1210,7 @@ int client_on_timer(conn_info_t &conn_info) //for client
 }
 int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)
 {
+	//keep_iptables_rule();
 	mylog(log_trace,"server timer!\n");
 	raw_info_t &raw_info=conn_info.raw_info;
 
@@ -2456,8 +2465,11 @@ void process_arg(int argc, char *argv[])
 		{"disable-anti-replay", no_argument,    0, 1},
 		{"auto-rule", no_argument,    0, 'a'},
 		{"gen-rule", no_argument,    0, 'g'},
+		{"gen-add", no_argument,    0, 1},
 		{"debug", no_argument,    0, 1},
 		{"clear", no_argument,    0, 1},
+		{"simple-rule", no_argument,    0, 1},
+		{"keep-rule", no_argument,    0, 1},
 		{"lower-level", required_argument,    0, 1},
 		{"sock-buf", required_argument,    0, 1},
 		{"seq-mode", required_argument,    0, 1},
@@ -2585,11 +2597,12 @@ void process_arg(int argc, char *argv[])
 			{
 				char *output;
 				//int ret =system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
-				int ret =run_command("iptables -S|sed -n '/udp2raw_dWRwMnJhdw/p'|sed -n 's/^-A/iptables -D/p'|sh",output);
+				int ret =run_command("iptables -S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-A/iptables -D/p'|sh",output);
 
+				int ret2 =run_command("iptables -S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-N/iptables -X/p'|sh",output);
 				//system("iptables-save |grep udp2raw_dWRwMnJhdw|sed 's/^-A/iptables -D/'|sh");
 				//system("iptables-save|grep -v udp2raw_dWRwMnJhdw|iptables-restore");
-				mylog(log_info,"tried to clear all iptables rule created previously,return value %d\n",ret);
+				mylog(log_info,"tried to clear all iptables rule created previously,return value %d %d\n",ret,ret2);
 				myexit(-1);
 			}
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
@@ -2661,6 +2674,18 @@ void process_arg(int argc, char *argv[])
 			else if(strcmp(long_options[option_index].name,"lower-level")==0)
 			{
 				process_lower_level();
+			}
+			else if(strcmp(long_options[option_index].name,"simple-rule")==0)
+			{
+				simple_rule=1;
+			}
+			else if(strcmp(long_options[option_index].name,"keep-rule")==0)
+			{
+				keep_rule=1;
+			}
+			else if(strcmp(long_options[option_index].name,"gen-add")==0)
+			{
+				generate_iptables_rule_add=1;
 			}
 			else if(strcmp(long_options[option_index].name,"disable-color")==0)
 			{
@@ -2757,86 +2782,141 @@ void process_arg(int argc, char *argv[])
 
 	 log_bare(log_info,"\n");
 }
+
+void *run_keep(void *none)
+{
+
+	while(1)
+	{
+		sleep(5);
+		keep_iptables_rule();
+		/*if(about_to_exit)
+			break;*/
+	}
+	return NULL;
+
+}
 void iptables_rule()
 {
-	char rule[200];
+	if(auto_add_iptables_rule&&generate_iptables_rule)
+	{
+		mylog(log_warn," -g overrides -a\n");
+		auto_add_iptables_rule=0;
+		//myexit(-1);
+	}
+	if(generate_iptables_rule_add&&generate_iptables_rule)
+	{
+		mylog(log_warn," --gen-add overrides -g\n");
+		generate_iptables_rule=0;
+		//myexit(-1);
+	}
+
+	if(keep_rule&&auto_add_iptables_rule==0)
+	{
+		auto_add_iptables_rule=1;
+		mylog(log_warn," --keep_rule implys -a\n");
+		generate_iptables_rule=0;
+		//myexit(-1);
+	}
+	char tmp_pattern[200];
+	string pattern="";
+
 	if(program_mode==client_mode)
 	{
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(rule,"INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP",remote_ip,remote_port);
-			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP\n",remote_address,remote_port);
+			sprintf(tmp_pattern,"-s %s/32 -p tcp -m tcp --sport %d",remote_ip,remote_port);
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(rule,"INPUT -s %s/32 -p udp -m udp --sport %d -j DROP",remote_ip,remote_port);
-			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p udp -m udp --sport %d -j DROP\n",remote_address,remote_port);
+			sprintf(tmp_pattern,"-s %s/32 -p udp -m udp --sport %d",remote_ip,remote_port);
 		}
 		if(raw_mode==mode_icmp)
 		{
-			sprintf(rule,"INPUT -s %s/32 -p icmp -j DROP",remote_ip);
-			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -s %s/32 -p icmp -j DROP\n",remote_address);
+			sprintf(tmp_pattern,"-s %s/32 -p icmp",remote_ip);
 		}
+		pattern=tmp_pattern;
 	}
 	if(program_mode==server_mode)
 	{
 
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(rule,"INPUT -p tcp -m tcp --dport %d -j DROP",local_port);
-			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p tcp -m tcp --dport %d -j DROP\n",local_port);
+			sprintf(tmp_pattern,"-p tcp -m tcp --dport %d",local_port);
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(rule,"INPUT -p udp -m udp --dport %d -j DROP",local_port);
-			//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p udp -m udp --udp %d -j DROP\n",local_port);
+			sprintf(tmp_pattern,"-p udp -m udp --dport %d",local_port);
 		}
 		if(raw_mode==mode_icmp)
 		{
 			if(local_ip_uint32==0)
 			{
-				sprintf(rule,"INPUT -p icmp -j DROP");
-				//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -p icmp -j DROP\n");
+				sprintf(tmp_pattern,"-p icmp");
 			}
 			else
 			{
-				sprintf(rule,"INPUT -d %s/32 -p icmp -j DROP",local_ip);
-				//mylog(log_warn,"make sure you have run once:  iptables -A INPUT -d %s/32 -p icmp -j DROP\n",local_address);
+				sprintf(tmp_pattern,"-d %s/32 -p icmp",local_ip);
 			}
+		}
+		pattern=tmp_pattern;
+	}
+/*
+	if(!simple_rule)
+	{
+		pattern += " -m comment --comment udp2rawDwrW_";
+
+		char const_id_str[100];
+		sprintf(const_id_str, "%x_", const_id);
+
+		pattern += const_id_str;
+
+		time_t timer;
+		char buffer[26];
+		struct tm* tm_info;
+
+		time(&timer);
+		tm_info = localtime(&timer);
+
+		strftime(buffer, 26, "%Y-%m-%d-%H:%M:%S", tm_info);
+
+		pattern += buffer;
+
+
+	}*/
+
+	if(auto_add_iptables_rule)
+	{
+		iptables_rule_init(pattern.c_str(),const_id,keep_rule);
+		if(keep_rule)
+		{
+			if(pthread_create(&keep_thread, NULL, run_keep, 0)) {
+
+				mylog(log_fatal, "Error creating thread\n");
+				myexit(-1);
+			}
+			keep_thread_created=1;
 		}
 	}
 	if(generate_iptables_rule)
 	{
+		string rule="iptables -I ";
+		rule+=pattern;
+		rule+=" -j DROP";
+
 		printf("generated iptables rule:\n");
-		printf("iptables -I %s\n",rule);
-		myexit(-1);
+		printf("%s\n",rule.c_str());
+		myexit(0);
 	}
-	else if(auto_add_iptables_rule)
+	if(generate_iptables_rule_add)
 	{
-			strcat(rule," -m comment --comment udp2raw_dWRwMnJhdw_");
-
-			char const_id_str[100];
-			sprintf(const_id_str,"%x_",const_id);
-
-			strcat(rule,const_id_str);
-
-		    time_t timer;
-		    char buffer[26];
-		    struct tm* tm_info;
-
-		    time(&timer);
-		    tm_info = localtime(&timer);
-
-		    strftime(buffer, 26, "%Y-%m-%d-%H:%M:%S", tm_info);
-
-		    strcat(rule,buffer);
-			add_iptables_rule(rule);
+		iptables_gen_add(pattern.c_str(),const_id);
+		myexit(0);
 	}
-	else
-	{
-		mylog(log_warn,"make sure you have run once:  iptables -I %s\n",rule);
-	}
+
+
 }
+
 int main(int argc, char *argv[])
 {
 	//auto a=string_to_vec("a b c d ");

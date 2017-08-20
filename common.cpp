@@ -16,7 +16,14 @@ raw_mode_t raw_mode=mode_faketcp;
 unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 int socket_buf_size=1024*1024;
 static int random_number_fd=-1;
-char iptables_rule[200]="";
+string iptables_pattern="";
+int iptables_rule_added=0;
+int iptables_rule_keeped=0;
+int iptables_rule_keep_index=0;
+//int iptables_rule_no_clear=0;
+
+
+
 program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 
 u64_t get_current_time()
@@ -50,42 +57,160 @@ char * my_ntoa(u32_t ip)
 }
 
 
-int add_iptables_rule(char * s)
+/*
+int add_iptables_rule(const char * s)
 {
-	strcpy(iptables_rule,s);
-	char buf[300]="iptables -I ";
-	strcat(buf,s);
+
+	iptables_pattern=s;
+
+	string rule="iptables -I INPUT ";
+	rule+=iptables_pattern;
+	rule+=" -j DROP";
+
 	char *output;
-	if(run_command(buf,output)==0)
+	if(run_command(rule.c_str(),output)==0)
 	{
-		mylog(log_warn,"auto added iptables rule by:  %s\n",buf);
+		mylog(log_warn,"auto added iptables rule by:  %s\n",rule.c_str());
 	}
 	else
 	{
-		mylog(log_fatal,"auto added iptables failed by: %s\n",buf);
+		mylog(log_fatal,"auto added iptables failed by: %s\n",rule.c_str());
 		//mylog(log_fatal,"reason : %s\n",strerror(errno));
 		myexit(-1);
 	}
+	iptables_rule_added=1;
+	return 0;
+}*/
+string chain[2];
+string rule_keep[2];
+string rule_keep_add[2];
+string rule_keep_del[2];
+u64_t keep_rule_last_time=0;
+
+pthread_t keep_thread;
+int keep_thread_created=0;
+int iptables_gen_add(const char * s,u32_t const_id)
+{
+	string dummy="";
+	iptables_pattern=s;
+	chain[0] =dummy+ "udp2rawDwrW_C";
+	rule_keep[0]=dummy+ iptables_pattern+" -j " +chain[0];
+	rule_keep_add[0]=dummy+"iptables -I INPUT "+rule_keep[0];
+
+	char *output;
+	run_command(dummy+"iptables -N "+chain[0],output,show_none);
+	run_command(dummy+"iptables -F "+chain[0],output);
+	run_command(dummy+"iptables -I "+chain[0] + " -j DROP",output);
+
+	rule_keep_del[0]=dummy+"iptables -D INPUT "+rule_keep[0];
+
+	run_command(rule_keep_del[0],output,show_none);
+	run_command(rule_keep_del[0],output,show_none);
+
+	if(run_command(rule_keep_add[0],output)!=0)
+	{
+		mylog(log_fatal,"auto added iptables failed by: %s\n",rule_keep_add[0].c_str());
+		myexit(-1);
+	}
+	return 0;
+}
+int iptables_rule_init(const char * s,u32_t const_id,int keep)
+{
+	iptables_pattern=s;
+	iptables_rule_added=1;
+	iptables_rule_keeped=keep;
+
+	string dummy="";
+	char const_id_str[100];
+	sprintf(const_id_str, "%x", const_id);
+
+	chain[0] =dummy+ "udp2rawDwrW_"+const_id_str+"_C0";
+	chain[1] =dummy+ "udp2rawDwrW_"+const_id_str+"_C1";
+
+	rule_keep[0]=dummy+ iptables_pattern+" -j " +chain[0];
+	rule_keep[1]=dummy+ iptables_pattern+" -j " +chain[1];
+
+	rule_keep_add[0]=dummy+"iptables -I INPUT "+rule_keep[0];
+	rule_keep_add[1]=dummy+"iptables -I INPUT "+rule_keep[1];
+
+	rule_keep_del[0]=dummy+"iptables -D INPUT "+rule_keep[0];
+	rule_keep_del[1]=dummy+"iptables -D INPUT "+rule_keep[1];
+
+	keep_rule_last_time=get_current_time();
+
+	char *output;
+
+	for(int i=0;i<=iptables_rule_keeped;i++)
+	{
+		run_command(dummy+"iptables -N "+chain[i],output);
+		run_command(dummy+"iptables -F "+chain[i],output);
+		run_command(dummy+"iptables -I "+chain[i] + " -j DROP",output);
+
+		if(run_command(rule_keep_add[i],output)!=0)
+		{
+			mylog(log_fatal,"auto added iptables failed by: %s\n",rule_keep_add[i].c_str());
+			myexit(-1);
+		}
+	}
+	return 0;
+}
+
+int keep_iptables_rule()  //magic to work on a machine without grep/iptables --check/-m commment
+{
+	/*
+	if(iptables_rule_keeped==0) return  0;
+
+
+	uint64_t tmp_current_time=get_current_time();
+	if(tmp_current_time-keep_rule_last_time<=iptables_rule_keep_interval)
+	{
+		return 0;
+	}
+	else
+	{
+		keep_rule_last_time=tmp_current_time;
+	}*/
+
+	mylog(log_debug,"keep_iptables_rule begin %llu\n",get_current_time());
+	iptables_rule_keep_index+=1;
+	iptables_rule_keep_index%=2;
+
+	string dummy="";
+	char *output;
+
+	int i=iptables_rule_keep_index;
+
+	run_command(dummy + "iptables -N " + chain[i], output,show_none);
+
+	if (run_command(dummy + "iptables -F " + chain[i], output,show_none) != 0)
+		mylog(log_warn, "iptables -F failed %d\n",i);
+
+	if (run_command(dummy + "iptables -I " + chain[i] + " -j DROP",output,show_none) != 0)
+		mylog(log_warn, "iptables -I failed %d\n",i);
+
+	if (run_command(rule_keep_del[i], output,show_none) != 0)
+		mylog(log_warn, "rule_keep_del failed %d\n",i);
+
+	run_command(rule_keep_del[i], output,show_none); //do it twice,incase it fails for unknown random reason
+
+	if(run_command(rule_keep_add[i], output,show_log)!=0)
+		mylog(log_warn, "rule_keep_del failed %d\n",i);
+
+	mylog(log_debug,"keep_iptables_rule end %llu\n",get_current_time());
 	return 0;
 }
 
 int clear_iptables_rule()
 {
-	if(iptables_rule[0]!=0)
-	{
-		char buf[300]="iptables -D ";
-		strcat(buf,iptables_rule);
-		char *output;
-		if(run_command(buf,output)==0)
-		{
-			mylog(log_warn,"iptables rule cleared by: %s \n",buf);
-		}
-		else
-		{
-			mylog(log_error,"clear iptables failed by: %s\n",buf);
-			//mylog(log_error,"reason : %s\n",strerror(errno));
-		}
+	char *output;
+	string dummy="";
+	if(!iptables_rule_added) return 0;
 
+	for(int i=0;i<=iptables_rule_keeped;i++ )
+	{
+		run_command(rule_keep_del[i],output);
+		run_command(dummy+"iptables -F "+chain[i],output);
+		run_command(dummy+"iptables -X "+chain[i],output);
 	}
 	return 0;
 }
@@ -216,8 +341,19 @@ int set_buf_size(int fd)
 void myexit(int a)
 {
     if(enable_log_color)
-   	 printf("%s\n",RESET);
-    clear_iptables_rule();
+   	printf("%s\n",RESET);
+    if(keep_thread_created)
+    {
+		if(pthread_cancel(keep_thread))
+		{
+			mylog(log_warn,"pthread_cancel failed\n");
+		}
+		else
+		{
+			mylog(log_info,"pthread_cancel success\n");
+		}
+    }
+	clear_iptables_rule();
 	exit(a);
 }
 void  signal_handler(int sig)
@@ -369,13 +505,28 @@ int read_file(const char * file,char * &output)
 	}
 	return 0;
 }
-int run_command(const char * command,char * &output) {
+int run_command(string command0,char * &output,int flag) {
     FILE *in;
-    mylog(log_debug,"run_command %s\n",command);
+
+
+    if((flag&show_log)==0) command0+=" 2>&1 ";
+
+    const char * command=command0.c_str();
+
+    int level= (flag&show_log)?log_warn:log_debug;
+
+    if(flag&show_command)
+    {
+    	mylog(log_info,"run_command %s\n",command);
+    }
+    else
+    {
+    	mylog(log_debug,"run_command %s\n",command);
+    }
     static char buf[1024*1024+100];
     buf[sizeof(buf)-1]=0;
     if(!(in = popen(command, "r"))){
-        mylog(log_error,"command %s popen failed,errno %s\n",command,strerror(errno));
+        mylog(level,"command %s popen failed,errno %s\n",command,strerror(errno));
         return -1;
     }
 
@@ -383,7 +534,7 @@ int run_command(const char * command,char * &output) {
     if(len==1024*1024)
     {
     	buf[0]=0;
-        mylog(log_error,"too long,buf not larger enough\n");
+        mylog(level,"too long,buf not larger enough\n");
         return -2;
     }
     else
@@ -393,8 +544,8 @@ int run_command(const char * command,char * &output) {
     int ret;
     if(( ret=ferror(in) ))
     {
-        mylog(log_error,"command %s fread failed,ferror return value %d \n",command,ret);
-        return -2;
+        mylog(level,"command %s fread failed,ferror return value %d \n",command,ret);
+        return -3;
     }
     //if(output!=0)
     output=buf;
@@ -404,11 +555,55 @@ int run_command(const char * command,char * &output) {
 
     if(ret!=0||ret2!=0)
     {
-    	mylog(log_error,"commnad %s ,pclose returned %d ,WEXITSTATUS %d,errnor :%s \n",command,ret,ret2,strerror(errno));
-    	return -3;
+    	mylog(level,"commnad %s ,pclose returned %d ,WEXITSTATUS %d,errnor :%s \n",command,ret,ret2,strerror(errno));
+    	return -4;
     }
 
     return 0;
 
 }
+/*
+int run_command_no_log(string command0,char * &output) {
+    FILE *in;
+    command0+=" 2>&1 ";
+    const char * command=command0.c_str();
+    mylog(log_debug,"run_command_no_log %s\n",command);
+    static char buf[1024*1024+100];
+    buf[sizeof(buf)-1]=0;
+    if(!(in = popen(command, "r"))){
+        mylog(log_debug,"command %s popen failed,errno %s\n",command,strerror(errno));
+        return -1;
+    }
 
+    int len =fread(buf, 1024*1024, 1, in);
+    if(len==1024*1024)
+    {
+    	buf[0]=0;
+        mylog(log_debug,"too long,buf not larger enough\n");
+        return -2;
+    }
+    else
+    {
+       	buf[len]=0;
+    }
+    int ret;
+    if(( ret=ferror(in) ))
+    {
+        mylog(log_debug,"command %s fread failed,ferror return value %d \n",command,ret);
+        return -3;
+    }
+    //if(output!=0)
+    output=buf;
+    ret= pclose(in);
+
+    int ret2=WEXITSTATUS(ret);
+
+    if(ret!=0||ret2!=0)
+    {
+    	mylog(log_debug,"commnad %s ,pclose returned %d ,WEXITSTATUS %d,errnor :%s \n",command,ret,ret2,strerror(errno));
+    	return -4;
+    }
+
+    return 0;
+
+}*/

@@ -44,7 +44,7 @@
 #include <assert.h>
 #include <linux/if_packet.h>
 #include <byteswap.h>
-
+#include <pthread.h>
 
 #include<unordered_map>
 #include<vector>
@@ -95,7 +95,11 @@ const u32_t client_conn_uplink_timeout=client_conn_timeout+2000;
 //const uint32_t server_conn_timeout=conv_timeout+60000;//this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
 const u32_t server_conn_timeout=conv_timeout+10000;//for test
 
+//const u32_t iptables_rule_keep_interval=4000;
+
 extern int about_to_exit;
+extern pthread_t keep_thread;
+extern int keep_thread_created;
 
 enum raw_mode_t{mode_faketcp=0,mode_udp,mode_icmp,mode_end};
 extern raw_mode_t raw_mode;
@@ -141,14 +145,25 @@ int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3);
 
 void myexit(int a);
 
-int add_iptables_rule(char *);
+int add_iptables_rule(const char *);
 
 int clear_iptables_rule();
 
-int run_command(const char * command,char * &output);
+int iptables_gen_add(const char * s,u32_t const_id);
+int iptables_rule_init(const char * s,u32_t const_id,int keep);
+int keep_iptables_rule();
+
+const int show_none=0;
+const int show_command=0x1;
+const int show_log=0x2;
+const int show_all=show_command|show_log;
+int run_command(string command,char * &output,int flag=show_all);
+//int run_command_no_log(string command,char * &output);
 int read_file(const char * file,char * &output);
 
 vector<string> string_to_vec(const char * s,const char * sp);
 vector< vector <string> > string_to_vec2(const char * s);
+
+//extern string iptables_pattern;
 
 #endif /* COMMON_H_ */
