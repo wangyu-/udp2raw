@@ -1,0 +1,16 @@
+# Basically this file is the equivalent to splitting the command line options into multiple lines
+# Each line should contain an option
+
+# This is client
+-c
+# Or use -s if you use it on server side
+# Define local address
+-l 127.0.0.1:56789
+# Define remote address
+-r 45.66.77.88:45678
+# Password
+-k my_awesome_password
+# Mode
+--raw-mode faketcp
+# Log Level
+--log-level 4

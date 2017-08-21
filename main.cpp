@@ -3,6 +3,9 @@
 #include "log.h"
 #include "lib/md5.h"
 #include "encrypt.h"
+#include <fstream>
+#include <string>
+#include <vector>
 
 char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";
 u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;
@@ -2517,6 +2520,7 @@ void print_help()
 	printf("                                          this option disables port changing while re-connecting\n");
 //	printf("                                          \n");
 	printf("other options:\n");
+	printf("    --config-file         <string>        read options from a configuration file instead of command line\n");
 	printf("    --log-level           <number>        0:never    1:fatal   2:error   3:warn \n");
 	printf("                                          4:info (default)     5:debug   6:trace\n");
 //	printf("\n");
@@ -2539,6 +2543,43 @@ void print_help()
 	printf("    -h,--help                             print this help message\n");
 
 	//printf("common options,these options must be same on both side\n");
+}
+void process_arg(int argc, char *argv[]);
+void load_config(char *config_file, char *argv0)
+{
+	// Load configurations from config_file instead of the command line.
+	// See config.example for example configurations
+	std::ifstream conf_file(config_file);
+	std::string line;
+	std::vector<std::string> arguments;
+	while(std::getline(conf_file,line))
+	{
+		if(line.at(0)=='#')
+		{
+			continue;
+		}
+		auto pos = line.find(" ",0);
+		if(pos==std::string::npos)
+		{
+			arguments.push_back(line);
+		}
+		else
+		{
+			auto p1 = line.substr(0,pos);
+			auto p2 = line.substr(pos+1,line.length() - pos - 1);
+			arguments.push_back(p1);
+			arguments.push_back(p2);
+		}
+	}
+	conf_file.close();
+	int argc = arguments.size();
+	char *argv[argc+1];
+	argv[0]=argv0;
+	for(int i=0; i<argc; i++)
+	{
+		argv[i+1] = (char*)arguments[i].c_str();
+	}
+	process_arg(argc+1,argv);
 }
 void process_arg(int argc, char *argv[])
 {
@@ -2567,6 +2608,7 @@ void process_arg(int argc, char *argv[])
 		{"lower-level", required_argument,    0, 1},
 		{"sock-buf", required_argument,    0, 1},
 		{"seq-mode", required_argument,    0, 1},
+		{"config-file", required_argument,   0, 1},
 		{NULL, 0, 0, 0}
       };
 
@@ -2577,6 +2619,20 @@ void process_arg(int argc, char *argv[])
 		{
 			print_help();
 			myexit(0);
+		}
+
+		if(strcmp(argv[i],"--config-file")==0)
+		{
+			if(i<argc-1)
+			{
+				load_config(argv[i+1],argv[0]);
+				return;
+			}
+			else
+			{
+				log_bare(log_fatal,"you must provide path to the configuration file when using --config-file");
+				myexit(-1);
+			}
 		}
 	}
 	if (argc == 1)
