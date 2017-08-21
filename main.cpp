@@ -2544,8 +2544,8 @@ void print_help()
 
 	//printf("common options,these options must be same on both side\n");
 }
-void process_arg(int argc, char *argv[]);
-void load_config(char *config_file, char *argv0)
+void process_arg(int argc, char *argv[], bool read_config = true);
+void load_config(char *config_file, int argc_orig, char *argv_orig[])
 {
 	// Load configurations from config_file instead of the command line.
 	// See config.example for example configurations
@@ -2572,16 +2572,24 @@ void load_config(char *config_file, char *argv0)
 		}
 	}
 	conf_file.close();
-	int argc = arguments.size();
-	char *argv[argc+1];
-	argv[0]=argv0;
+
+	// Append the new arguments to the original argv
+	int argc = arguments.size() + argc_orig;
+	char *argv[argc];
 	for(int i=0; i<argc; i++)
 	{
-		argv[i+1] = (char*)arguments[i].c_str();
+		if(i<argc_orig)
+		{
+			argv[i] = argv_orig[i];
+		}
+		else
+		{
+			argv[i] = (char*)arguments[i-argc_orig].c_str();
+		}
 	}
-	process_arg(argc+1,argv);
+	process_arg(argc,argv,false);
 }
-void process_arg(int argc, char *argv[])
+void process_arg(int argc, char *argv[], bool read_config)
 {
 	int i,j,k,opt;
     static struct option long_options[] =
@@ -2611,8 +2619,14 @@ void process_arg(int argc, char *argv[])
 		{"config-file", required_argument,   0, 1},
 		{NULL, 0, 0, 0}
       };
+	static std::map<string,string> short_opts_map = {
+		{"-k","--key"},
+		{"-a","--auto-rule"},
+		{"-g","--gen-rule"},
+	}; // Keep this in sync with the shortcuts
 
-    int option_index = 0;
+	int option_index = 0;
+	std::set<string> checked_opts = {};
 	for (i = 0; i < argc; i++)
 	{
 		if(strcmp(argv[i],"-h")==0||strcmp(argv[i],"--help")==0)
@@ -2621,11 +2635,11 @@ void process_arg(int argc, char *argv[])
 			myexit(0);
 		}
 
-		if(strcmp(argv[i],"--config-file")==0)
+		if(read_config&&strcmp(argv[i],"--config-file")==0)
 		{
 			if(i<argc-1)
 			{
-				load_config(argv[i+1],argv[0]);
+				load_config(argv[i+1],argc,argv);
 				return;
 			}
 			else
@@ -2633,6 +2647,25 @@ void process_arg(int argc, char *argv[])
 				log_bare(log_fatal,"you must provide path to the configuration file when using --config-file");
 				myexit(-1);
 			}
+		}
+
+		// Check for duplicate arguments
+		if(strncmp("-",argv[i],1)==0)
+		{
+			std::string opt(argv[i]);
+			auto iter = short_opts_map.find(opt);
+			if(iter!=short_opts_map.end())
+			{
+				opt = iter->second;
+			}
+			if(checked_opts.find(opt)!=checked_opts.end())
+			{
+				char *err_msg = new char(255);
+				sprintf(err_msg,"Duplicate argument %s",opt.c_str());
+				log_bare(log_fatal,err_msg);
+				myexit(-1);
+			}
+			checked_opts.insert(opt);
 		}
 	}
 	if (argc == 1)
