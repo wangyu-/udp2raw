@@ -80,6 +80,31 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 现在client和server之间建立起了，tunnel。想要在本地连接44.55.66.77:7777，只需要连接 127.0.0.1:3333。来回的所有的udp流量会被经过tunneling发送。在外界看起来是tcp流量，不会有udp流量暴露到公网。
 
+### 配置文件
+
+为了避免将密码等私密信息暴露在进程命令行参数内，你也可以使用 `配置文件` 来存储参数。
+
+比如，将以上服务端参数改写成配置文件
+
+`server.conf`:
+
+```
+-s
+-l 0.0.0.0:4096
+-r 127.0.0.1:7777
+-a
+-k passwd
+--raw-mode faketcp
+```
+
+注意，当写入配置文件的时候，密码等参数两边的引号必须去除。
+
+然后就可以使用下面的方式启动服务端
+
+```bash
+./udp2raw_amd64 --config-file server.conf
+```
+
 ### 提醒
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
