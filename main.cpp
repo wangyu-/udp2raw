@@ -1445,7 +1445,7 @@ int handle_lower_level(raw_info_t &raw_info)
 		send_info.addr_ll.sll_halen=ETHER_ADDR_LEN;
 		send_info.addr_ll.sll_protocol=htons(ETH_P_IP);
 		memcpy(&send_info.addr_ll.sll_addr,dest_hw_addr,ETHER_ADDR_LEN);
-		 mylog(log_info,"lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
+		 mylog(log_info,"[manual]lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
 	}
 	else
 	{
@@ -1457,7 +1457,7 @@ int handle_lower_level(raw_info_t &raw_info)
 	memcpy(recv_info.addr_ll.sll_addr,send_info.addr_ll.sll_addr,sizeof(recv_info.addr_ll.sll_addr));
 	//other bytes should be kept zero.
 
-	  mylog(log_info,"lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
+	  mylog(log_info,"[auto]lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
 	}
 	return 0;
 }
@@ -2492,7 +2492,7 @@ void print_help()
 	printf("    --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none\n");
 	printf("    --auth-mode           <string>        avaliable values:md5(default),crc32,simple,none\n");
 	printf("    -a,--auto-rule                        auto add (and delete) iptables rule\n");
-	printf("    -g,--gen-rule                         generate iptables rule then exit\n");
+	printf("    -g,--gen-rule                         generate iptables rule then exit,overrides -a\n");
 	printf("    --disable-anti-replay                 disable anti-replay,not suggested\n");
 
 	//printf("\n");
@@ -2518,6 +2518,9 @@ void print_help()
 //	printf("\n");
 	printf("    --lower-level         <string>        send packet at OSI level 2, format:'if_name#dest_mac_adress'\n");
 	printf("                                          ie:'eth0#00:23:45:67:89:b9'.Beta.\n");
+	printf("    --gen-add                             generate iptables rule and add it for you,then exit.overrides -g\n");
+	printf("    --keep_rule                           monitor iptables and auto re-add if necessary.Implys -a\n");
+	printf("    --clear                               clear any iptables rules added by this program.overrides everything\n");
 	printf("    -h,--help                             print this help message\n");
 
 	//printf("common options,these options must be same on both side\n");
