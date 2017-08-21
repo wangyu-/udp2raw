@@ -88,7 +88,7 @@ string rule_keep_del[2];
 u64_t keep_rule_last_time=0;
 
 pthread_t keep_thread;
-int keep_thread_created=0;
+int keep_thread_running=0;
 int iptables_gen_add(const char * s,u32_t const_id)
 {
 	string dummy="";
@@ -342,7 +342,7 @@ void myexit(int a)
 {
     if(enable_log_color)
    	printf("%s\n",RESET);
-    if(keep_thread_created)
+    if(keep_thread_running)
     {
 		if(pthread_cancel(keep_thread))
 		{
@@ -523,7 +523,7 @@ int run_command(string command0,char * &output,int flag) {
     {
     	mylog(log_debug,"run_command %s\n",command);
     }
-    static char buf[1024*1024+100];
+    static __thread char buf[1024*1024+100];
     buf[sizeof(buf)-1]=0;
     if(!(in = popen(command, "r"))){
         mylog(level,"command %s popen failed,errno %s\n",command,strerror(errno));

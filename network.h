@@ -16,8 +16,11 @@ extern u32_t bind_address_uint32;
 extern int disable_bpf_filter;
 
 extern int lower_level;
+extern int lower_level_manual;
 extern char if_name[100];
 extern unsigned char dest_hw_addr[];
+
+extern int ifindex;
 
 struct icmphdr
 {
@@ -58,6 +61,9 @@ struct packet_info_t  //todo change this to union
 	uint16_t icmp_seq;
 
 	bool has_ts;
+
+	sockaddr_ll addr_ll;
+
 	packet_info_t();
 };
 

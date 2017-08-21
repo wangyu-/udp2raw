@@ -1432,7 +1432,35 @@ int client_on_raw_recv(conn_info_t &conn_info)
 	}
 	return 0;
 }
+int handle_lower_level(raw_info_t &raw_info)
+{
+	packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &recv_info=raw_info.recv_info;
 
+	if(lower_level_manual)
+	{
+		memset(&send_info.addr_ll,0,sizeof(send_info.addr_ll));
+		send_info.addr_ll.sll_family=AF_PACKET;
+		send_info.addr_ll.sll_ifindex=ifindex;
+		send_info.addr_ll.sll_halen=ETHER_ADDR_LEN;
+		send_info.addr_ll.sll_protocol=htons(ETH_P_IP);
+		memcpy(&send_info.addr_ll.sll_addr,dest_hw_addr,ETHER_ADDR_LEN);
+		 mylog(log_info,"lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
+	}
+	else
+	{
+	memset(&send_info.addr_ll,0,sizeof(send_info.addr_ll));
+	send_info.addr_ll.sll_family=recv_info.addr_ll.sll_family;
+	send_info.addr_ll.sll_ifindex=recv_info.addr_ll.sll_ifindex;
+	send_info.addr_ll.sll_protocol=recv_info.addr_ll.sll_protocol;
+	send_info.addr_ll.sll_halen=recv_info.addr_ll.sll_halen;
+	memcpy(recv_info.addr_ll.sll_addr,send_info.addr_ll.sll_addr,sizeof(recv_info.addr_ll.sll_addr));
+	//other bytes should be kept zero.
+
+	  mylog(log_info,"lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
+	}
+	return 0;
+}
 int server_on_raw_recv_multi()
 {
 	char dummy_buf[buf_len];
@@ -1475,6 +1503,12 @@ int server_on_raw_recv_multi()
 
 			send_info.dst_port = recv_info.src_port;
 			send_info.dst_ip = recv_info.src_ip;
+
+			if(lower_level)
+			{
+				handle_lower_level(raw_info);
+			}
+
 			if(data_len==0&&raw_info.recv_info.syn==1&&raw_info.recv_info.ack==0)
 			{
 				send_info.ack_seq = recv_info.seq + 1;
@@ -1538,6 +1572,11 @@ int server_on_raw_recv_multi()
 
 		send_info.dst_port = recv_info.src_port;
 		send_info.dst_ip = recv_info.src_ip;
+
+		if(lower_level)
+		{
+			handle_lower_level(raw_info);
+		}
 
 		//id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
 		//mylog(log_info,"[%s]handshake1 received %x\n",ip_port,tmp_oppsite_id);
@@ -1926,6 +1965,8 @@ int get_src_adress(u32_t &ip)
 
 int client_event_loop()
 {
+
+
 	char buf[buf_len];
 
 	conn_info_t conn_info;
@@ -1935,6 +1976,26 @@ int client_event_loop()
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
+
+	if(lower_level)
+	{
+		if(lower_level_manual)
+		{
+			//init_ifindex(if_name);
+			memset(&send_info.addr_ll, 0, sizeof(send_info.addr_ll));
+			send_info.addr_ll.sll_family = AF_PACKET;
+			send_info.addr_ll.sll_ifindex = ifindex;
+			send_info.addr_ll.sll_halen = ETHER_ADDR_LEN;
+			send_info.addr_ll.sll_protocol = htons(ETH_P_IP);
+			memcpy(&send_info.addr_ll.sll_addr, dest_hw_addr, ETHER_ADDR_LEN);
+		}
+		else
+		{
+
+			////todo
+		}
+
+	}
 	//printf("?????\n");
 	if(source_ip_uint32==0)
 	{
@@ -1960,7 +2021,7 @@ int client_event_loop()
 	send_info.src_ip = source_ip_uint32;
 
 	int i, j, k;int ret;
-	init_raw_socket();
+
 
 	//init_filter(source_port);
 	send_info.dst_ip=remote_ip_uint32;
@@ -2187,7 +2248,7 @@ int server_event_loop()
 
 
 
-	init_raw_socket();
+	//init_raw_socket();
 	init_filter(local_port);//bpf filter
 
 	epollfd = epoll_create1(0);
@@ -2380,8 +2441,22 @@ int server_event_loop()
 	}
 	return 0;
 }
-void process_lower_level()
+//char lower_level_arg[1000];
+int process_lower_level_arg()
 {
+	lower_level=1;
+	if(strcmp(optarg,"auto")==0)
+	{
+		if(program_mode==server_mode)
+			return 0;
+		else
+		{
+			mylog(log_fatal,"--lower-level auto hasnt be implement at client side,specify it manually\n");
+			myexit(-1);
+		}
+	}
+
+	lower_level_manual=1;
 	if (strchr(optarg, '#') == 0) {
 		mylog(log_fatal,
 				"lower-level parameter invaild,check help page for format\n");
@@ -2399,6 +2474,7 @@ void process_lower_level()
 	for (int i = 0; i < 6; i++) {
 		dest_hw_addr[i] = uint8_t(hw[i]);
 	}
+	return 0;
 }
 void print_help()
 {
@@ -2437,8 +2513,8 @@ void print_help()
 	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024\n");
 	printf("    --seqmode             <number>        seq increase mode for faketcp:\n");
 	printf("                                          0:dont increase\n");
-	printf("                                          1:increase every packet\n");
-	printf("                                          2:increase randomly, about every 3 packets (default)\n");
+	printf("                                          1:increase every packet(default)\n");
+	printf("                                          2:increase randomly, about every 3 packets\n");
 //	printf("\n");
 	printf("    --lower-level         <string>        send packet at OSI level 2, format:'if_name#dest_mac_adress'\n");
 	printf("                                          ie:'eth0#00:23:45:67:89:b9'.Beta.\n");
@@ -2673,7 +2749,9 @@ void process_arg(int argc, char *argv[])
 			}
 			else if(strcmp(long_options[option_index].name,"lower-level")==0)
 			{
-				process_lower_level();
+				process_lower_level_arg();
+				//lower_level=1;
+				//strcpy(lower_level_arg,optarg);
 			}
 			else if(strcmp(long_options[option_index].name,"simple-rule")==0)
 			{
@@ -2761,6 +2839,8 @@ void process_arg(int argc, char *argv[])
 		print_help();
 		myexit(-1);
 	}
+	//if(lower_level)
+		//process_lower_level_arg();
 
 	 mylog(log_info,"important variables: ");
 
@@ -2788,10 +2868,14 @@ void *run_keep(void *none)
 
 	while(1)
 	{
-		sleep(5);
+		sleep(10);
 		keep_iptables_rule();
-		/*if(about_to_exit)
-			break;*/
+		if(about_to_exit)   //just incase it runs forever if there is some bug,not necessary
+		{
+			sleep(10);
+			keep_thread_running=0; //not thread safe ,but wont cause problem
+			break;
+		}
 	}
 	return NULL;
 
@@ -2895,7 +2979,7 @@ void iptables_rule()
 				mylog(log_fatal, "Error creating thread\n");
 				myexit(-1);
 			}
-			keep_thread_created=1;
+			keep_thread_running=1;
 		}
 	}
 	if(generate_iptables_rule)
@@ -2916,9 +3000,30 @@ void iptables_rule()
 
 
 }
+/*
+int test()
+{
 
+	 int fd;
+	 struct ifreq ifr;
+
+	 fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+	 ifr.ifr_addr.sa_family = AF_INET;
+
+	 strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1);
+
+	 ioctl(fd, SIOCGIFADDR, &ifr);
+
+	 close(fd);
+
+	 printf("%s\n", inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+
+	 return 0;
+}*/
 int main(int argc, char *argv[])
 {
+	printf("%s\n",my_ntoa(0x00ffffff));
 	//auto a=string_to_vec("a b c d ");
 	//printf("%d\n",(int)a.size());
 	//printf("%d %d %d %d",larger_than_u32(1,2),larger_than_u32(2,1),larger_than_u32(0xeeaaeebb,2),larger_than_u32(2,0xeeaaeebb));
@@ -2968,6 +3073,12 @@ int main(int argc, char *argv[])
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);*/
 
 	iptables_rule();
+	init_raw_socket();
+	if(lower_level_manual)
+	{
+		init_ifindex(if_name);
+	}
+
 	if(program_mode==client_mode)
 	{
 		client_event_loop();

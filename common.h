@@ -99,7 +99,7 @@ const u32_t server_conn_timeout=conv_timeout+10000;//for test
 
 extern int about_to_exit;
 extern pthread_t keep_thread;
-extern int keep_thread_created;
+extern int keep_thread_running;
 
 enum raw_mode_t{mode_faketcp=0,mode_udp,mode_icmp,mode_end};
 extern raw_mode_t raw_mode;

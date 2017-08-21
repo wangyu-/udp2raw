@@ -12,7 +12,7 @@ int raw_recv_fd=-1;
 int raw_send_fd=-1;
 u32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
 
-int seq_mode=2;
+int seq_mode=1;
 
 int filter_port=-1;
 
@@ -21,13 +21,14 @@ int disable_bpf_filter=0;  //for test only,most time no need to disable this
 u32_t bind_address_uint32=0;
 
 int lower_level=0;
+int lower_level_manual=0;
 int ifindex=-1;
 char if_name[100]="";
 
 unsigned short g_ip_id_counter=0;
 
-unsigned char dest_hw_addr[6]=
-    {0xff,0xff,0xff,0xff,0xff,0xff};
+unsigned char dest_hw_addr[sizeof(sockaddr_ll::sll_addr)]=
+    {0xff,0xff,0xff,0xff,0xff,0xff,0,0};
 //{0x00,0x23,0x45,0x67,0x89,0xb9};
 
 struct sock_filter code_tcp_old[] = {
@@ -194,7 +195,7 @@ int init_raw_socket()
 	        //perror("Failed to create raw_send_fd");
 	        myexit(1);
 	    }
-		init_ifindex(if_name);
+		//init_ifindex(if_name);
 
 	}
 
@@ -364,14 +365,9 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     else
     {
 
-    	struct sockaddr_ll addr={0};
-    	//memset(&addr,0,sizeof(addr));
+    	struct sockaddr_ll addr={0};  //={0} not necessary
+    	memcpy(&addr,&send_info.addr_ll,sizeof(addr));
 
-    	addr.sll_family=AF_PACKET;
-    	addr.sll_ifindex=ifindex;
-    	addr.sll_halen=ETHER_ADDR_LEN;
-    	addr.sll_protocol=htons(ETH_P_IP);
-    	memcpy(addr.sll_addr,dest_hw_addr,ETHER_ADDR_LEN);
     	ret = sendto(raw_send_fd, send_raw_ip_buf, ip_tot_len ,  0, (struct sockaddr *) &addr, sizeof (addr));
     }
     if(ret==-1)
@@ -455,10 +451,10 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	static char recv_raw_ip_buf[buf_len];
 
 	iphdr *  iph;
-	struct sockaddr saddr={0};
+	struct sockaddr_ll saddr={0};
 	socklen_t saddr_size = sizeof(saddr);
 	int flag=0;
-	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len, flag ,&saddr , &saddr_size);
+	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len, flag ,(sockaddr*)&saddr , &saddr_size);
 
 	if(recv_len<0)
 	{
@@ -485,6 +481,10 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	recv_info.dst_ip=iph->daddr;
 	recv_info.protocol=iph->protocol;
 
+	if(lower_level)
+	{
+		memcpy(&recv_info.addr_ll,&saddr,sizeof(recv_info.addr_ll));
+	}
 
 
 	if(bind_address_uint32!=0 &&recv_info.dst_ip!=bind_address_uint32)
