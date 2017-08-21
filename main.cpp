@@ -2214,6 +2214,18 @@ int server_event_loop()
 
 	bind_address_uint32=local_ip_uint32;//only server has bind adress,client sets it to zero
 
+	if(lower_level)
+	{
+		if(lower_level_manual)
+		{
+			mylog(log_info,"we are running at lower-level (manual) mode\n");
+		}
+		else
+		{
+			mylog(log_info,"we are running at lower-level (auto) mode\n");
+		}
+
+	}
 
 	 if(raw_mode==mode_faketcp)
 	 {
@@ -2493,7 +2505,8 @@ void print_help()
 	printf("    --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none\n");
 	printf("    --auth-mode           <string>        avaliable values:md5(default),crc32,simple,none\n");
 	printf("    -a,--auto-rule                        auto add (and delete) iptables rule\n");
-	printf("    -g,--gen-rule                         generate iptables rule then exit,overrides -a\n");
+	printf("    -g,--gen-rule                         generate iptables rule then exit,so that you can copy and\n");
+	printf("                                          add it manually.overrides -a\n");
 	printf("    --disable-anti-replay                 disable anti-replay,not suggested\n");
 
 	//printf("\n");
@@ -2723,6 +2736,10 @@ void process_arg(int argc, char *argv[])
 					if(strcmp(optarg,auth_mode_tostring[i])==0)
 					{
 						auth_mode=(auth_mode_t)i;
+						if(auth_mode==auth_none)
+						{
+							disable_anti_replay=1;
+						}
 						break;
 					}
 				}

@@ -5,7 +5,7 @@ cc_bcm2708=/home/wangyu/raspberry/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabi
 cc_arm=/home/wangyu/Desktop/arm-2014.05/bin/arm-none-linux-gnueabi-g++
 FLAGS= -std=c++11 -Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers
 
-SOURCES=main.cpp lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp -lrt -lpthread
+SOURCES=main.cpp lib/aes.c lib/md5.c encrypt.cpp log.cpp network.cpp common.cpp  -lpthread
 SOURCES_AES_ACC=$(filter-out lib/aes.c,$(SOURCES)) $(wildcard lib/aes_acc/aes*.c)
 
 NAME=udp2raw
