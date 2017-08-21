@@ -1445,7 +1445,7 @@ int handle_lower_level(raw_info_t &raw_info)
 		send_info.addr_ll.sll_halen=ETHER_ADDR_LEN;
 		send_info.addr_ll.sll_protocol=htons(ETH_P_IP);
 		memcpy(&send_info.addr_ll.sll_addr,dest_hw_addr,ETHER_ADDR_LEN);
-		 mylog(log_info,"[manual]lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
+		 mylog(log_debug,"[manual]lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
 	}
 	else
 	{
@@ -1454,10 +1454,10 @@ int handle_lower_level(raw_info_t &raw_info)
 	send_info.addr_ll.sll_ifindex=recv_info.addr_ll.sll_ifindex;
 	send_info.addr_ll.sll_protocol=recv_info.addr_ll.sll_protocol;
 	send_info.addr_ll.sll_halen=recv_info.addr_ll.sll_halen;
-	memcpy(recv_info.addr_ll.sll_addr,send_info.addr_ll.sll_addr,sizeof(recv_info.addr_ll.sll_addr));
+	memcpy(send_info.addr_ll.sll_addr,recv_info.addr_ll.sll_addr,sizeof(send_info.addr_ll.sll_addr));
 	//other bytes should be kept zero.
 
-	  mylog(log_info,"[auto]lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
+	  mylog(log_debug,"[auto]lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
 	}
 	return 0;
 }
@@ -1988,11 +1988,12 @@ int client_event_loop()
 			send_info.addr_ll.sll_halen = ETHER_ADDR_LEN;
 			send_info.addr_ll.sll_protocol = htons(ETH_P_IP);
 			memcpy(&send_info.addr_ll.sll_addr, dest_hw_addr, ETHER_ADDR_LEN);
+			mylog(log_info,"we are running at lower-level (manual) mode\n");
 		}
 		else
 		{
-
-			////todo
+			mylog(log_fatal,"--lower-level auto for client hasnt been implemented\n");
+			myexit(-1);
 		}
 
 	}
