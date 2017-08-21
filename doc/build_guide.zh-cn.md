@@ -70,3 +70,5 @@ cc_cross=/home/wangyu/Desktop/OpenWrt-SDK-15.05-ar71xx-generic_gcc-4.8-linaro_uC
 ```
 
 执行make cross，目录下生成udp2raw_cross文件。编译完成。
+
+make cross编译出的binary是非静态的。如果运行有问题，可以尝试用make cross2编译静态的binary,你的工具链必须带静态库才能成功编译,生成的文件仍然叫udp2raw_cross.
