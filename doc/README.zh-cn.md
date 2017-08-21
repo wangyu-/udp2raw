@@ -148,6 +148,8 @@ facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和
 
 如果client没有公网ip，就`traceroute google.com` 或`traceroute baidu.com`。下一步和client端的方法一样。
 
+server端也可以用`--lower-level auto` 来尝试自动获得参数，如果无法连接再手动填写。
+
 ##### 注意
 如果用了`--lower-level`选项。server虽然还可以bind在0.0.0.0，但是因为你显式指定了网络接口，就只能工作在这一个网络接口了。
 
