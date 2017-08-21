@@ -71,4 +71,6 @@ modify first line of makefile to:
 cc_cross=/home/wangyu/Desktop/OpenWrt-SDK-15.05-ar71xx-generic_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64/staging_dir/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-g++
 ```
 
-run 'make cross'，the just generated udp2raw_cross is the binary,compile done. copy it to your router to run.
+run `make cross`，the just generated `udp2raw_cross` is the binary,compile done. copy it to your router to run.
+
+`make cross` generates non-static binary. If you have any problem on running it,try to compile a static binary by using `make cross2` or `make cross3`.If your toolchain supports static compiling, usually one of them will succeed. The generated file is still named `udp2raw_cross`
