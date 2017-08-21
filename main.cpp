@@ -2554,7 +2554,7 @@ void load_config(char *config_file, int argc_orig, char *argv_orig[])
 	std::vector<std::string> arguments;
 	while(std::getline(conf_file,line))
 	{
-		if(line.at(0)=='#')
+		if(line==""||line.at(0)=='#')
 		{
 			continue;
 		}
