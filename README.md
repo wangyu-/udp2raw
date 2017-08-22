@@ -25,7 +25,7 @@ In FakeTcp mode,udp2raw simulates 3-way handshake, along with seq and ack_seq. T
 ### Failure Dectection & Stablization (Connection Recovery)
 Conection failures are detected by heartbeats. If timed-out,client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild. 
 
-For example, if you use UDP2RAW + OpenVPN, OpenVPN won't lose connection after any reconnect, **even if the network cable is re-plugged or the WiFi access point is changed**.
+For example, if you use udp2raw + OpenVPN, OpenVPN won't lose connection after any reconnect, **even if network cable is re-plugged or WiFi access point is changed**.
 
 ### Other Features
 * **Multiplexing** One client can handle multiple UDP connections, all of which share the same raw connection.
