@@ -1,7 +1,7 @@
 # Udp2raw-tunnel
 ![image0](images/image0.PNG)
 
-A UDP Tunnel which tunnels UDP via FakeTCP/UDP/ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
+A UDP Tunnel which tunnels UDP via UDP/FakeTCP/ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
 
 [简体中文](/doc/README.zh-cn.md)
 # Support Platforms
@@ -11,8 +11,8 @@ For Winodws/MacOS,virtual image with udp2raw pre-installed has been released,you
 
 
 # Features 
-### Send / Receive UDP Packet with fake-tcp/icmp headers
-Fake-tcp/icmp headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. Raw packets with UDP headers are also supported.In UDP header mode,it behaves just like a normal UDP tunnel,and you can just make use of the other features.
+### Send / Receive UDP Packet with TCP/ICMP headers
+TCP/ICMP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. Raw packets with UDP headers are also supported.In UDP header mode,it behaves just like a normal UDP tunnel,and you can just make use of the other features.
 
 ### Simulate TCP Handshake
 Simulates the 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated. Real-time delivery guaranteed, no TCP over TCP problem when using OpenVPN.
