@@ -2,6 +2,7 @@
 #include "network.h"
 #include "log.h"
 #include "lib/md5.h"
+#include "encrypt.h"
 
 char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";
 u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;

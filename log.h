@@ -2,56 +2,8 @@
 #ifndef _LOG_MYLOG_H_
 #define _LOG_MYLOG_H_
 
-#include<stdio.h>
-#include<string.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
-#include<stdlib.h>
-#include<getopt.h>
-#include <unistd.h>
-#include<errno.h>
 
-#include <fcntl.h>
-//#include"aes.h"
-
-#include <sys/epoll.h>
-#include <sys/wait.h>
-
-#include<map>
-#include<string>
-#include<vector>
-
-
-#include <sys/socket.h>    //for socket ofcourse
-#include <sys/types.h>
-#include <stdlib.h> //for exit(0);
-#include <errno.h> //For errno - the error number
-#include <netinet/tcp.h>   //Provides declarations for tcp header
-#include <netinet/udp.h>
-#include <netinet/ip.h>    //Provides declarations for ip header
-#include <netinet/if_ether.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <byteswap.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <linux/if_ether.h>
-#include <linux/filter.h>
-
-#include <sys/time.h>
-#include <time.h>
-
-#include <sys/timerfd.h>
-#include <set>
-#include "encrypt.h"
-#include <inttypes.h>
-
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-#include <stdarg.h>
+#include<common.h>
 
 using namespace std;
 
