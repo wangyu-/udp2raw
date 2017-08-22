@@ -1,7 +1,7 @@
 # Udp2raw-tunnel
 ![image0](images/image0.PNG)
 
-A UDP Tunnel which tunnels UDP via UDP/FakeTCP/ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
+A UDP Tunnel which tunnels UDP via FakeTCP/UDP/ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
 
 [简体中文](/doc/README.zh-cn.md)
 # Support Platforms
@@ -11,11 +11,11 @@ For Winodws/MacOS,virtual image with udp2raw pre-installed has been released,you
 
 
 # Features 
-### Send / Receive UDP Packet with TCP/ICMP headers
-TCP/ICMP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. Raw packets with UDP headers are also supported.In UDP header mode,it behaves just like a normal UDP tunnel,and you can just make use of the other features.
+### Send / Receive UDP Packet with FakeTCP/ICMP headers
+FakeTCP/ICMP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. UDP headers are also supported.In UDP header mode,it behaves just like a normal UDP tunnel,and you can just make use of the other features.
 
 ### Simulate TCP Handshake
-Simulates the 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated. Real-time delivery guaranteed, no TCP over TCP problem when using OpenVPN.
+In FakeTcp mode,udp2raw simulates 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated.Real-time delivery guaranteed,no congrestion control or re-transmission,no TCP over TCP problem when using OpenVPN.
 
 ### Encrpytion, Anti-Replay
 * Encrypt your traffic with AES-128-CBC.
@@ -105,13 +105,13 @@ other options:
     -h,--help                             print this help message
 ```
 
-### IPTABLES rule
+### Iptables rules,`-a` and `-g`
 This program sends packets via raw socket. In FakeTCP mode, Linux kernel TCP packet processing has to be blocked by a iptables rule on both sides, otherwise the kernel will automatically send RST for an unrecongized TCP packet and you will sustain from stability / peformance problems. You can use `-a` option to let the program automatically add / delete iptables rule on start / exit. You can also use the `-g` option to generate iptables rule and add it manually.
 
-### `cipher-mode` and `auth-mode` 
+### `--cipher-mode` and `--auth-mode` 
 It is suggested to use `aes128cbc` + `md5` to obtain maximum security. If you want to run the program on a router, you can try `xor` + `simple`, which can fool packet inspection by firewalls the most of time, but it cannot protect you from serious attacks. Mode none is only for debugging purpose. It is not recommended to set the cipher-mode or auth-mode to none.
 
-### seq-mode
+### `--seq-mode`
 The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value. 
 
 # Peformance Test
