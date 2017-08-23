@@ -80,34 +80,6 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 现在client和server之间建立起了，tunnel。想要在本地连接44.55.66.77:7777，只需要连接 127.0.0.1:3333。来回的所有的udp流量会被经过tunneling发送。在外界看起来是tcp流量，不会有udp流量暴露到公网。
 
-### 配置文件
-
-为了避免将密码等私密信息暴露在进程命令行参数内，你也可以使用 `配置文件` 来存储参数。
-
-比如，将以上服务端参数改写成配置文件
-
-`server.conf`:
-
-```
--s
-# 你可以像这样添加注释
-# 注意，只有整行注释才能在配置文件里使用
-# 注释必须独占一行
--l 0.0.0.0:4096
--r 127.0.0.1:7777
--a
--k passwd
---raw-mode faketcp
-```
-
-注意，当写入配置文件的时候，密码等参数两边的引号必须去除。
-
-然后就可以使用下面的方式启动服务端
-
-```bash
-./udp2raw_amd64 --config-file server.conf
-```
-
 ### 提醒
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
@@ -151,6 +123,7 @@ other options:
                                           ie:'eth0#00:23:45:67:89:b9'.Beta.
     -h,--help                             print this help message
 ```
+
 ### iptables 规则
 用raw收发tcp包本质上绕过了linux内核的tcp协议栈。linux碰到raw socket发来的包会不认识，如果一直收到不认识的包，会回复大量RST，造成不稳定或性能问题。所以强烈建议添加iptables规则屏蔽Linux内核的对指定端口的处理。用-a选项，udp2raw会在启动的时候自动帮你加上Iptables规则，退出的时候再自动删掉。如果长期使用，可以用-g选项来生成相应的Iptables规则再自己手动添加，这样规则不会在udp2raw退出时被删掉，可以避免停掉udp2raw后内核向对端回复RST。
 
@@ -183,6 +156,33 @@ server端也可以用`--lower-level auto` 来尝试自动获得参数，如果�
 
 如果`arps -s`命令查询不到，首先再试几次。如果还是查询不到，那么可能是因为你用的是pppoe方式的拨号宽带，查询不到是正常的。这种情况下`if_name`填pppoe产生的虚拟interface，通常名字叫`pppXXXX`，从`ifconfig`命令的输出里找一下；`des_mac_adress`填`00:00:00:00:00:00`,例如`ppp0#00:00:00:00:00:00`
 
+### `--conf-file`
+
+为了避免将密码等私密信息暴露在进程命令行参数内，你也可以使用 `配置文件` 来存储参数。
+
+比如，将以上服务端参数改写成配置文件
+
+`server.conf`:
+
+```
+-s
+# 你可以像这样添加注释
+# 注意，只有整行注释才能在配置文件里使用
+# 注释必须独占一行
+-l 0.0.0.0:4096
+-r 127.0.0.1:7777
+-a
+-k passwd
+--raw-mode faketcp
+```
+
+注意，当写入配置文件的时候，密码等参数两边的引号必须去除。
+
+然后就可以使用下面的方式启动服务端
+
+```bash
+./udp2raw_amd64 --conf-file server.conf
+```
 
 # 性能测试
 iperf3 的UDP模式有BUG，所以，这里用iperf3的tcp模式，配合Openvpn，测试udp2raw的性能。（iperf3 udp issue ,https://github.com/esnet/iperf/issues/296 ）
