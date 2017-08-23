@@ -3045,7 +3045,7 @@ int test()
 }*/
 int main(int argc, char *argv[])
 {
-	printf("%s\n",my_ntoa(0x00ffffff));
+	//printf("%s\n",my_ntoa(0x00ffffff));
 	//auto a=string_to_vec("a b c d ");
 	//printf("%d\n",(int)a.size());
 	//printf("%d %d %d %d",larger_than_u32(1,2),larger_than_u32(2,1),larger_than_u32(0xeeaaeebb,2),larger_than_u32(2,0xeeaaeebb));
