@@ -124,17 +124,17 @@ other options:
     -h,--help                             print this help message
 ```
 
-### iptables 规则
+### iptables 规则,`-a`和`-g`
 用raw收发tcp包本质上绕过了linux内核的tcp协议栈。linux碰到raw socket发来的包会不认识，如果一直收到不认识的包，会回复大量RST，造成不稳定或性能问题。所以强烈建议添加iptables规则屏蔽Linux内核的对指定端口的处理。用-a选项，udp2raw会在启动的时候自动帮你加上Iptables规则，退出的时候再自动删掉。如果长期使用，可以用-g选项来生成相应的Iptables规则再自己手动添加，这样规则不会在udp2raw退出时被删掉，可以避免停掉udp2raw后内核向对端回复RST。
 
 用raw收发udp包也类似，只是内核回复的是icmp unreachable。而用raw 收发icmp，内核会自动回复icmp echo。都需要相应的iptables规则。
-### cipher-mode 和 auth-mode 
+### `--cipher-mode` 和 `--auth-mode` 
 如果要最大的安全性建议用aes128cbc+md5。如果要运行再路由器上，建议xor+simple。但是注意xor+simple只能骗过防火墙的包检测，不能防止真正的攻击者。
 
-### seq-mode
+### `--seq-mode`
 facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和真正的tcp流量区分开来（虽然大部分ISP不太可能做这种程度的包检测）。seq-mode可以改变一些seq ack的行为。如果遇到了连接问题，可以尝试更改。在我这边的移动线路用3种模式都没问题。
 
-### lower-level
+### `--lower-level`
 大部分udp2raw不能连通的情况都是设置了不兼容的iptables造成的。--lower-level选项允许绕过本地iptables。在一些iptables不好改动的情况下尤其有效（比如你用的是梅林固件，iptables全是固件自己生成的）。
 
 ##### 格式
