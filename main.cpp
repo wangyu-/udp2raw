@@ -2551,6 +2551,15 @@ std::string trim_config_line(std::string line)
 	str = trim(str, '	'); // Tab
 	return str;
 }
+std::size_t find_config_divider(std::string line)
+{
+	std::size_t pos = line.find(" ",0); // Space
+	if(pos==std::string::npos)
+	{
+		pos = line.find("	",0); // Tab
+	}
+	return pos;
+}
 void load_config(char *config_file, int argc_orig, char *argv_orig[])
 {
 	// Load configurations from config_file instead of the command line.
@@ -2565,7 +2574,7 @@ void load_config(char *config_file, int argc_orig, char *argv_orig[])
 		{
 			continue;
 		}
-		auto pos = line.find(" ",0);
+		auto pos = find_config_divider(line);
 		if(pos==std::string::npos)
 		{
 			arguments.push_back(line);
