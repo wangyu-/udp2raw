@@ -74,7 +74,12 @@ For example, rewrite the options for the above `server` example into configurati
 
 ```
 -s
+# You can add comments like this
+# Comments MUST occupy an entire line
+# Or they will not work as expected
+# Listen address
 -l 0.0.0.0:4096
+# Remote address
 -r 127.0.0.1:7777
 -a
 -k passwd

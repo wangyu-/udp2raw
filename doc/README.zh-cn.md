@@ -90,6 +90,9 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 ```
 -s
+# 你可以像这样添加注释
+# 注意，只有整行注释才能在配置文件里使用
+# 注释必须独占一行
 -l 0.0.0.0:4096
 -r 127.0.0.1:7777
 -a
