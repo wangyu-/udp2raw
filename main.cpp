@@ -2615,6 +2615,10 @@ int process_log_level(int argc,char *argv[])
 		{
 			enable_log_color=0;
 		}
+		if(strcmp(argv[i],"--log-position")==0)
+		{
+			enable_log_position=1;
+		}
 	}
 	return 0;
 }
@@ -2660,7 +2664,6 @@ void process_arg(int argc, char *argv[])
 
    all_options.insert("--help");
    all_options.insert("-h");
-   all_options.insert("--conf-file");
    string dummy="";
    for(i=0;i<(int)strlen(options);i++)
    {
@@ -2681,6 +2684,26 @@ void process_arg(int argc, char *argv[])
 	   }
 	  all_options.insert(dummy+"--"+long_options[i].name);
    }
+
+	for (i = 0; i < argc; i++)
+	{
+		int len=strlen(argv[i]);
+		if(len==0)
+		{
+			mylog(log_fatal,"found an empty string in options\n");
+			myexit(-1);
+		}
+		if(len==1&&argv[i][0]=='-' )
+		{
+			mylog(log_fatal,"invaild option '-' in argv\n");
+			myexit(-1);
+		}
+		if(len==2&&argv[i][0]=='-'&&argv[i][1]=='-' )
+		{
+			mylog(log_fatal,"invaild option '--' in argv\n");
+			myexit(-1);
+		}
+	}
 
    mylog(log_info,"argc=%d ", argc);
 
@@ -2913,7 +2936,7 @@ void process_arg(int argc, char *argv[])
 			}
 			else if(strcmp(long_options[option_index].name,"log-position")==0)
 			{
-				enable_log_position=1;
+				//enable_log_position=1;
 			}
 			else if(strcmp(long_options[option_index].name,"disable-bpf")==0)
 			{
@@ -3027,7 +3050,6 @@ void pre_process_arg(int argc, char *argv[])
 		myexit(-1);
 	}
 
-
 	process_log_level(argc,argv);
 
 	int new_argc=0;
@@ -3047,7 +3069,7 @@ void pre_process_arg(int argc, char *argv[])
 				mylog(log_fatal,"--conf-file need a parameter\n");
 				myexit(-1);
 			}
-			if(argv[i+1][1]=='-')
+			if(argv[i+1][0]=='-')
 			{
 				mylog(log_fatal,"--conf-file need a parameter\n");
 				myexit(-1);

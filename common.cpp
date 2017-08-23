@@ -152,6 +152,7 @@ int iptables_rule_init(const char * s,u32_t const_id,int keep)
 			myexit(-1);
 		}
 	}
+	mylog(log_warn,"auto added iptables rules\n");
 	return 0;
 }
 
