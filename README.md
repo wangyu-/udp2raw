@@ -64,36 +64,6 @@ Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your
 
 Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
 
-### Configuration files
-
-Alternatively, you can store the options into a configuration file in order to keep the secrets away from command line arguments.
-
-For example, rewrite the options for the above `server` example into configuration file:
-
-`server.conf`
-
-```
--s
-# You can add comments like this
-# Comments MUST occupy an entire line
-# Or they will not work as expected
-# Listen address
--l 0.0.0.0:4096
-# Remote address
--r 127.0.0.1:7777
--a
--k passwd
---raw-mode faketcp
-```
-
-Pay attention to the `-k` parameter: the quotes around the password are removed. In configuration files we do not need quotes.
-
-Then you could start the server with
-
-```bash
-./udp2raw_amd64 --config-file server.conf
-```
-
 ### Note
 to run on Android, see [Android_Guide](/doc/android_guide.md)
 
@@ -146,6 +116,37 @@ It is suggested to use `aes128cbc` + `md5` to obtain maximum security. If you wa
 
 ### `--seq-mode`
 The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value. 
+
+### Configuration files
+
+You can also load options from a configuration file in order to keep secrets away from ps command.
+
+For example, rewrite the options for the above `server` example (in Getting Started section) into configuration file:
+
+`server.conf`
+
+```
+-s
+# You can add comments like this
+# Comments MUST occupy an entire line
+# Or they will not work as expected
+# Listen address
+-l 0.0.0.0:4096
+# Remote address
+-r 127.0.0.1:7777
+-a
+-k passwd
+--raw-mode faketcp
+```
+
+Pay attention to the `-k` parameter: In command line mode the quotes around the password will be removed by shell. In configuration files we do not remove quotes.
+
+Then start the server with
+
+```bash
+./udp2raw_amd64 --config-file server.conf
+```
+
 
 # Peformance Test
 #### Test method:
