@@ -3,6 +3,11 @@
 #include "log.h"
 #include "lib/md5.h"
 #include "encrypt.h"
+#include <fstream>
+#include <string>
+#include <vector>
+#include <map>
+#include <set>
 
 char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";
 u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;
@@ -2517,6 +2522,7 @@ void print_help()
 	printf("                                          this option disables port changing while re-connecting\n");
 //	printf("                                          \n");
 	printf("other options:\n");
+	printf("    --config-file         <string>        read options from a configuration file instead of command line\n");
 	printf("    --log-level           <number>        0:never    1:fatal   2:error   3:warn \n");
 	printf("                                          4:info (default)     5:debug   6:trace\n");
 //	printf("\n");
@@ -2540,7 +2546,68 @@ void print_help()
 
 	//printf("common options,these options must be same on both side\n");
 }
-void process_arg(int argc, char *argv[])
+void process_arg(int argc, char *argv[], bool read_config = true);
+std::string trim_config_line(std::string line)
+{
+	auto str = trim(line, ' '); // Space
+	str = trim(str, '	'); // Tab
+	return str;
+}
+std::size_t find_config_divider(std::string line)
+{
+	std::size_t pos = line.find(" ",0); // Space
+	if(pos==std::string::npos)
+	{
+		pos = line.find("	",0); // Tab
+	}
+	return pos;
+}
+void load_config(char *config_file, int argc_orig, char *argv_orig[])
+{
+	// Load configurations from config_file instead of the command line.
+	// See config.example for example configurations
+	std::ifstream conf_file(config_file);
+	std::string line;
+	std::vector<std::string> arguments;
+	while(std::getline(conf_file,line))
+	{
+		line = trim_config_line(line);
+		if(line==""||line.at(0)=='#')
+		{
+			continue;
+		}
+		auto pos = find_config_divider(line);
+		if(pos==std::string::npos)
+		{
+			arguments.push_back(line);
+		}
+		else
+		{
+			auto p1 = line.substr(0,pos);
+			auto p2 = line.substr(pos+1,line.length() - pos - 1);
+			arguments.push_back(trim_config_line(p1));
+			arguments.push_back(trim_config_line(p2));
+		}
+	}
+	conf_file.close();
+
+	// Append the new arguments to the original argv
+	int argc = arguments.size() + argc_orig;
+	char *argv[argc];
+	for(int i=0; i<argc; i++)
+	{
+		if(i<argc_orig)
+		{
+			argv[i] = argv_orig[i];
+		}
+		else
+		{
+			argv[i] = (char*)arguments[i-argc_orig].c_str();
+		}
+	}
+	process_arg(argc,argv,false);
+}
+void process_arg(int argc, char *argv[], bool read_config)
 {
 	int i,j,k,opt;
     static struct option long_options[] =
@@ -2567,16 +2634,56 @@ void process_arg(int argc, char *argv[])
 		{"lower-level", required_argument,    0, 1},
 		{"sock-buf", required_argument,    0, 1},
 		{"seq-mode", required_argument,    0, 1},
+		{"config-file", required_argument,   0, 1},
 		{NULL, 0, 0, 0}
       };
+	static std::map<string,string> short_opts_map = {
+		{"-k","--key"},
+		{"-a","--auto-rule"},
+		{"-g","--gen-rule"},
+	}; // Keep this in sync with the shortcuts
 
-    int option_index = 0;
+	int option_index = 0;
+	std::set<string> checked_opts = {};
 	for (i = 0; i < argc; i++)
 	{
 		if(strcmp(argv[i],"-h")==0||strcmp(argv[i],"--help")==0)
 		{
 			print_help();
 			myexit(0);
+		}
+
+		if(read_config&&strcmp(argv[i],"--config-file")==0)
+		{
+			if(i<argc-1)
+			{
+				load_config(argv[i+1],argc,argv);
+				return;
+			}
+			else
+			{
+				log_bare(log_fatal,"you must provide path to the configuration file when using --config-file");
+				myexit(-1);
+			}
+		}
+
+		// Check for duplicate arguments
+		if(strncmp("-",argv[i],1)==0)
+		{
+			std::string opt(argv[i]);
+			auto iter = short_opts_map.find(opt);
+			if(iter!=short_opts_map.end())
+			{
+				opt = iter->second;
+			}
+			if(checked_opts.find(opt)!=checked_opts.end())
+			{
+				char *err_msg = new char(255);
+				sprintf(err_msg,"Duplicate argument %s",opt.c_str());
+				log_bare(log_fatal,err_msg);
+				myexit(-1);
+			}
+			checked_opts.insert(opt);
 		}
 	}
 	if (argc == 1)
@@ -2838,6 +2945,10 @@ void process_arg(int argc, char *argv[])
 					mylog(log_fatal,"seq_mode value must be  0,1,or 2 \n");
 					myexit(-1);
 				}
+			}
+			else if(strcmp(long_options[option_index].name,"config-file")==0)
+			{
+				mylog(log_info,"configuration loaded from %s\n",optarg);
 			}
 			else
 			{

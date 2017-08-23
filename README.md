@@ -64,6 +64,36 @@ Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your
 
 Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
 
+### Configuration files
+
+Alternatively, you can store the options into a configuration file in order to keep the secrets away from command line arguments.
+
+For example, rewrite the options for the above `server` example into configuration file:
+
+`server.conf`
+
+```
+-s
+# You can add comments like this
+# Comments MUST occupy an entire line
+# Or they will not work as expected
+# Listen address
+-l 0.0.0.0:4096
+# Remote address
+-r 127.0.0.1:7777
+-a
+-k passwd
+--raw-mode faketcp
+```
+
+Pay attention to the `-k` parameter: the quotes around the password are removed. In configuration files we do not need quotes.
+
+Then you could start the server with
+
+```bash
+./udp2raw_amd64 --config-file server.conf
+```
+
 ### Note
 to run on Android, see [Android_Guide](/doc/android_guide.md)
 
@@ -91,6 +121,7 @@ client options:
     --source-port         <port>          force source-port for raw socket,tcp/udp only
                                           this option disables port changing while re-connecting
 other options:
+    --config-file         <string>        read options from a configuration file instead of command line
     --log-level           <number>        0:never    1:fatal   2:error   3:warn 
                                           4:info (default)     5:debug   6:trace
     --log-position                        enable file name,function name,line number in log

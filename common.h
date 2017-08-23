@@ -164,6 +164,8 @@ int read_file(const char * file,char * &output);
 vector<string> string_to_vec(const char * s,const char * sp);
 vector< vector <string> > string_to_vec2(const char * s);
 
+string trim(const string& str, char c);
+
 //extern string iptables_pattern;
 
 #endif /* COMMON_H_ */
