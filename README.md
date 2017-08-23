@@ -117,7 +117,7 @@ It is suggested to use `aes128cbc` + `md5` to obtain maximum security. If you wa
 ### `--seq-mode`
 The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value. 
 
-### Configuration files
+### `--config-file`
 
 You can also load options from a configuration file in order to keep secrets away from ps command.
 
