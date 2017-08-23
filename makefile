@@ -13,10 +13,10 @@ TAR=${NAME}_binaries.tar.gz ${NAME}_amd64  ${NAME}_x86  ${NAME}_x86_asm_aes ${NA
 
 all:
 	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt  -static -O3
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -ggdb -static -O3
 fast:
 	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -ggdb
 debug:
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -D MY_DEBUG 

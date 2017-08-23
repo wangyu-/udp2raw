@@ -575,6 +575,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len);
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len);
 
+void process_arg(int argc, char *argv[]);
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
 ////////////////=======================declear divider=============================
 
@@ -2522,7 +2523,7 @@ void print_help()
 	printf("                                          this option disables port changing while re-connecting\n");
 //	printf("                                          \n");
 	printf("other options:\n");
-	printf("    --config-file         <string>        read options from a configuration file instead of command line\n");
+	printf("    --conf-file           <string>        read options from a configuration file instead of command line\n");
 	printf("    --log-level           <number>        0:never    1:fatal   2:error   3:warn \n");
 	printf("                                          4:info (default)     5:debug   6:trace\n");
 //	printf("\n");
@@ -2546,152 +2547,53 @@ void print_help()
 
 	//printf("common options,these options must be same on both side\n");
 }
-void process_arg(int argc, char *argv[], bool read_config = true);
-std::string trim_config_line(std::string line)
-{
-	auto str = trim(line, ' '); // Space
-	str = trim(str, '	'); // Tab
-	return str;
-}
-std::size_t find_config_divider(std::string line)
-{
-	std::size_t pos = line.find(" ",0); // Space
-	if(pos==std::string::npos)
-	{
-		pos = line.find("	",0); // Tab
-	}
-	return pos;
-}
-void load_config(char *config_file, int argc_orig, char *argv_orig[])
+
+int load_config(char *file_name, int &argc, vector<string> &argv)
 {
 	// Load configurations from config_file instead of the command line.
 	// See config.example for example configurations
-	std::ifstream conf_file(config_file);
+	std::ifstream conf_file(file_name);
 	std::string line;
-	std::vector<std::string> arguments;
+	if(conf_file.fail())
+	{
+		mylog(log_fatal,"conf_file %s open failed,reason :%s\n",file_name,strerror(errno));
+		myexit(-1);
+	}
 	while(std::getline(conf_file,line))
 	{
-		line = trim_config_line(line);
-		if(line==""||line.at(0)=='#')
+		auto res=parse_conf_line(line);
+
+		argc+=res.size();
+		for(int i=0;i<(int)res.size();i++)
 		{
-			continue;
-		}
-		auto pos = find_config_divider(line);
-		if(pos==std::string::npos)
-		{
-			arguments.push_back(line);
-		}
-		else
-		{
-			auto p1 = line.substr(0,pos);
-			auto p2 = line.substr(pos+1,line.length() - pos - 1);
-			arguments.push_back(trim_config_line(p1));
-			arguments.push_back(trim_config_line(p2));
+			argv.push_back(res[i]);
 		}
 	}
 	conf_file.close();
 
-	// Append the new arguments to the original argv
-	int argc = arguments.size() + argc_orig;
-	char *argv[argc];
-	for(int i=0; i<argc; i++)
-	{
-		if(i<argc_orig)
-		{
-			argv[i] = argv_orig[i];
-		}
-		else
-		{
-			argv[i] = (char*)arguments[i-argc_orig].c_str();
-		}
-	}
-	process_arg(argc,argv,false);
+	return 0;
 }
-void process_arg(int argc, char *argv[], bool read_config)
+int unit_test()
 {
-	int i,j,k,opt;
-    static struct option long_options[] =
-      {
-        /* These options set a flag. */
-        {"source-ip", required_argument,    0, 1},
-        {"source-port", required_argument,    0, 1},
-		{"log-level", required_argument,    0, 1},
-		{"key", required_argument,    0, 'k'},
-		{"auth-mode", required_argument,    0, 1},
-		{"cipher-mode", required_argument,    0, 1},
-		{"raw-mode", required_argument,    0, 1},
-		{"disable-color", no_argument,    0, 1},
-		{"log-position", no_argument,    0, 1},
-		{"disable-bpf", no_argument,    0, 1},
-		{"disable-anti-replay", no_argument,    0, 1},
-		{"auto-rule", no_argument,    0, 'a'},
-		{"gen-rule", no_argument,    0, 'g'},
-		{"gen-add", no_argument,    0, 1},
-		{"debug", no_argument,    0, 1},
-		{"clear", no_argument,    0, 1},
-		{"simple-rule", no_argument,    0, 1},
-		{"keep-rule", no_argument,    0, 1},
-		{"lower-level", required_argument,    0, 1},
-		{"sock-buf", required_argument,    0, 1},
-		{"seq-mode", required_argument,    0, 1},
-		{"config-file", required_argument,   0, 1},
-		{NULL, 0, 0, 0}
-      };
-	static std::map<string,string> short_opts_map = {
-		{"-k","--key"},
-		{"-a","--auto-rule"},
-		{"-g","--gen-rule"},
-	}; // Keep this in sync with the shortcuts
-
-	int option_index = 0;
-	std::set<string> checked_opts = {};
-	for (i = 0; i < argc; i++)
+	printf("running unit test\n");
+	vector<string> conf_lines= {"---aaa","--aaa bbb","-a bbb"," \t \t \t-a\t \t \t bbbbb\t \t \t "};
+	for(int i=0;i<int(conf_lines.size());i++)
 	{
-		if(strcmp(argv[i],"-h")==0||strcmp(argv[i],"--help")==0)
+		printf("orign:%s\n",conf_lines[i].c_str());
+		auto res=parse_conf_line(conf_lines[i]);
+		printf("pasrse_result: size %d",int(res.size()));
+		for(int j=0;j<int(res.size());j++)
 		{
-			print_help();
-			myexit(0);
+			printf("<%s>",res[j].c_str());
 		}
-
-		if(read_config&&strcmp(argv[i],"--config-file")==0)
-		{
-			if(i<argc-1)
-			{
-				load_config(argv[i+1],argc,argv);
-				return;
-			}
-			else
-			{
-				log_bare(log_fatal,"you must provide path to the configuration file when using --config-file");
-				myexit(-1);
-			}
-		}
-
-		// Check for duplicate arguments
-		if(strncmp("-",argv[i],1)==0)
-		{
-			std::string opt(argv[i]);
-			auto iter = short_opts_map.find(opt);
-			if(iter!=short_opts_map.end())
-			{
-				opt = iter->second;
-			}
-			if(checked_opts.find(opt)!=checked_opts.end())
-			{
-				char *err_msg = new char(255);
-				sprintf(err_msg,"Duplicate argument %s",opt.c_str());
-				log_bare(log_fatal,err_msg);
-				myexit(-1);
-			}
-			checked_opts.insert(opt);
-		}
+		printf("\n");
 	}
-	if (argc == 1)
-	{
-		print_help();
-		myexit(-1);
-	}
+	return 0;
+}
 
+int process_log_level(int argc,char *argv[])
+{
+	int i,j,k;
 	for (i = 0; i < argc; i++)
 	{
 		if(strcmp(argv[i],"--log-level")==0)
@@ -2714,18 +2616,119 @@ void process_arg(int argc, char *argv[], bool read_config)
 			enable_log_color=0;
 		}
 	}
+	return 0;
+}
+void process_arg(int argc, char *argv[])
+{
+	int i,j,k,opt;
 
-    mylog(log_info,"argc=%d ", argc);
+	int option_index = 0;
+
+	char options[]="l:r:schk:ag";
+	static struct option long_options[] =
+	  {
+	    /* These options set a flag. */
+	    {"source-ip", required_argument,    0, 1},
+	    {"source-port", required_argument,    0, 1},
+		{"log-level", required_argument,    0, 1},
+		{"key", required_argument,    0, 'k'},
+		{"auth-mode", required_argument,    0, 1},
+		{"cipher-mode", required_argument,    0, 1},
+		{"raw-mode", required_argument,    0, 1},
+		{"disable-color", no_argument,    0, 1},
+		{"log-position", no_argument,    0, 1},
+		{"disable-bpf", no_argument,    0, 1},
+		{"disable-anti-replay", no_argument,    0, 1},
+		{"auto-rule", no_argument,    0, 'a'},
+		{"gen-rule", no_argument,    0, 'g'},
+		{"gen-add", no_argument,    0, 1},
+		{"debug", no_argument,    0, 1},
+		{"clear", no_argument,    0, 1},
+		{"simple-rule", no_argument,    0, 1},
+		{"keep-rule", no_argument,    0, 1},
+		{"lower-level", required_argument,    0, 1},
+		{"sock-buf", required_argument,    0, 1},
+		{"seq-mode", required_argument,    0, 1},
+		{"conf-file", required_argument,   0, 1},
+		{NULL, 0, 0, 0}
+	  };
+
+   process_log_level(argc,argv);
+
+   set<string> all_options;
+   map<string,string> shortcut_map;
+
+   all_options.insert("--help");
+   all_options.insert("-h");
+   all_options.insert("--conf-file");
+   string dummy="";
+   for(i=0;i<(int)strlen(options);i++)
+   {
+
+	   char val=options[i];
+	   if( ( val>='0'&&val<='9') ||( val>='a'&&val<='z')||(val>='A'&&val<='Z'))
+	   {
+		   all_options.insert(dummy+'-'+val);
+	   }
+   }
+   for(i=0;i<int(       sizeof(long_options)/sizeof(long_options[0])      );i++)
+   {
+	   if(long_options[i].name==NULL) break;
+	   int val=long_options[i].val;
+	   if( ( val>='0'&&val<='9') ||( val>='a'&&val<='z')||(val>='A'&&val<='Z'))
+	   {
+		   shortcut_map[dummy+"--"+long_options[i].name]= dummy+"-"+ char(val);
+	   }
+	  all_options.insert(dummy+"--"+long_options[i].name);
+   }
+
+   mylog(log_info,"argc=%d ", argc);
 
 	for (i = 0; i < argc; i++) {
 		log_bare(log_info, "%s ", argv[i]);
 	}
 	log_bare(log_info, "\n");
 
+	//string dummy="";
+   for(i=+1;i<argc;i++)
+   {
+	   if(argv[i][0]!='-') continue;
+	   string a=argv[i];
+	   if(a[0]=='-'&&a[1]!='-')
+		   a=dummy+a[0]+a[1];
+
+	   if(all_options.find(a.c_str())==all_options.end())
+	   {
+			mylog(log_fatal,"invaild option %s\n",a.c_str());
+			myexit(-1);
+	   }
+	   for(j=i+1;j<argc;j++)
+	   {
+		   if(argv[j][0]!='-') continue;
+
+		   string b=argv[j];
+
+		   if(b[0]=='-'&&b[1]!='-')
+			   b=dummy+b[0]+b[1];
+
+		   if(shortcut_map.find(a)!=shortcut_map.end())
+				   a=shortcut_map[a];
+		   if(shortcut_map.find(b)!=shortcut_map.end())
+				   b=shortcut_map[b];
+		   if(a==b)
+		   {
+				mylog(log_fatal,"%s duplicates with %s\n",argv[i],argv[j]);
+				myexit(-1);
+		   }
+	   }
+   }
+
+
+
 
 
 	int no_l = 1, no_r = 1;
-	while ((opt = getopt_long(argc, argv, "l:r:schk:ag",long_options,&option_index)) != -1) {
+	while ((opt = getopt_long(argc, argv,options,long_options,&option_index)) != -1) {
 		//string opt_key;
 		//opt_key+=opt;
 		switch (opt) {
@@ -2946,7 +2949,7 @@ void process_arg(int argc, char *argv[], bool read_config)
 					myexit(-1);
 				}
 			}
-			else if(strcmp(long_options[option_index].name,"config-file")==0)
+			else if(strcmp(long_options[option_index].name,"conf-file")==0)
 			{
 				mylog(log_info,"configuration loaded from %s\n",optarg);
 			}
@@ -2995,7 +2998,94 @@ void process_arg(int argc, char *argv[], bool read_config)
 
 	 log_bare(log_info,"\n");
 }
+void pre_process_arg(int argc, char *argv[])
+{
+	int i,j,k;
+	for (i = 0; i < argc; i++)
+	{
+		if(strcmp(argv[i],"--unit-test")==0)
+		{
+			unit_test();
+			myexit(0);
+		}
 
+	}
+
+	for (i = 0; i < argc; i++)
+	{
+		if(strcmp(argv[i],"-h")==0||strcmp(argv[i],"--help")==0)
+		{
+			print_help();
+			myexit(0);
+		}
+
+	}
+
+	if (argc == 1)
+	{
+		print_help();
+		myexit(-1);
+	}
+
+
+	process_log_level(argc,argv);
+
+	int new_argc=0;
+	vector<string> new_argv;
+
+	int count=0;
+	int pos=-1;
+
+	for (i = 0; i < argc; i++)
+	{
+		if(strcmp(argv[i],"--conf-file")==0)
+		{
+			count++;
+			pos=i;
+			if(i==argc)
+			{
+				mylog(log_fatal,"--conf-file need a parameter\n");
+				myexit(-1);
+			}
+			if(argv[i+1][1]=='-')
+			{
+				mylog(log_fatal,"--conf-file need a parameter\n");
+				myexit(-1);
+			}
+			i++;
+		}
+		else
+		{
+			//printf("<%s>",argv[i]);
+			new_argc++;
+			new_argv.push_back(argv[i]);
+		}
+	}
+	if(count>1)
+	{
+		mylog(log_fatal,"duplicated --conf-file option\n");
+		myexit(-1);
+	}
+
+	if(count>0)
+	{
+		load_config(argv[pos+1],new_argc,new_argv);
+	}
+	char* new_argv_char[new_argv.size()];
+
+	new_argc=0;
+	for(i=0;i<(int)new_argv.size();i++)
+	{
+		if(strcmp(new_argv[i].c_str(),"--conf-file")==0)
+		{
+			mylog(log_fatal,"cant have --conf-file in a config file\n");
+			myexit(-1);
+		}
+		new_argv_char[new_argc++]=(char *)new_argv[i].c_str();
+	}
+	process_arg(new_argc,new_argv_char);
+
+}
 void *run_keep(void *none)
 {
 
@@ -3168,7 +3258,7 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, signal_handler);
 	signal(SIGQUIT, signal_handler);
 
-	process_arg(argc,argv);
+	pre_process_arg(argc,argv);
 
 	if(geteuid() != 0)
 	{

@@ -618,3 +618,73 @@ string trim(const string& str, char c) {
 	size_t last = str.find_last_not_of(c);
 	return str.substr(first,(last-first+1));
 }
+
+vector<string> parse_conf_line(const string& s)
+{
+	char buf[s.length()+200];
+	char *p=buf;
+	int i=int(s.length())-1;
+	int j;
+	vector<string>res;
+	strcpy(buf,(char *)s.c_str());
+	while(i>=0)
+	{
+		if(buf[i]==' ' || buf[i]== '\t')
+			buf[i]=0;
+		else break;
+		i--;
+	}
+	while(*p!=0)
+	{
+		if(*p==' ' || *p== '\t')
+		{
+			p++;
+		}
+		else break;
+	}
+	int new_len=strlen(p);
+	if(new_len==0)return res;
+	if(p[0]=='#') return res;
+	if(p[0]!='-')
+	{
+		mylog(log_fatal,"line :<%s> not begin with '-' ",s.c_str());
+		myexit(-1);
+	}
+
+	for(i=0;i<new_len;i++)
+	{
+		if(p[i]==' '||p[i]=='\t')
+		{
+			break;
+		}
+	}
+	if(i==new_len)
+	{
+		res.push_back(p);
+		return res;
+	}
+
+	j=i;
+	while(p[j]==' '||p[j]=='\t')
+		j++;
+	p[i]=0;
+	res.push_back(p);
+	res.push_back(p+j);
+	return res;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

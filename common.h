@@ -166,6 +166,10 @@ vector< vector <string> > string_to_vec2(const char * s);
 
 string trim(const string& str, char c);
 
+string trim_conf_line(const string& str);
+
+vector<string> parse_conf_line(const string& s);
+
 //extern string iptables_pattern;
 
 #endif /* COMMON_H_ */
