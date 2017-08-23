@@ -2946,6 +2946,10 @@ void process_arg(int argc, char *argv[], bool read_config)
 					myexit(-1);
 				}
 			}
+			else if(strcmp(long_options[option_index].name,"config-file")==0)
+			{
+				mylog(log_info,"configuration loaded from %s\n",optarg);
+			}
 			else
 			{
 				mylog(log_warn,"ignored unknown long option ,option_index:%d code:<%x>\n",option_index, optopt);
