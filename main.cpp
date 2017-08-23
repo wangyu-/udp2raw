@@ -2545,6 +2545,12 @@ void print_help()
 	//printf("common options,these options must be same on both side\n");
 }
 void process_arg(int argc, char *argv[], bool read_config = true);
+std::string trim_config_line(std::string line)
+{
+	auto str = trim(line, ' '); // Space
+	str = trim(str, '	'); // Tab
+	return str;
+}
 void load_config(char *config_file, int argc_orig, char *argv_orig[])
 {
 	// Load configurations from config_file instead of the command line.
@@ -2554,6 +2560,7 @@ void load_config(char *config_file, int argc_orig, char *argv_orig[])
 	std::vector<std::string> arguments;
 	while(std::getline(conf_file,line))
 	{
+		line = trim_config_line(line);
 		if(line==""||line.at(0)=='#')
 		{
 			continue;
@@ -2567,8 +2574,8 @@ void load_config(char *config_file, int argc_orig, char *argv_orig[])
 		{
 			auto p1 = line.substr(0,pos);
 			auto p2 = line.substr(pos+1,line.length() - pos - 1);
-			arguments.push_back(p1);
-			arguments.push_back(p2);
+			arguments.push_back(trim_config_line(p1));
+			arguments.push_back(trim_config_line(p2));
 		}
 	}
 	conf_file.close();

@@ -607,3 +607,14 @@ int run_command_no_log(string command0,char * &output) {
     return 0;
 
 }*/
+
+// Remove preceding and trailing characters
+string trim(const string& str, char c) {
+	size_t first = str.find_first_not_of(c);
+	if(string::npos==first)
+	{
+		return "";
+	}
+	size_t last = str.find_last_not_of(c);
+	return str.substr(first,(last-first+1));
+}
