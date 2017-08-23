@@ -91,7 +91,7 @@ client options:
     --source-port         <port>          force source-port for raw socket,tcp/udp only
                                           this option disables port changing while re-connecting
 other options:
-    --config-file         <string>        read options from a configuration file instead of command line
+    --conf-file         <string>        read options from a configuration file instead of command line
     --log-level           <number>        0:never    1:fatal   2:error   3:warn 
                                           4:info (default)     5:debug   6:trace
     --log-position                        enable file name,function name,line number in log
@@ -117,7 +117,7 @@ It is suggested to use `aes128cbc` + `md5` to obtain maximum security. If you wa
 ### `--seq-mode`
 The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value. 
 
-### `--config-file`
+### `--conf-file`
 
 You can also load options from a configuration file in order to keep secrets away from ps command.
 
@@ -144,7 +144,7 @@ Pay attention to the `-k` parameter: In command line mode the quotes around the 
 Then start the server with
 
 ```bash
-./udp2raw_amd64 --config-file server.conf
+./udp2raw_amd64 --conf-file server.conf
 ```
 
 
