@@ -16,8 +16,8 @@ ICMP/FakeTCP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT b
 
 UDP headers are also supported.In UDP header mode,it behaves just like a normal UDP tunnel,and you can just make use of the other features.
 
-### Simulate TCP Handshake
-In FakeTcp mode,udp2raw simulates 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated.Real-time delivery guaranteed,no congrestion control or re-transmission,no TCP over TCP problem when using OpenVPN.
+### Simulated TCP with Real-time/Out-of-Order Delivery
+In FakeTCP mode,udp2raw simulates 3-way while establishing a connection,simulates seq and ack_seq while data transferring.It also simulates following TCP options: `MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`.Firewalls will regard FakeTCP as a TCP connection,but its essentially UDP: it supports real-time/out-of-order delivery(just as normal UDP does),no congrestion control or re-transmission.So there wont be any TCP over TCP problem when using OpenVPN.
 
 ### Encrpytion, Anti-Replay
 * Encrypt your traffic with AES-128-CBC.
