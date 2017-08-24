@@ -38,7 +38,7 @@ For example, if you use udp2raw + OpenVPN, OpenVPN won't lose connection after a
 
 * **OpenVZ Support** Tested on BandwagonHost VPS.
 
-* **Easy to Build** No dependencies, easy to build. Binary for ar71xx are included in release.
+* **Easy to Build** No dependencies.To cross-compile udp2raw,all you need to do is just to download a toolchain,modify makefile to point at the toolchain,run `make cross` then everything is done.(Note:Pre-compiled binaries for Desktop,RaspberryPi,Android,some Openwrt Routers are already included in [Releases](https://github.com/wangyu-/udp2raw-tunnel/releases))
 
 ### Keywords
 `Bypass UDP QoS` `Bypass UDP Blocking` `Bypass OpenVPN TCP over TCP problem` `OpenVPN over ICMP` `UDP to ICMP tunnel` `UDP to TCP tunnel` `UDP over ICMP` `UDP over TCP`
