@@ -11,7 +11,7 @@ For Winodws/MacOS,the 4.4mb virtual image with udp2raw pre-installed has been re
 
 
 # Features 
-### Send/Receive UDP Packets with ICMP/FakeTCP headers
+### Send/Receive UDP Packets with ICMP/FakeTCP/UDP headers
 ICMP/FakeTCP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. In ICMP header mode,udp2raw just works like an ICMP tunnel. 
 
 UDP headers are also supported.In UDP header mode,it behaves just like a normal UDP tunnel,and you can just make use of the other features(such as encrytion,anti-replay,connection stalization).
