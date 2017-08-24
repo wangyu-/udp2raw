@@ -2,6 +2,7 @@
 ![image_vpn](/images/openvpn.PNG)
 
 ![image4](/images/image4.PNG)
+
 # udp2raw command
 #### run at server side
 ```
@@ -13,6 +14,8 @@ assume server ip is 45.66.77.88
 ./udp2raw_amd64 -s -l0.0.0.0:3333 -r 45.66.77.88:8855 -k "passwd" --raw-mode faketcp -a
 ```
 
+#### hint
+You can add `--cipher xor` `--auth simple` to **both** sides to obtain maximum performance(but poor security).
 
 # openvpn config
 
