@@ -15,6 +15,7 @@ int about_to_exit=0;
 raw_mode_t raw_mode=mode_faketcp;
 unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 int socket_buf_size=1024*1024;
+
 static int random_number_fd=-1;
 string iptables_pattern="";
 int iptables_rule_added=0;
@@ -507,9 +508,13 @@ vector< vector <string> > string_to_vec2(const char * s)
 }
 int read_file(const char * file,string &output)
 {
-	const int max_len=2*1024*1024;
-    static char buf[max_len+100];
-    buf[sizeof(buf)-1]=0;
+	const int max_len=3*1024*1024;
+   // static char buf[max_len+100];
+	string buf0;
+	buf0.reserve(max_len+200);
+	char * buf=buf0.c_str();
+	buf[max_len]=0;
+    //buf[sizeof(buf)-1]=0;
 	int fd=open(file,O_RDONLY);
 	if(fd==-1)
 	{
@@ -650,9 +655,12 @@ string trim(const string& str, char c) {
 	return str.substr(first,(last-first+1));
 }
 
-vector<string> parse_conf_line(const string& s)
+vector<string> parse_conf_line(const string& s0)
 {
-	char buf[s.length()+200];
+	string s=s0;
+	s.reserve(s.length()+200);
+	char *buf=s.c_str();
+	//char buf[s.length()+200];
 	char *p=buf;
 	int i=int(s.length())-1;
 	int j;
