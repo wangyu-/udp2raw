@@ -512,7 +512,7 @@ int read_file(const char * file,string &output)
    // static char buf[max_len+100];
 	string buf0;
 	buf0.reserve(max_len+200);
-	char * buf=buf0.c_str();
+	char * buf=(char *)buf0.c_str();
 	buf[max_len]=0;
     //buf[sizeof(buf)-1]=0;
 	int fd=open(file,O_RDONLY);
@@ -659,7 +659,7 @@ vector<string> parse_conf_line(const string& s0)
 {
 	string s=s0;
 	s.reserve(s.length()+200);
-	char *buf=s.c_str();
+	char *buf=(char *)s.c_str();
 	//char buf[s.length()+200];
 	char *p=buf;
 	int i=int(s.length())-1;
