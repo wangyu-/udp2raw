@@ -576,6 +576,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len);
 
 void process_arg(int argc, char *argv[]);
+int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw);
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
 ////////////////=======================declear divider=============================
 
@@ -1988,10 +1989,12 @@ int client_event_loop()
 	{
 		if(lower_level_manual)
 		{
+			int index;
+			init_ifindex(if_name,index);
 			//init_ifindex(if_name);
 			memset(&send_info.addr_ll, 0, sizeof(send_info.addr_ll));
 			send_info.addr_ll.sll_family = AF_PACKET;
-			send_info.addr_ll.sll_ifindex = ifindex;
+			send_info.addr_ll.sll_ifindex =index;
 			send_info.addr_ll.sll_halen = ETHER_ADDR_LEN;
 			send_info.addr_ll.sll_protocol = htons(ETH_P_IP);
 			memcpy(&send_info.addr_ll.sll_addr, dest_hw_addr, ETHER_ADDR_LEN);
@@ -1999,8 +2002,39 @@ int client_event_loop()
 		}
 		else
 		{
-			mylog(log_fatal,"--lower-level auto for client hasnt been implemented\n");
-			myexit(-1);
+			u32_t dest_ip;
+			string if_name_string;
+			string hw_string;
+			if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
+			{
+				mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_ip);
+				myexit(-1);
+			}
+			mylog(log_info,"we are running at lower-level (auto) mode,%s %s %s\n",my_ntoa(dest_ip),if_name_string.c_str(),hw_string.c_str());
+
+			u32_t hw[6];
+			memset(hw, 0, sizeof(hw));
+			sscanf(hw_string.c_str(), "%x:%x:%x:%x:%x:%x",&hw[0], &hw[1], &hw[2],
+					&hw[3], &hw[4], &hw[5]);
+
+			mylog(log_warn,
+					"make sure this is correct:   if_name=<%s>  dest_mac_adress=<%02x:%02x:%02x:%02x:%02x:%02x>  \n",
+					if_name_string.c_str(), hw[0], hw[1], hw[2], hw[3], hw[4], hw[5]);
+			for (int i = 0; i < 6; i++) {
+				dest_hw_addr[i] = uint8_t(hw[i]);
+			}
+
+			//mylog(log_fatal,"--lower-level auto for client hasnt been implemented\n");
+			int index;
+			init_ifindex(if_name_string.c_str(),index);
+
+			memset(&send_info.addr_ll, 0, sizeof(send_info.addr_ll));
+			send_info.addr_ll.sll_family = AF_PACKET;
+			send_info.addr_ll.sll_ifindex = index;
+			send_info.addr_ll.sll_halen = ETHER_ADDR_LEN;
+			send_info.addr_ll.sll_protocol = htons(ETH_P_IP);
+			memcpy(&send_info.addr_ll.sll_addr, dest_hw_addr, ETHER_ADDR_LEN);
+			//mylog(log_info,"we are running at lower-level (manual) mode\n");
 		}
 
 	}
@@ -2225,6 +2259,7 @@ int server_event_loop()
 	{
 		if(lower_level_manual)
 		{
+			init_ifindex(if_name,ifindex);
 			mylog(log_info,"we are running at lower-level (manual) mode\n");
 		}
 		else
@@ -2467,13 +2502,7 @@ int process_lower_level_arg()
 	lower_level=1;
 	if(strcmp(optarg,"auto")==0)
 	{
-		if(program_mode==server_mode)
-			return 0;
-		else
-		{
-			mylog(log_fatal,"--lower-level auto hasnt be implement at client side,specify it manually\n");
-			myexit(-1);
-		}
+		return 0;
 	}
 
 	lower_level_manual=1;
@@ -3245,30 +3274,25 @@ void iptables_rule()
 
 
 }
+
 /*
 int test()
 {
 
-	 int fd;
-	 struct ifreq ifr;
-
-	 fd = socket(AF_INET, SOCK_DGRAM, 0);
-
-	 ifr.ifr_addr.sa_family = AF_INET;
-
-	 strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1);
-
-	 ioctl(fd, SIOCGIFADDR, &ifr);
-
-	 close(fd);
-
-	 printf("%s\n", inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
-
-	 return 0;
+	char ip_str[100]="8.8.8.8";
+	u32_t ip=inet_addr(ip_str);
+	u32_t dest_ip;
+	string if_name;
+	string hw;
+	find_lower_level_info(ip,dest_ip,if_name,hw);
+	printf("%s %s %s\n",my_ntoa(dest_ip),if_name.c_str(),hw.c_str());
+	exit(0);
+	return 0;
 }*/
 int main(int argc, char *argv[])
 {
-	//printf("%s\n",my_ntoa(0x00ffffff));
+	//test();
+	printf("%s\n",my_ntoa(0x00ffffff));
 	//auto a=string_to_vec("a b c d ");
 	//printf("%d\n",(int)a.size());
 	//printf("%d %d %d %d",larger_than_u32(1,2),larger_than_u32(2,1),larger_than_u32(0xeeaaeebb,2),larger_than_u32(2,0xeeaaeebb));
@@ -3319,10 +3343,6 @@ int main(int argc, char *argv[])
 
 	iptables_rule();
 	init_raw_socket();
-	if(lower_level_manual)
-	{
-		init_ifindex(if_name);
-	}
 
 	if(program_mode==client_mode)
 	{

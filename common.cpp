@@ -389,7 +389,31 @@ int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3)
 	id3=ntohl(  *((id_t*)(data+sizeof(id_t)*2)) );
 	return 0;
 }
-
+int hex_to_u32(const string & a,u32_t &output)
+{
+	//string b="0x";
+	//b+=a;
+	if(sscanf(a.c_str(),"%x",&output)==1)
+	{
+		//printf("%s %x\n",a.c_str(),output);
+		return 0;
+	}
+	mylog(log_error,"<%s> doesnt contain a hex\n",a.c_str());
+	return -1;
+}
+int hex_to_u32_with_endian(const string & a,u32_t &output)
+{
+	//string b="0x";
+	//b+=a;
+	if(sscanf(a.c_str(),"%x",&output)==1)
+	{
+		output=htonl(output);
+		//printf("%s %x\n",a.c_str(),output);
+		return 0;
+	}
+	mylog(log_error,"<%s> doesnt contain a hex\n",a.c_str());
+	return -1;
+}
 bool larger_than_u32(u32_t a,u32_t b)
 {
 
@@ -459,8 +483,13 @@ vector<string> string_to_vec(const char * s,const char * sp) {
 	  {
 		 res.push_back(p);
 	    //printf ("%s\n",p);
-	    p = strtok (NULL, sp);
+	    p = strtok(NULL, sp);
 	  }
+
+	 /* for(int i=0;i<(int)res.size();i++)
+	  {
+		  printf("<<%s>>\n",res[i].c_str());
+	  }*/
 	  return res;
 }
 
@@ -476,9 +505,10 @@ vector< vector <string> > string_to_vec2(const char * s)
 	}
 	return res;
 }
-int read_file(const char * file,char * &output)
+int read_file(const char * file,string &output)
 {
-    static char buf[1024*1024+100];
+	const int max_len=2*1024*1024;
+    static char buf[max_len+100];
     buf[sizeof(buf)-1]=0;
 	int fd=open(file,O_RDONLY);
 	if(fd==-1)
@@ -486,23 +516,23 @@ int read_file(const char * file,char * &output)
 		 mylog(log_error,"read_file %s fail\n",file);
 		 return -1;
 	}
-	int len=read(fd,buf,1024*1024);
-	if(len==1024*1024)
+	int len=read(fd,buf,max_len);
+	if(len==max_len)
 	{
 		buf[0]=0;
-        mylog(log_error,"too long,buf not larger enough\n");
+        mylog(log_error,"%s too long,buf not large enough\n",file);
         return -2;
 	}
 	else if(len<0)
 	{
 		buf[0]=0;
-        mylog(log_error,"read fail %d\n",len);
+        mylog(log_error,"%s read fail %d\n",file,len);
         return -3;
 	}
 	else
 	{
-		output=buf;
 		buf[len]=0;
+		output=buf;
 	}
 	return 0;
 }

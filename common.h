@@ -159,7 +159,7 @@ const int show_log=0x2;
 const int show_all=show_command|show_log;
 int run_command(string command,char * &output,int flag=show_all);
 //int run_command_no_log(string command,char * &output);
-int read_file(const char * file,char * &output);
+int read_file(const char * file,string &output);
 
 vector<string> string_to_vec(const char * s,const char * sp);
 vector< vector <string> > string_to_vec2(const char * s);
@@ -170,6 +170,8 @@ string trim_conf_line(const string& str);
 
 vector<string> parse_conf_line(const string& s);
 
+int hex_to_u32_with_endian(const string & a,u32_t &output);
+int hex_to_u32(const string & a,u32_t &output);
 //extern string iptables_pattern;
 
 #endif /* COMMON_H_ */

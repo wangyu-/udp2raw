@@ -86,8 +86,9 @@ int init_raw_socket();
 void init_filter(int port);
 
 void remove_filter();
-int init_ifindex(char * if_name);
+int init_ifindex(const char * if_name,int &index);
 
+int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw);
 
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen);
 

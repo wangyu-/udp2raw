@@ -289,7 +289,7 @@ void remove_filter()
 		//exit(-1);
 	}
 }
-int init_ifindex(char * if_name)
+int init_ifindex(const char * if_name,int &index)
 {
 	struct ifreq ifr;
 	size_t if_name_len=strlen(if_name);
@@ -305,10 +305,230 @@ int init_ifindex(char * if_name)
 		mylog(log_fatal,"SIOCGIFINDEX fail ,%s\n",strerror(errno));
 		myexit(-1);
 	}
-	ifindex=ifr.ifr_ifindex;
-	mylog(log_info,"ifname:%s  ifindex:%d\n",if_name,ifindex);
+	index=ifr.ifr_ifindex;
+	mylog(log_info,"ifname:%s  ifindex:%d\n",if_name,index);
 	return 0;
 }
+bool interface_has_arp(const char * interface) {
+    struct ifreq ifr;
+   // int sock = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+    int sock=raw_send_fd;
+    memset(&ifr, 0, sizeof(ifr));
+    strcpy(ifr.ifr_name, interface);
+    if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
+            //perror("SIOCGIFFLAGS");
+    		mylog(log_fatal,"ioctl(sock, SIOCGIFFLAGS, &ifr) failed for interface %s,errno %s\n",interface,strerror(errno));
+            myexit(-1);
+    }
+    //close(sock);
+    return !(ifr.ifr_flags & IFF_NOARP);
+}
+struct route_info_t
+{
+	string if_name;
+	u32_t dest;
+	u32_t mask;
+	u32_t gw;
+	u32_t flag;
+
+};
+int dest_idx=1;
+int gw_idx=2;
+int if_idx=0;
+int mask_idx=7;
+int flag_idx=3;
+vector<int> find_route_entry(const vector<route_info_t> &route_info_vec,u32_t ip)
+{
+	vector<int> res;
+	for(u32_t i=0;i<=32;i++)
+	{
+		u32_t mask=0xffffffff;
+		//mask >>=i;
+		//if(i==32) mask=0;  //why 0xffffffff>>32  equals 0xffffffff??
+
+		mask <<=i;
+		if(i==32) mask=0;
+		log_bare(log_debug,"(mask:%x)",mask);
+		for(u32_t j=0;j<route_info_vec.size();j++)
+		{
+			const route_info_t & info=route_info_vec[j];
+			if(info.mask!=mask)
+				continue;
+			log_bare(log_debug,"<<%d,%d>>",i,j);
+			if((info.dest&mask)==(ip&mask))
+			{
+				log_bare(log_debug,"found!");
+				res.push_back(j);
+			}
+		}
+		if(res.size()!=0)
+		{
+			return res;
+		}
+	}
+	return res;
+}
+int find_direct_dest(const vector<route_info_t> &route_info_vec,u32_t ip,u32_t &dest_ip,string &if_name)
+{
+	vector<int> res;
+	for(int i=0;i<1000;i++)
+	{
+		res=find_route_entry(route_info_vec,ip);
+		log_bare(log_debug,"<entry:%u>",(u32_t)res.size());
+		if(res.size()==0)
+		{
+			mylog(log_error,"cant find route entry\n");
+			return -1;
+		}
+		if(res.size()>1)
+		{
+			mylog(log_error,"found duplicated entries\n");
+			return -1;
+		}
+		if((route_info_vec[res[0]].flag&2)==0)
+		{
+			dest_ip=ip;
+			if_name=route_info_vec[res[0]].if_name;
+			return 0;
+		}
+		else
+		{
+			ip=route_info_vec[res[0]].gw;
+		}
+	}
+	mylog(log_error,"dead loop in find_direct_dest\n");
+	return -1;
+}
+struct arp_info_t
+{
+	u32_t ip;
+	string hw;
+	string if_name;
+};
+int arp_ip_idx=0;
+int arp_hw_idx=3;
+int arp_if_idx=5;
+
+
+int find_arp(const vector<arp_info_t> &arp_info_vec,u32_t ip,string if_name,string &hw)
+{
+	int pos=-1;
+	int count=0;
+	for(u32_t i=0;i<arp_info_vec.size();i++)
+	{
+		const arp_info_t & info=arp_info_vec[i];
+		if(info.if_name!=if_name) continue;
+		if(info.ip==ip)
+		{
+			count++;
+			pos=i;
+		}
+	}
+	if(count==0)
+	{
+		//mylog(log_warn,"cant find arp entry for %s %s,using 00:00:00:00:00:00\n",my_ntoa(ip),if_name.c_str());
+		//hw="00:00:00:00:00:00";
+		mylog(log_error,"cant find arp entry for %s %s\n",my_ntoa(ip),if_name.c_str());
+		return -1;
+	}
+	if(count>1)
+	{
+		mylog(log_error,"find multiple arp entry for %s %s\n",my_ntoa(ip),if_name.c_str());
+		return -1;
+	}
+	hw=arp_info_vec[pos].hw;
+	return 0;
+}
+int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw)
+{
+	ip=htonl(ip);
+	if(ip==htonl(inet_addr("127.0.0.1")))
+	{
+		dest_ip=ntohl(ip);
+		if_name="lo";
+		hw="00:00:00:00:00:00";
+		return 0;
+	}
+
+	string route_file;
+	if(read_file("/proc/net/route",route_file)!=0) return -1;
+	string arp_file;
+	if(read_file("/proc/net/arp",arp_file)!=0) return -1;
+
+	log_bare(log_debug,"/proc/net/route:<<%s>>\n",route_file.c_str());
+	log_bare(log_debug,"/proc/net/arp:<<%s>>\n",route_file.c_str());
+
+	auto route_vec2=string_to_vec2(route_file.c_str());
+	vector<route_info_t> route_info_vec;
+	for(u32_t i=1;i<route_vec2.size();i++)
+	{
+		log_bare(log_debug,"<size:%u>",(u32_t)route_vec2[i].size());
+		if(route_vec2[i].size()!=11)
+		{
+			mylog(log_error,"route coloum %d !=11 \n",int(route_vec2[i].size()));
+			return -1;
+		}
+		route_info_t tmp;
+		tmp.if_name=route_vec2[i][if_idx];
+		if(hex_to_u32_with_endian(route_vec2[i][dest_idx],tmp.dest)!=0) return -1;
+		if(hex_to_u32_with_endian(route_vec2[i][gw_idx],tmp.gw)!=0) return -1;
+		if(hex_to_u32_with_endian(route_vec2[i][mask_idx],tmp.mask)!=0) return -1;
+		if(hex_to_u32(route_vec2[i][flag_idx],tmp.flag)!=0)return -1;
+		route_info_vec.push_back(tmp);
+		for(u32_t j=0;j<route_vec2[i].size();j++)
+		{
+			log_bare(log_debug,"<%s>",route_vec2[i][j].c_str());
+		}
+		log_bare(log_debug,"%s dest:%x mask:%x gw:%x flag:%x",tmp.if_name.c_str(),tmp.dest,tmp.mask,tmp.gw,tmp.flag);
+		log_bare(log_debug,"\n");
+	}
+
+	if(find_direct_dest(route_info_vec,ip,dest_ip,if_name)!=0)
+	{
+		mylog(log_error,"find_direct_dest failed for ip %s\n",my_ntoa(ntohl(ip)));
+		return -1;
+	}
+
+
+	log_bare(log_debug,"========\n");
+	auto arp_vec2=string_to_vec2(arp_file.c_str());
+	vector<arp_info_t> arp_info_vec;
+	for(u32_t i=1;i<arp_vec2.size();i++)
+	{
+		log_bare(log_debug,"<<arp_vec2[i].size(): %d>>",(int)arp_vec2[i].size());
+
+		for(u32_t j=0;j<arp_vec2[i].size();j++)
+		{
+			log_bare(log_debug,"<%s>",arp_vec2[i][j].c_str());
+		}
+		if(arp_vec2[i].size()!=6)
+		{
+			mylog(log_error,"arp coloum %d !=11 \n",int(arp_vec2[i].size()));
+			return -1;
+		}
+		arp_info_t tmp;
+		tmp.if_name=arp_vec2[i][arp_if_idx];
+		tmp.hw=arp_vec2[i][arp_hw_idx];
+		tmp.ip=htonl(inet_addr(arp_vec2[i][arp_ip_idx].c_str()));
+		arp_info_vec.push_back(tmp);
+		log_bare(log_debug,"\n");
+	}
+	if(!interface_has_arp(if_name.c_str()))
+	{
+		mylog(log_info,"%s is a noarp interface,using 00:00:00:00:00:00\n",if_name.c_str());
+		hw="00:00:00:00:00:00";
+	}
+	else if(find_arp(arp_info_vec,dest_ip,if_name,hw)!=0)
+	{
+		mylog(log_error,"find_arp failed for dest_ip %s ,if_name %s\n",my_ntoa(ntohl(ip)),if_name.c_str());
+		return -1;
+	}
+	//printf("%s\n",hw.c_str());
+
+	dest_ip=ntohl(dest_ip);
+	return 0;
+}
+
 
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
