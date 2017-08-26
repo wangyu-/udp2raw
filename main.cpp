@@ -2553,6 +2553,7 @@ void print_help()
 //	printf("                                          \n");
 	printf("other options:\n");
 	printf("    --conf-file           <string>        read options from a configuration file instead of command line\n");
+	printf("                                          check example.conf in repo for format\n");
 	printf("    --log-level           <number>        0:never    1:fatal   2:error   3:warn \n");
 	printf("                                          4:info (default)     5:debug   6:trace\n");
 //	printf("\n");
@@ -2567,10 +2568,11 @@ void print_help()
 	printf("                                          1:increase every packet(default)\n");
 	printf("                                          2:increase randomly, about every 3 packets\n");
 //	printf("\n");
-	printf("    --lower-level         <string>        send packet at OSI level 2, format:'if_name#dest_mac_adress'\n");
-	printf("                                          ie:'eth0#00:23:45:67:89:b9'.Beta.\n");
-	printf("    --gen-add                             generate iptables rule and add it for you,then exit.overrides -g\n");
-	printf("    --keep_rule                           monitor iptables and auto re-add if necessary.Implys -a\n");
+	printf("    --lower-level         <string>        send packets at OSI level 2, format:'if_name#dest_mac_adress'\n");
+	printf("                                          ie:'eth0#00:23:45:67:89:b9'.or try '--lower-level auto' to obtain\n");
+	printf("                                          the parameter automatically,specify it manually if 'auto' failed\n");
+	printf("    --gen-add                             generate iptables rule and add it permanently,then exit.overrides -g\n");
+	printf("    --keep-rule                           monitor iptables and auto re-add if necessary.implys -a\n");
 	printf("    --clear                               clear any iptables rules added by this program.overrides everything\n");
 	printf("    -h,--help                             print this help message\n");
 
@@ -3292,7 +3294,7 @@ int test()
 int main(int argc, char *argv[])
 {
 	//test();
-	printf("%s\n",my_ntoa(0x00ffffff));
+	//printf("%s\n",my_ntoa(0x00ffffff));
 	//auto a=string_to_vec("a b c d ");
 	//printf("%d\n",(int)a.size());
 	//printf("%d %d %d %d",larger_than_u32(1,2),larger_than_u32(2,1),larger_than_u32(0xeeaaeebb,2),larger_than_u32(2,0xeeaaeebb));
