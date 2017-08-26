@@ -1,23 +1,23 @@
 # Udp2raw-tunnel
 ![image0](images/image0.PNG)
 
-A UDP Tunnel which tunnels UDP via FakeTCP/UDP/ICMP Traffic by using Raw Socket,helps you Bypass UDP FireWalls(or Unstable UDP Environment).Its Encrpyted,Anti-Replay and Multiplexed.It aslo acts as a Connection Stablizer.
+A Tunnel which tunnels UDP via FakeTCP/UDP/ICMP Traffic by using Raw Socket, helps you Bypass UDP FireWalls(or Unstable UDP Environment). Its Encrypted, Anti-Replay and Multiplexed. It also acts as a Connection Stabilizer.
 
 [简体中文](/doc/README.zh-cn.md)
 # Support Platforms
-A Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
+Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
 
-For Winodws/MacOS,virtual image with udp2raw pre-installed has been released,you can load it with Vmware/VirtualBox.The virtual image has been set to auto obtain ip,udp2raw can be run imidiately after boot finished(make sure network mode of virtual machine has been set to bridged)(only udp2raw has to be run under virtual machine,all other programs runs under Windows/MacOS as usual).
+For Winodws/MacOS,the 4.4mb virtual image with udp2raw pre-installed has been released,you can load it with Vmware/VirtualBox.The virtual image has been set to auto obtain ip,udp2raw can be run imidiately after boot finished(make sure network mode of virtual machine has been set to bridged)(only udp2raw has to be run under virtual machine,all other programs runs under Windows/MacOS as usual).
 
 
 # Features 
-### Send / Receive UDP Packet with ICMP/FakeTCP headers
-ICMP/FakeTCP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. In ICMP header mode,it just works like an ICMP tunnel. 
+### Send/Receive UDP Packets with ICMP/FakeTCP/UDP headers
+ICMP/FakeTCP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. In ICMP header mode,udp2raw works like an ICMP tunnel. 
 
-UDP headers are also supported.In UDP header mode,it behaves just like a normal UDP tunnel,and you can just make use of the other features.
+UDP headers are also supported. In UDP header mode, it behaves just like a normal UDP tunnel, and you can just make use of the other features (such as encrytion, anti-replay, or connection stalization).
 
-### Simulate TCP Handshake
-In FakeTcp mode,udp2raw simulates 3-way handshake, along with seq and ack_seq. TCP options MSS, sackOk, TS, TS_ack, wscale are also simulated.Real-time delivery guaranteed,no congrestion control or re-transmission,no TCP over TCP problem when using OpenVPN.
+### Simulated TCP with Real-time/Out-of-Order Delivery
+In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a connection,simulates seq and ack_seq while data transferring. It also simulates following TCP options: `MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`.Firewalls will regard FakeTCP as a TCP connection, but its essentially UDP: it supports real-time/out-of-order delivery(just as normal UDP does), no congrestion control or re-transmission. So there wont be any TCP over TCP problem when using OpenVPN.
 
 ### Encrpytion, Anti-Replay
 * Encrypt your traffic with AES-128-CBC.
@@ -25,7 +25,7 @@ In FakeTcp mode,udp2raw simulates 3-way handshake, along with seq and ack_seq. T
 * Defense replay attack with an anti-replay window, smiliar to IPSec and OpenVPN. 
 
 ### Failure Dectection & Stablization (Connection Recovery)
-Conection failures are detected by heartbeats. If timed-out,client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild. 
+Conection failures are detected by heartbeats. If timed-out, client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild. 
 
 For example, if you use udp2raw + OpenVPN, OpenVPN won't lose connection after any reconnect, **even if network cable is re-plugged or WiFi access point is changed**.
 
@@ -36,12 +36,12 @@ For example, if you use udp2raw + OpenVPN, OpenVPN won't lose connection after a
 
 * **NAT Support** All of the 3 modes work in NAT environments.
 
-* **OpenVZ Support** Tested on BandwagonHost.
+* **OpenVZ Support** Tested on BandwagonHost VPS.
 
-* **OpenWRT Support** No dependencies, easy to build. Binary for ar71xx are included in release.
+* **Easy to Build** No dependencies.To cross-compile udp2raw,all you need to do is just to download a toolchain,modify makefile to point at the toolchain,run `make cross` then everything is done.(Note:Pre-compiled binaries for Desktop,RaspberryPi,Android,some Openwrt Routers are already included in [Releases](https://github.com/wangyu-/udp2raw-tunnel/releases))
 
 ### Keywords
-`UDP QoS Bypass` `UDP Blocking Bypass` `OpenVPN TCP over TCP problem` `OpenVPN over ICMP` `UDP to ICMP tunnel` `UDP to TCP tunnel` `UDP over ICMP` `UDP over TCP`
+`Bypass UDP QoS` `Bypass UDP Blocking` `Bypass OpenVPN TCP over TCP problem` `OpenVPN over ICMP` `UDP to ICMP tunnel` `UDP to TCP tunnel` `UDP over ICMP` `UDP over TCP`
 
 # Getting Started
 ### Installing
@@ -65,7 +65,7 @@ Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your
 Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
 
 ### Note
-to run on Android, see [Android_Guide](/doc/android_guide.md)
+To run on Android, check [Android_Guide](/doc/android_guide.md)
 
 # Advanced Topic
 ### Usage
