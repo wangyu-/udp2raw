@@ -83,6 +83,8 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 ### 提醒
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
+如果要在梅林固件的路由器上使用，添加`--lower-level auto` `--keep-rule`
+
 # 进阶操作说明
 
 ### 命令选项
