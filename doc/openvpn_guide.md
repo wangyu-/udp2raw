@@ -15,7 +15,7 @@ assume server ip is 45.66.77.88
 ```
 
 #### hint
-You can add `--cipher xor` `--auth simple` to **both** sides to obtain maximum performance(but poor security).
+You can add `--cipher-mode xor` `--auth-mode simple` to **both** sides to obtain maximum performance(but poor security).
 
 # openvpn config
 
