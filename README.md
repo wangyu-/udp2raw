@@ -124,6 +124,14 @@ It is suggested to use `aes128cbc` + `md5` to obtain maximum security. If you wa
 ### `--seq-mode`
 The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value. 
 
+### `--lower-level`
+`--lower-level` allows you to send packet at OSI level 2(link level),so that you can bypass any local iptables rules. If you have a complicated iptables rules which conflicts with udp2raw and you cant(or too lazy to) edit the iptables rules,`--lower-level` can be very useful. Try `--lower-level auto` to auto detect the parameters,you can specify it manually if `auto` fails.
+
+Manual format `if_name#dest_mac_adress`,ie:`eth0#00:23:45:67:89:b9`.
+
+### `--keep-rule`
+Monitor iptables and auto re-add iptables rules(for blocking kernel tcp processing) if necessary.Especially useful when iptables rules may be cleared by other programs(for example,if you are using openwrt,everytime you changed a setting,iptables rule may be cleared and re-constructed).
+
 ### `--conf-file`
 
 You can also load options from a configuration file in order to keep secrets away from ps command.
