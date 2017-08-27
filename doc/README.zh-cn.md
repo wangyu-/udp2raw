@@ -83,12 +83,14 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 ### 提醒
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
+如果要在梅林固件的路由器上使用，添加`--lower-level auto` `--keep-rule`
+
 # 进阶操作说明
 
 ### 命令选项
 ```
 udp2raw-tunnel
-version: Aug 18 2017 00:29:11
+version: Aug 26 2017 08:30:48
 repository: https://github.com/wangyu-/udp2raw-tunnel
 
 usage:
@@ -101,13 +103,16 @@ common options,these options must be same on both side:
     --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none
     --auth-mode           <string>        avaliable values:md5(default),crc32,simple,none
     -a,--auto-rule                        auto add (and delete) iptables rule
-    -g,--gen-rule                         generate iptables rule then exit
+    -g,--gen-rule                         generate iptables rule then exit,so that you can copy and
+                                          add it manually.overrides -a
     --disable-anti-replay                 disable anti-replay,not suggested
 client options:
     --source-ip           <ip>            force source-ip for raw socket
     --source-port         <port>          force source-port for raw socket,tcp/udp only
                                           this option disables port changing while re-connecting
 other options:
+    --conf-file           <string>        read options from a configuration file instead of command line.
+                                          check example.conf in repo for format
     --log-level           <number>        0:never    1:fatal   2:error   3:warn 
                                           4:info (default)     5:debug   6:trace
     --log-position                        enable file name,function name,line number in log
@@ -117,11 +122,16 @@ other options:
     --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024
     --seqmode             <number>        seq increase mode for faketcp:
                                           0:dont increase
-                                          1:increase every packet
-                                          2:increase randomly, about every 3 packets (default)
-    --lower-level         <string>        send packet at OSI level 2, format:'if_name#dest_mac_adress'
-                                          ie:'eth0#00:23:45:67:89:b9'.Beta.
+                                          1:increase every packet(default)
+                                          2:increase randomly, about every 3 packets
+    --lower-level         <string>        send packets at OSI level 2, format:'if_name#dest_mac_adress'
+                                          ie:'eth0#00:23:45:67:89:b9'.or try '--lower-level auto' to obtain
+                                          the parameter automatically,specify it manually if 'auto' failed
+    --gen-add                             generate iptables rule and add it permanently,then exit.overrides -g
+    --keep-rule                           monitor iptables and auto re-add if necessary.implys -a
+    --clear                               clear any iptables rules added by this program.overrides everything
     -h,--help                             print this help message
+
 ```
 
 ### iptables 规则,`-a`和`-g`
@@ -134,11 +144,16 @@ other options:
 ### `--seq-mode`
 facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和真正的tcp流量区分开来（虽然大部分ISP不太可能做这种程度的包检测）。seq-mode可以改变一些seq ack的行为。如果遇到了连接问题，可以尝试更改。在我这边的移动线路用3种模式都没问题。
 
+### `--keep-rule`
+定期主动检查iptables，如果udp2raw添加的iptables规则丢了，就重新添加。在一些iptables可能会被其他程序清空的情况下(比如梅林固件和openwrt的路由器)格外有用。
+
 ### `--lower-level`
 大部分udp2raw不能连通的情况都是设置了不兼容的iptables造成的。--lower-level选项允许绕过本地iptables。在一些iptables不好改动的情况下尤其有效（比如你用的是梅林固件，iptables全是固件自己生成的）。
 
 ##### 格式
 `if_name#dest_mac_adress`,例如 `eth0#00:23:45:67:89:b9` 。`eth0`换成你的出口网卡名。`00:23:45:67:89:b9`换成网关的mac地址（如果client和server在同一个局域网内，可能不需要网关，这时候直接用对方主机的mac地址，这个属于罕见的应用场景，可以忽略）。
+
+可以用`--lower-level auto`自动获取参数，如果获取参数失败，再手动填写。
 
 ##### client端获得--lower-level参数的办法
 在client 端，运行`traceroute <server_ip>`，记下第一跳的地址，这个就是`网关ip`。再运行`arp -s <网关ip>`，可以同时查到出口网卡名和mac。

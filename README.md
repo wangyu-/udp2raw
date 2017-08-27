@@ -71,7 +71,7 @@ To run on Android, check [Android_Guide](/doc/android_guide.md)
 ### Usage
 ```
 udp2raw-tunnel
-version: Aug 18 2017 00:29:11
+version: Aug 26 2017 08:30:48
 repository: https://github.com/wangyu-/udp2raw-tunnel
 
 usage:
@@ -84,14 +84,16 @@ common options,these options must be same on both side:
     --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none
     --auth-mode           <string>        avaliable values:md5(default),crc32,simple,none
     -a,--auto-rule                        auto add (and delete) iptables rule
-    -g,--gen-rule                         generate iptables rule then exit
+    -g,--gen-rule                         generate iptables rule then exit,so that you can copy and
+                                          add it manually.overrides -a
     --disable-anti-replay                 disable anti-replay,not suggested
 client options:
     --source-ip           <ip>            force source-ip for raw socket
     --source-port         <port>          force source-port for raw socket,tcp/udp only
                                           this option disables port changing while re-connecting
 other options:
-    --conf-file         <string>        read options from a configuration file instead of command line
+    --conf-file           <string>        read options from a configuration file instead of command line.
+                                          check example.conf in repo for format
     --log-level           <number>        0:never    1:fatal   2:error   3:warn 
                                           4:info (default)     5:debug   6:trace
     --log-position                        enable file name,function name,line number in log
@@ -101,11 +103,16 @@ other options:
     --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024
     --seqmode             <number>        seq increase mode for faketcp:
                                           0:dont increase
-                                          1:increase every packet
-                                          2:increase randomly, about every 3 packets (default)
-    --lower-level         <string>        send packet at OSI level 2, format:'if_name#dest_mac_adress'
-                                          ie:'eth0#00:23:45:67:89:b9'.Beta.
+                                          1:increase every packet(default)
+                                          2:increase randomly, about every 3 packets
+    --lower-level         <string>        send packets at OSI level 2, format:'if_name#dest_mac_adress'
+                                          ie:'eth0#00:23:45:67:89:b9'.or try '--lower-level auto' to obtain
+                                          the parameter automatically,specify it manually if 'auto' failed
+    --gen-add                             generate iptables rule and add it permanently,then exit.overrides -g
+    --keep-rule                           monitor iptables and auto re-add if necessary.implys -a
+    --clear                               clear any iptables rules added by this program.overrides everything
     -h,--help                             print this help message
+
 ```
 
 ### Iptables rules,`-a` and `-g`
