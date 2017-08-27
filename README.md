@@ -130,7 +130,7 @@ The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be ab
 Manual format `if_name#dest_mac_adress`,ie:`eth0#00:23:45:67:89:b9`.
 
 ### `--keep-rule`
-Monitor iptables and auto re-add iptables rules(for blocking kernel tcp processing) if necessary.Especially useful when iptables rules may be cleared by other programs(for example,if you are using openwrt,everytime you changed a setting,iptables rule may be cleared and re-constructed).
+Monitor iptables and auto re-add iptables rules(for blocking kernel tcp processing) if necessary.Especially useful when iptables rules may be cleared by other programs(for example,if you are using openwrt,everytime you changed and commited a setting,iptables rule may be cleared and re-constructed).
 
 ### `--conf-file`
 
