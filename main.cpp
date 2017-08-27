@@ -9,48 +9,50 @@
 #include <map>
 #include <set>
 
-char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";
-u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;
+char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
+u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
+int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
 
-int force_source_ip=0;
-int source_port=0,local_port = -1, remote_port = -1;
-
-id_t const_id=0;
+int force_source_ip=0; //if --source-ip is enabled
 
 
-const int disable_conv_clear=0;
-const int disable_conn_clear=0;
+id_t const_id=0;//an id used for connection recovery,its generated randomly,it never change since its generated
 
 
-enum server_current_state_t {server_idle=0,server_handshake1,server_ready};
-enum client_current_state_t {client_idle=0,client_tcp_handshake,client_handshake1,client_handshake2,client_ready};
+const int disable_conv_clear=0;//a udp connection in the multiplexer is called conversation in this program,conv for short.
+
+const int disable_conn_clear=0;//a raw connection is called conn.
+
+
+enum server_current_state_t {server_idle=0,server_handshake1,server_ready};  //server state machine
+enum client_current_state_t {client_idle=0,client_tcp_handshake,client_handshake1,client_handshake2,client_ready};//client state machine
 union current_state_t
 {
 	server_current_state_t server_current_state;
 	client_current_state_t client_current_state;
 };
 
-int udp_fd=-1;  //for client only
-int bind_fd=-1; //bind only,never send or recv
-int epollfd=-1;
-int timer_fd=-1;
-int fail_time_counter=0;
-int epoll_trigger_counter=0;
-int debug_flag=0;
+int udp_fd=-1;  //for client only. client use this fd to listen and handle udp connection
+int bind_fd=-1; //bind only,never send or recv.  its just a dummy fd for bind,so that other program wont occupy the same port
+int epollfd=-1; //fd for epoll
+int timer_fd=-1;   //the general timer fd for client and server.for server this is not the only timer find,every connection has a timer fd.
+int fail_time_counter=0;//determine if the max_fail_time is reached
+int epoll_trigger_counter=0;//for debug only
+int debug_flag=0;//for debug only
 
 
-int simple_rule=0;
-int keep_rule=0;
-int auto_add_iptables_rule=0;
-int generate_iptables_rule=0;
-int generate_iptables_rule_add=0;
+int simple_rule=0;  //deprecated.
+int keep_rule=0; //whether to monitor the iptables rule periodly,re-add if losted
+int auto_add_iptables_rule=0;//if -a is set
+int generate_iptables_rule=0;//if -g is set
+int generate_iptables_rule_add=0;// if --gen-add is set
 
-int debug_resend=0;
-int disable_anti_replay=0;
-char key_string[1000]= "secret key";
-char key[16];//,key2[16];
+int debug_resend=0; // debug only
+int disable_anti_replay=0;//if anti_replay windows is diabled
+char key_string[1000]= "secret key";// -k option
+char key[16];//generated from key_string by md5.
 
-int mtu_warn=1375;
+int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
 
 //uint64_t current_time_rough=0;
 
@@ -58,7 +60,7 @@ int mtu_warn=1375;
 int VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV;
 ////////==============================variable divider=============================================================
 
-struct anti_replay_t
+struct anti_replay_t  //its for anti replay attack,similar to openvpn/ipsec 's anti replay window
 {
 	u64_t max_packet_received;
 	char window[anti_replay_window_size];
@@ -121,7 +123,7 @@ struct anti_replay_t
 };//anti_replay;
 
 void server_clear_function(u64_t u64);
-struct conv_manager_t  //TODO change map to unordered map
+struct conv_manager_t  // manage the udp connections
 {
 	//typedef hash_map map;
 	unordered_map<u64_t,u32_t> u64_to_conv;  //conv and u64 are both supposed to be uniq
@@ -284,12 +286,13 @@ struct conv_manager_t  //TODO change map to unordered map
 		return 0;
 	}
 };//g_conv_manager;
-struct blob_t
+struct blob_t  //used in conn_info_t.  conv_manager_t and anti_replay_t are costly data structures ,we dont allocate them until its necessary
 {
 	conv_manager_t conv_manager;
 	anti_replay_t anti_replay;
 };
-struct conn_info_t
+struct conn_info_t     //stores info for a raw connection.for client ,there is only one connection,for server there can be thousand of connection since server can
+//handle multiple clients
 {
 	current_state_t state;
 
@@ -376,7 +379,7 @@ struct conn_info_t
 	~conn_info_t();
 };//g_conn_info;
 
-struct conn_manager_t
+struct conn_manager_t  //manager for connections. for client,we dont need conn_manager since there is only one connection.for server we use one conn_manager for all connections
 {
 
  u32_t ready_num;
@@ -580,7 +583,8 @@ int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw);
 int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
 ////////////////=======================declear divider=============================
 
-void server_clear_function(u64_t u64)
+void server_clear_function(u64_t u64)//used in conv_manager in server mode.for server we have to use one udp fd for one conv(udp connection),
+//so we have to close the fd when conv expires
 {
 	int fd=int(u64);
 	int ret;
@@ -612,7 +616,8 @@ void server_clear_function(u64_t u64)
 
 
 
-int send_bare(raw_info_t &raw_info,const char* data,int len)
+int send_bare(raw_info_t &raw_info,const char* data,int len)//send function with encryption but no anti replay,this is used when client and server verifys each other
+//you have to design the protocol carefully, so that you wont be affect by relay attack
 {
 	if(len<0)
 	{
@@ -644,7 +649,7 @@ int send_bare(raw_info_t &raw_info,const char* data,int len)
 	send_raw0(raw_info,send_data_buf2,new_len);
 	return 0;
 }
-int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow overlap
+int parse_bare(const char *input,int input_len,char* & data,int & len) // a sub function used in recv_bare
 {
 	static char recv_data_buf[buf_len];
 
@@ -673,7 +678,8 @@ int parse_bare(const char *input,int input_len,char* & data,int & len)  //allow 
 	}
 	return 0;
 }
-int recv_bare(raw_info_t &raw_info,char* & data,int & len)
+int recv_bare(raw_info_t &raw_info,char* & data,int & len)//recv function with encryption but no anti replay,this is used when client and server verifys each other
+//you have to design the protocol carefully, so that you wont be affect by relay attack
 {
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
@@ -691,7 +697,7 @@ int recv_bare(raw_info_t &raw_info,char* & data,int & len)
 	return parse_bare(data,len,data,len);
 }
 
-int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3)
+int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3)// a warp for send_bare for sending handshake(this is not tcp handshake) easily
 {
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
@@ -713,7 +719,7 @@ int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
 	return 0;
 }*/
 
-int send_safer(conn_info_t &conn_info,char type,const char* data,int len)
+int send_safer(conn_info_t &conn_info,char type,const char* data,int len)  //safer transfer function with anti-replay,when mutually verification is done.
 {
 
 	packet_info_t &send_info=conn_info.raw_info.send_info;
@@ -763,7 +769,7 @@ int send_safer(conn_info_t &conn_info,char type,const char* data,int len)
 
 	return 0;
 }
-int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_num)
+int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_num)//a wrap for  send_safer for transfer data.
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
@@ -779,7 +785,7 @@ int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_n
 	return 0;
 
 }
-int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//allow overlap
+int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//subfunction for recv_safer,allow overlap
 {
 	 static char recv_data_buf0[buf_len];
 
@@ -846,7 +852,7 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &ty
 
 	return 0;
 }
-int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)
+int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)///safer transfer function with anti-replay,when mutually verification is done.
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
@@ -859,7 +865,7 @@ int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)
 	return parse_safer(conn_info,recv_data,recv_len,type,data,len);
 }
 
-int try_to_list_and_bind(int port)
+int try_to_list_and_bind(int port)  //try to bind to a port,may fail.
 {
 	 int old_bind_fd=bind_fd;
 
@@ -898,7 +904,7 @@ int try_to_list_and_bind(int port)
 	 }
      return 0;
 }
-int client_bind_to_a_new_port()
+int client_bind_to_a_new_port()//find a free port and bind to it.
 {
 	int raw_send_port=10000+get_true_random_number()%(65535-10000);
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
@@ -915,7 +921,7 @@ int client_bind_to_a_new_port()
 
 
 
-int set_timer(int epollfd,int &timer_fd)
+int set_timer(int epollfd,int &timer_fd)//put a timer_fd into epoll,general function,used both in client and server
 {
 	int ret;
 	epoll_event ev;
@@ -946,7 +952,7 @@ int set_timer(int epollfd,int &timer_fd)
 }
 
 
-int set_timer_server(int epollfd,int &timer_fd)
+int set_timer_server(int epollfd,int &timer_fd)//only for server
 {
 	int ret;
 	epoll_event ev;
@@ -976,7 +982,7 @@ int set_timer_server(int epollfd,int &timer_fd)
 	return 0;
 }
 int get_src_adress(u32_t &ip);
-int client_on_timer(conn_info_t &conn_info) //for client
+int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
 	//keep_iptables_rule();
 	packet_info_t &send_info=conn_info.raw_info.send_info;
@@ -1216,7 +1222,8 @@ int client_on_timer(conn_info_t &conn_info) //for client
 	}
 	return 0;
 }
-int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)
+int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)  //for server. called when a timer is ready in epoll.for server,there will be one timer for every connection
+
 {
 	//keep_iptables_rule();
 	mylog(log_trace,"server timer!\n");
@@ -1260,7 +1267,7 @@ int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)
 	return 0;
 
 }
-int client_on_raw_recv(conn_info_t &conn_info)
+int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a packet.
 {
 	char* data;int data_len;
 	packet_info_t &send_info=conn_info.raw_info.send_info;
@@ -1440,7 +1447,7 @@ int client_on_raw_recv(conn_info_t &conn_info)
 	}
 	return 0;
 }
-int handle_lower_level(raw_info_t &raw_info)
+int handle_lower_level(raw_info_t &raw_info)//fill lower_level info,when --lower-level is enabled,only for server
 {
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
@@ -1469,7 +1476,7 @@ int handle_lower_level(raw_info_t &raw_info)
 	}
 	return 0;
 }
-int server_on_raw_recv_multi()
+int server_on_raw_recv_multi() //called when server received an raw packet
 {
 	char dummy_buf[buf_len];
 	packet_info_t peek_info;
@@ -1639,7 +1646,7 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id )
 
 	return 0;
 }*/
-int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len)
+int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len)//called when server received a handshake1 packet from client
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
@@ -1701,7 +1708,8 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 	}
 	return 0;
 }
-int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len)
+int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len)  //called while the state for a connection is server_ready
+//receives data and heart beat by recv_safer.
 {
 
 	raw_info_t &raw_info = conn_info.raw_info;
@@ -1813,7 +1821,8 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 	return 0;
 }
 
-int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id)
+int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id)// do prepare work before state change to server ready for a specifc connection
+//connection recovery is also handle here
 {
 	//u32_t ip;uint16_t port;
 	//ip=conn_info.raw_info.recv_info.src_ip;
@@ -1931,7 +1940,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 	return 0;
 }
 
-int get_src_adress(u32_t &ip)
+int get_src_adress(u32_t &ip)  //a trick to get src adress for a dest adress,so that we can use the src address in raw socket as source ip
 {
 	struct sockaddr_in remote_addr_in={0};
 
@@ -2497,7 +2506,7 @@ int server_event_loop()
 	return 0;
 }
 //char lower_level_arg[1000];
-int process_lower_level_arg()
+int process_lower_level_arg()//handle --lower-level option
 {
 	lower_level=1;
 	if(strcmp(optarg,"auto")==0)
@@ -2552,7 +2561,7 @@ void print_help()
 	printf("                                          this option disables port changing while re-connecting\n");
 //	printf("                                          \n");
 	printf("other options:\n");
-	printf("    --conf-file           <string>        read options from a configuration file instead of command line\n");
+	printf("    --conf-file           <string>        read options from a configuration file instead of command line.\n");
 	printf("                                          check example.conf in repo for format\n");
 	printf("    --log-level           <number>        0:never    1:fatal   2:error   3:warn \n");
 	printf("                                          4:info (default)     5:debug   6:trace\n");
@@ -2579,7 +2588,7 @@ void print_help()
 	//printf("common options,these options must be same on both side\n");
 }
 
-int load_config(char *file_name, int &argc, vector<string> &argv)
+int load_config(char *file_name, int &argc, vector<string> &argv) //load conf file and append to argv
 {
 	// Load configurations from config_file instead of the command line.
 	// See config.example for example configurations
@@ -2622,7 +2631,7 @@ int unit_test()
 	return 0;
 }
 
-int process_log_level(int argc,char *argv[])
+int process_log_level(int argc,char *argv[])//process  --log-level and --disable-cloer --log-postion options
 {
 	int i,j,k;
 	for (i = 0; i < argc; i++)
@@ -2653,7 +2662,7 @@ int process_log_level(int argc,char *argv[])
 	}
 	return 0;
 }
-void process_arg(int argc, char *argv[])
+void process_arg(int argc, char *argv[])  //process all options
 {
 	int i,j,k,opt;
 
@@ -3052,7 +3061,7 @@ void process_arg(int argc, char *argv[])
 
 	 log_bare(log_info,"\n");
 }
-void pre_process_arg(int argc, char *argv[])
+void pre_process_arg(int argc, char *argv[])//mainly for load conf file
 {
 	int i,j,k;
 	for (i = 0; i < argc; i++)
@@ -3139,7 +3148,7 @@ void pre_process_arg(int argc, char *argv[])
 	process_arg(new_argc,new_argv_char);
 
 }
-void *run_keep(void *none)
+void *run_keep(void *none)  //called in a new thread for --keep-rule option
 {
 
 	while(1)
@@ -3156,7 +3165,7 @@ void *run_keep(void *none)
 	return NULL;
 
 }
-void iptables_rule()
+void iptables_rule()  // handles -a -g --gen-add  --keep-rule
 {
 	if(auto_add_iptables_rule&&generate_iptables_rule)
 	{
