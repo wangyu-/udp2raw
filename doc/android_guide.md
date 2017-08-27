@@ -1,6 +1,6 @@
 # How to run udp2raw on a rooted android device(arm cpu)
 
-There is currently no GUI for udp2raw on android.Make sure you have installed Terminal to run it.You device has to be rooted,otherwise you cant use raw socket.
+There is currently no GUI for udp2raw on android.Make sure you have installed Terminal to run it.Your device has to be rooted,otherwise you cant use raw socket.
 
 Download udp2raw_arm from https://github.com/wangyu-/udp2raw-tunnel/releases.
 
