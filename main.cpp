@@ -2628,6 +2628,17 @@ int unit_test()
 		}
 		printf("\n");
 	}
+
+	char s1[]={1,2,3,4,5};
+
+	char s2[]={1};
+
+	short c1=csum((unsigned short*)s1,5);
+	short c2=csum((unsigned short*)s2,1);
+	//c2=0;
+
+	printf("%x %x\n",(int)c1,(int)c2);
+
 	return 0;
 }
 
