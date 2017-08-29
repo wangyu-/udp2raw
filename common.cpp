@@ -417,6 +417,8 @@ int hex_to_u32_with_endian(const string & a,u32_t &output)
 	return -1;
 }
 bool larger_than_u32(u32_t a,u32_t b)
+//TODO
+//looks like this can simply be done by return ((i32_t)(a-b) >0)
 {
 
 	u32_t smaller,bigger;
