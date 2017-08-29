@@ -136,7 +136,7 @@ Monitor iptables and auto re-add iptables rules(for blocking kernel tcp processi
 
 ### `--conf-file`
 
-You can also load options from a configuration file in order to keep secrets away from ps command.
+You can also load options from a configuration file in order to keep secrets away from `ps` command.
 
 For example, rewrite the options for the above `server` example (in Getting Started section) into configuration file:
 
