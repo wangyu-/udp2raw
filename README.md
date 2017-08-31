@@ -1,7 +1,7 @@
 # Udp2raw-tunnel
 ![image0](images/image0.PNG)
 
-A Tunnel which tunnels UDP via FakeTCP/UDP/ICMP Traffic by using Raw Socket, helps you Bypass UDP FireWalls(or Unstable UDP Environment). Its Encrypted, Anti-Replay and Multiplexed. It also acts as a Connection Stabilizer.
+A Tunnel which turns UDP Traffic into Encrypted FakeTCP/UDP/ICMP Traffic by using Raw Socket, helps you Bypass UDP FireWalls(or Unstable UDP Environment). It can defend Replay-Attack and supports Multiplexing. It also acts as a Connection Stabilizer.
 
 It can tunnel any traffic when used together with a UDP-based VPN(such as OpenVPN).Check [this link](https://github.com/wangyu-/udp2raw-tunnel#tunneling-any-traffic-via-raw-traffic-by-using-udp2raw-openvpn) for more info.
 
@@ -136,7 +136,7 @@ Monitor iptables and auto re-add iptables rules(for blocking kernel tcp processi
 
 ### `--conf-file`
 
-You can also load options from a configuration file in order to keep secrets away from ps command.
+You can also load options from a configuration file in order to keep secrets away from `ps` command.
 
 For example, rewrite the options for the above `server` example (in Getting Started section) into configuration file:
 
