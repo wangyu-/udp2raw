@@ -3207,7 +3207,7 @@ void *run_keep(void *none)  //called in a new thread for --keep-rule option
 
 	while(1)
 	{
-		sleep(10);
+		sleep(iptables_rule_keep_interval);
 		keep_iptables_rule();
 		if(about_to_exit)   //just incase it runs forever if there is some bug,not necessary
 		{

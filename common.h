@@ -63,39 +63,39 @@ const int max_data_len=1600;
 const int buf_len=max_data_len+400;
 const u32_t max_handshake_conn_num=10000;
 const u32_t max_ready_conn_num=1000;
-const u32_t anti_replay_window_size=1000;
+const u32_t anti_replay_window_size=4000;
 const int max_conv_num=10000;
 
-const u32_t client_handshake_timeout=5000;
-const u32_t client_retry_interval=1000;
+const u32_t client_handshake_timeout=5000;//unit ms
+const u32_t client_retry_interval=1000;//ms
 
-const u32_t server_handshake_timeout=10000;// this should be much longer than clients. client retry initially ,server retry passtively
+const u32_t server_handshake_timeout=client_handshake_timeout+5000;// this should be longer than clients. client retry initially ,server retry passtively
 
 const int conv_clear_ratio=10;  //conv grabage collecter check 1/10 of all conv one time
 const int conn_clear_ratio=30;
-const int conv_clear_min=5;
+const int conv_clear_min=1;
 const int conn_clear_min=1;
 
-const u32_t conv_clear_interval=1000;
-const u32_t conn_clear_interval=1000;
+const u32_t conv_clear_interval=3000;//ms
+const u32_t conn_clear_interval=3000;//ms
 
 
 const i32_t max_fail_time=0;//disable
 
-const u32_t heartbeat_interval=1000;
+const u32_t heartbeat_interval=1000;//ms
 
-const u32_t timer_interval=400;//this should be smaller than heartbeat_interval and retry interval;
+const u32_t timer_interval=400;//ms. this should be smaller than heartbeat_interval and retry interval;
 
-const uint32_t conv_timeout=120000; //120 second
+const uint32_t conv_timeout=120000; //ms. 120 second
 //const u32_t conv_timeout=30000; //for test
 
-const u32_t client_conn_timeout=10000;
-const u32_t client_conn_uplink_timeout=client_conn_timeout+2000;
+const u32_t client_conn_timeout=15000;//ms.
+const u32_t client_conn_uplink_timeout=client_conn_timeout+2000;//ms
 
-const uint32_t server_conn_timeout=conv_timeout+60000;//this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
+const uint32_t server_conn_timeout=conv_timeout+60000;//ms. this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
 //const u32_t server_conn_timeout=conv_timeout+10000;//for test
 
-//const u32_t iptables_rule_keep_interval=4000;
+const u32_t iptables_rule_keep_interval=15;//unit: second;
 
 extern int about_to_exit;
 extern pthread_t keep_thread;
