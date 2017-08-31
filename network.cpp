@@ -201,7 +201,7 @@ int init_raw_socket()
 
     if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	mylog(log_fatal,"SO_SNDBUFFORCE fail\n");
+    	mylog(log_fatal,"SO_SNDBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
     	myexit(1);
     }
 
@@ -219,7 +219,7 @@ int init_raw_socket()
 
     if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	mylog(log_fatal,"SO_RCVBUFFORCE fail\n");
+    	mylog(log_fatal,"SO_RCVBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
     	myexit(1);
     }
 
@@ -844,8 +844,8 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 
 	//mylog(log_debug,"syn %d\n",send_info.syn);
 
-	char send_raw_tcp_buf0[buf_len];
-	char *send_raw_tcp_buf=send_raw_tcp_buf0;
+	char send_raw_tcp_buf[buf_len];
+	//char *send_raw_tcp_buf=send_raw_tcp_buf0;
 
 	struct tcphdr *tcph = (struct tcphdr *) (send_raw_tcp_buf
 			+ sizeof(struct pseudo_header));
@@ -884,14 +884,20 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		send_raw_tcp_buf[i++] = 0x08;   //ts   i=6
 		send_raw_tcp_buf[i++] = 0x0a;   //i=7
 
-		*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(
-				(u32_t) get_current_time());
+		//*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(
+			//	(u32_t) get_current_time());
+
+		u32_t ts=htonl((u32_t) get_current_time());
+		memcpy(&send_raw_tcp_buf[i],&ts,sizeof(ts));
 
 		i += 4;
 
 		//mylog(log_info,"[syn]<send_info.ts_ack= %u>\n",send_info.ts_ack);
 
-		*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
+		//*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
+		u32_t ts_ack=htonl(send_info.ts_ack);
+		memcpy(&send_raw_tcp_buf[i],&ts_ack,sizeof(ts_ack));
+
 		i += 4;
 
 		send_raw_tcp_buf[i++] = 0x01;
@@ -908,14 +914,19 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		send_raw_tcp_buf[i++] = 0x08;  //ts   //i=2
 		send_raw_tcp_buf[i++] = 0x0a; 		  //i=3;
 
-		*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(
-				(u32_t) get_current_time());
+		//*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(
+			//	(u32_t) get_current_time());
+
+		u32_t ts=htonl((u32_t) get_current_time());
+		memcpy(&send_raw_tcp_buf[i],&ts,sizeof(ts));
 
 		i += 4;
 
 		//mylog(log_info,"<send_info.ts_ack= %u>\n",send_info.ts_ack);
 
-		*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
+		//*(u32_t*) (&send_raw_tcp_buf[i]) = htonl(send_info.ts_ack);
+		u32_t ts_ack=htonl(send_info.ts_ack);
+		memcpy(&send_raw_tcp_buf[i],&ts_ack,sizeof(ts_ack));
 		i += 4;
 	}
 
@@ -1334,8 +1345,14 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     	if(tcp_option[6]==0x08 &&tcp_option[7]==0x0a)
     	{
     		recv_info.has_ts=1;
-    		recv_info.ts=ntohl(*(u32_t*)(&tcp_option[8]));
-    		recv_info.ts_ack=ntohl(*(u32_t*)(&tcp_option[12]));
+    		//recv_info.ts=ntohl(*(u32_t*)(&tcp_option[8]));
+    		memcpy(&recv_info.ts,&tcp_option[8],sizeof(recv_info.ts));
+    		recv_info.ts=ntohl(recv_info.ts);
+
+    		//recv_info.ts_ack=ntohl(*(u32_t*)(&tcp_option[12]));
+    		memcpy(&recv_info.ts_ack,&tcp_option[12],sizeof(recv_info.ts_ack));
+    		recv_info.ts_ack=ntohl(recv_info.ts_ack);
+
     		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[8]));
     	}
     	else
@@ -1348,8 +1365,12 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     	if(tcp_option[2]==0x08 &&tcp_option[3]==0x0a)
     	{
     		recv_info.has_ts=1;
-    		recv_info.ts=ntohl(*(u32_t*)(&tcp_option[4]));
-    		recv_info.ts_ack=ntohl(*(u32_t*)(&tcp_option[8]));
+    		//recv_info.ts=ntohl(*(u32_t*)(&tcp_option[4]));
+    		memcpy(&recv_info.ts,&tcp_option[4],sizeof(recv_info.ts));
+    		recv_info.ts=ntohl(recv_info.ts);
+    		//recv_info.ts_ack=ntohl(*(u32_t*)(&tcp_option[8]));
+    		memcpy(&recv_info.ts_ack,&tcp_option[8],sizeof(recv_info.ts_ack));
+    		recv_info.ts_ack=ntohl(recv_info.ts_ack);
     		//g_packet_info_send.ts_ack= ntohl(*(uint32_t*)(&tcp_option[0]));
     	}
     	else

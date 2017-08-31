@@ -787,9 +787,9 @@ int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_n
 }
 int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//subfunction for recv_safer,allow overlap
 {
-	 static char recv_data_buf0[buf_len];
+	 static char recv_data_buf[buf_len];
 
-	 char *recv_data_buf=recv_data_buf0; //fix strict alias warning
+	// char *recv_data_buf=recv_data_buf0; //fix strict alias warning
 	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
 	{
 		//printf("decrypt fail\n");
@@ -799,15 +799,24 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &ty
 
 
 	//char *a=recv_data_buf;
-	id_t h_oppiste_id= ntohl (  *((id_t * )(recv_data_buf)) );
+	//id_t h_oppiste_id= ntohl (  *((id_t * )(recv_data_buf)) );
+	id_t h_oppsite_id;
+	memcpy(&h_oppsite_id,recv_data_buf,sizeof(h_oppsite_id));
+	h_oppsite_id=ntohl(h_oppsite_id);
 
-	id_t h_my_id= ntohl (  *((id_t * )(recv_data_buf+sizeof(id_t)))    );
+	//id_t h_my_id= ntohl (  *((id_t * )(recv_data_buf+sizeof(id_t)))    );
+	id_t h_my_id;
+	memcpy(&h_my_id,recv_data_buf+sizeof(id_t),sizeof(h_my_id));
+	h_my_id=ntohl(h_my_id);
 
-	anti_replay_seq_t h_seq= ntoh64 (  *((anti_replay_seq_t * )(recv_data_buf  +sizeof(id_t) *2 ))   );
+	//anti_replay_seq_t h_seq= ntoh64 (  *((anti_replay_seq_t * )(recv_data_buf  +sizeof(id_t) *2 ))   );
+	anti_replay_seq_t h_seq;
+	memcpy(&h_seq,recv_data_buf  +sizeof(id_t) *2 ,sizeof(h_seq));
+	h_seq=ntoh64(h_seq);
 
-	if(h_oppiste_id!=conn_info.oppsite_id||h_my_id!=conn_info.my_id)
+	if(h_oppsite_id!=conn_info.oppsite_id||h_my_id!=conn_info.my_id)
 	{
-		mylog(log_debug,"id and oppsite_id verification failed %x %x %x %x \n",h_oppiste_id,conn_info.oppsite_id,h_my_id,conn_info.my_id);
+		mylog(log_debug,"id and oppsite_id verification failed %x %x %x %x \n",h_oppsite_id,conn_info.oppsite_id,h_my_id,conn_info.my_id);
 		return -1;
 	}
 
@@ -1331,9 +1340,20 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			mylog(log_debug,"too short to be a handshake\n");
 			return -1;
 		}
-		id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
-		id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
-		id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
+		//id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
+		id_t tmp_oppsite_id;
+		memcpy(&tmp_oppsite_id,&data[0],sizeof(tmp_oppsite_id));
+		tmp_oppsite_id=ntohl(tmp_oppsite_id);
+
+		//id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
+		id_t tmp_my_id;
+		memcpy(&tmp_my_id,&data[sizeof(id_t)],sizeof(tmp_my_id));
+		tmp_my_id=ntohl(tmp_my_id);
+
+		//id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
+		id_t tmp_oppsite_const_id;
+		memcpy(&tmp_oppsite_const_id,&data[sizeof(id_t)*2],sizeof(tmp_oppsite_const_id));
+		tmp_oppsite_const_id=ntohl(tmp_oppsite_const_id);
 
 		if(tmp_my_id!=conn_info.my_id)
 		{
@@ -1401,7 +1421,10 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 			conn_info.last_hb_recv_time=get_current_time();
 
-			u32_t tmp_conv_id= ntohl(* ((u32_t *)&data[0]));
+			//u32_t tmp_conv_id= ntohl(* ((u32_t *)&data[0]));
+			u32_t tmp_conv_id;
+			memcpy(&tmp_conv_id,&data[0],sizeof(tmp_conv_id));
+			tmp_conv_id=ntohl(tmp_conv_id);
 
 			if(!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id))
 			{
@@ -1566,7 +1589,11 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 			return -1;
 		}
 
-		id_t zero=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
+		//id_t zero=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
+		id_t zero;
+		memcpy(&zero,&data[sizeof(id_t)],sizeof(zero));
+		zero=ntohl(zero);
+
 		if(zero!=0)
 		{
 			mylog(log_debug,"[%s]not a invalid initial handshake\n",ip_port);
@@ -1663,8 +1690,15 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 		mylog(log_debug,"[%s] data_len=%d too short to be a handshake\n",ip_port,data_len);
 		return -1;
 	}
-	id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
-	id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
+	//id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
+	id_t tmp_oppsite_id;
+	memcpy(&tmp_oppsite_id,(u32_t *)&data[0],sizeof(tmp_oppsite_id));
+	tmp_oppsite_id=ntohl(tmp_oppsite_id);
+
+	//id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
+	id_t tmp_my_id;
+	memcpy(&tmp_my_id,&data[sizeof(id_t)],sizeof(tmp_my_id));
+	tmp_my_id=ntohl(tmp_my_id);
 
 	if(tmp_my_id==0)  //received  init handshake again
 	{
@@ -1685,7 +1719,12 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 	else if(tmp_my_id==conn_info.my_id)
 	{
 		conn_info.oppsite_id=tmp_oppsite_id;
-		id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
+		//id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
+
+		id_t tmp_oppsite_const_id;
+		memcpy(&tmp_oppsite_const_id,&data[sizeof(id_t)*2],sizeof(tmp_oppsite_const_id));
+		tmp_oppsite_const_id=ntohl(tmp_oppsite_const_id);
+
 
 		if(raw_mode==mode_faketcp)
 		{
@@ -1735,7 +1774,11 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 	} else if (type== 'd' && data_len >=int( sizeof(u32_t) ))
 	{
 
-		u32_t tmp_conv_id = ntohl(*((u32_t *) &data[0]));
+		//u32_t tmp_conv_id = ntohl(*((u32_t *) &data[0]));
+		id_t tmp_conv_id;
+		memcpy(&tmp_conv_id,&data[0],sizeof(tmp_conv_id));
+		tmp_conv_id=ntohl(tmp_conv_id);
+
 
 		conn_info.last_hb_recv_time = get_current_time();
 

@@ -330,12 +330,12 @@ int set_buf_size(int fd)
 {
     if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	mylog(log_fatal,"SO_SNDBUFFORCE fail,fd %d\n",fd);
+    	mylog(log_fatal,"SO_SNDBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
     	myexit(1);
     }
     if(setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
     {
-    	mylog(log_fatal,"SO_RCVBUFFORCE fail,fd %d\n",fd);
+    	mylog(log_fatal,"SO_RCVBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
     	myexit(1);
     }
 	return 0;
@@ -386,9 +386,15 @@ int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len)
 int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3)
 {
 	if(len<int(sizeof(id_t)*3)) return -1;
-	id1=ntohl(  *((id_t*)(data+0)) );
-	id2=ntohl(  *((id_t*)(data+sizeof(id_t))) );
-	id3=ntohl(  *((id_t*)(data+sizeof(id_t)*2)) );
+	//id1=ntohl(  *((id_t*)(data+0)) );
+	memcpy(&id1,data+0,sizeof(id1));
+	id1=ntohl(id1);
+	//id2=ntohl(  *((id_t*)(data+sizeof(id_t))) );
+	memcpy(&id2,data+sizeof(id_t),sizeof(id2));
+	id2=ntohl(id2);
+	//id3=ntohl(  *((id_t*)(data+sizeof(id_t)*2)) );
+	memcpy(&id3,data+sizeof(id_t)*2,sizeof(id3));
+	id3=ntohl(id3);
 	return 0;
 }
 int hex_to_u32(const string & a,u32_t &output)
