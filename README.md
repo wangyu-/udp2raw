@@ -12,7 +12,7 @@ Answer: **TCP doesnt allow real-time/out-of-order delivery**. **If you use OpenV
 
 **TCP also has re-transmission and congestion control which cant be disabled.** UDP programs usualy want to control packet sending rate by themselves. If you use OpenVPN TCP mode this cant be done because of the congestion control of underlaying TCP protocol. Further more,with the re-transmission of underlaying TCP,**if you send too many udp packets via an OpenVPN TCP connection,the connection will become completely unusable for a while**(It will eventually recover as most of the re-transmission is done,but it wont be very soon).
 
-For udp2raw there is no underlying TCP protocol,udp2raw just add TCP headers to UDP packets directly by using raw socket. It supports real-time/out-of-order delivery,there is no re-transmission and congestion control. It doesnt have all above issues.
+For udp2raw there is no underlying TCP protocol,udp2raw just add TCP headers to UDP packets directly by using raw socket. It supports real-time/out-of-order delivery,there is no re-transmission and congestion control. **Udp2raw doesnt have all above issues**.
 
 ### Q: Is udp2raw designed for replacing VPN?
 Answer: No. Udp2raw is designed for bypassing UDP restrictions. It doesnt have all of the features a VPN has.
