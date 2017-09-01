@@ -16,6 +16,22 @@ static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog
  * https://crypto.stackexchange.com/questions/5421/using-cbc-with-a-fixed-iv-and-a-random-first-plaintext-block
 ****/
 
+
+/*
+TODO
+
+Change md5 to HMAC-md5 if necessary.Change padding to PKCS#7 style if necessary.
+
+Need someone with cryptography knowledge to help review the encryption method.
+
+Change them if necessary(I can do this by myself,if it turns out to be necessary).
+
+github issue:
+
+https://github.com/wangyu-/udp2raw-tunnel/issues/17
+
+*/
+
 unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_simple,"simple"}};
 unordered_map<int, const char *> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"}};
 
