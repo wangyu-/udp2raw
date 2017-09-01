@@ -5,8 +5,8 @@
  *      Author: wangyu
  */
 
-#ifndef COMMON_H_
-#define COMMON_H_
+#ifndef UDP2RAW_COMMON_H_
+#define UDP2RAW_COMMON_H_
 #define __STDC_FORMAT_MACROS 1
 #include <inttypes.h>
 

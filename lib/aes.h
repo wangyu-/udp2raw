@@ -2,8 +2,8 @@
  *  this file comes from https://github.com/kokke/tiny-AES128-C
  */
 
-#ifndef _AES_H_
-#define _AES_H_
+#ifndef UDP2RAW_AES_H_
+#define UDP2RAW_AES_H_
 
 #include <stdint.h>
 

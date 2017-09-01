@@ -26,8 +26,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _AESNI_H_
-#define _AESNI_H_
+#ifndef UDP2RAW_AESNI_H_
+#define UDP2RAW_AESNI_H_
 
 #ifndef AES_ENCRYPT
 #define AES_ENCRYPT     1

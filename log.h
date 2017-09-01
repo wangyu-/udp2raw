@@ -1,6 +1,6 @@
 
-#ifndef _LOG_MYLOG_H_
-#define _LOG_MYLOG_H_
+#ifndef UDP2RAW_LOG_MYLOG_H_
+#define UDP2RAW_LOG_MYLOG_H_
 
 
 #include<common.h>

@@ -1,5 +1,5 @@
-#ifndef _ENCRYPTION_H_
-#define _ENCRYPTION_H_
+#ifndef UDP2RAW_ENCRYPTION_H_
+#define UDP2RAW_ENCRYPTION_H_
 
 
 

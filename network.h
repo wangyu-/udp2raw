@@ -5,8 +5,8 @@
  *      Author: wangyu
  */
 
-#ifndef NETWORK_H_
-#define NETWORK_H_
+#ifndef UDP2RAW_NETWORK_H_
+#define UDP2RAW_NETWORK_H_
 
 extern int raw_recv_fd;
 extern int raw_send_fd;

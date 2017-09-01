@@ -1,5 +1,5 @@
-#ifndef _MD5_H_
-#define _MD5_H_
+#ifndef UDP2RAW_MD5_H_
+#define UDP2RAW_MD5_H_
 #include <stdint.h>
 #include <stddef.h>
 

@@ -26,8 +26,8 @@
  *  This file is part of mbed TLS (https://tls.mbed.org)
  */
 
-#ifndef _AESARM_H_
-#define _AESARM_H_
+#ifndef UDP2RAW_AESARM_H_
+#define UDP2RAW_AESARM_H_
 
 #ifndef AES_ENCRYPT
 #define AES_ENCRYPT     1
