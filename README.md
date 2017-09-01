@@ -8,9 +8,9 @@ It can tunnel any traffic when used together with a UDP-based VPN(such as OpenVP
 [简体中文](/doc/README.zh-cn.md)
 # Frequently Asked Questions
 ### Q: What is the advantage of using udp2raw FakeTCP mode,Why not use OpenVPN TCP mode?
-Answer: TCP doesnt allow real-time/out-of-order delivery. If you use OpenVPN TCP mode to turn UDP traffic to TCP,there will be latency issue:the loss of a single packet blocks all following packet until re-transmission is done. This will cause unacceptable delay for gaming and voice chatting.
+Answer: **TCP doesnt allow real-time/out-of-order delivery**. **If you use OpenVPN TCP mode to turn UDP traffic into TCP,there will be latency issue**:the loss of a single packet blocks all following packet until re-transmission is done. This will cause unacceptable delay for gaming and voice chatting.
 
-TCP also has re-transmission and congestion control which cant be disabled. UDP programs usualy want to control packet sending rate by themselves. If you use OpenVPN TCP mode this cant be done because of the congestion control of underlaying TCP protocol. Further more,with the re-transmission of underlaying TCP,if you send too many udp packets via an OpenVPN TCP connection,the connection will become completely unusable for a while(It will eventually recover as most of the re-transmission is done,but it wont be very soon).
+**TCP also has re-transmission and congestion control which cant be disabled.** UDP programs usualy want to control packet sending rate by themselves. If you use OpenVPN TCP mode this cant be done because of the congestion control of underlaying TCP protocol. Further more,with the re-transmission of underlaying TCP,**if you send too many udp packets via an OpenVPN TCP connection,the connection will become completely unusable for a while**(It will eventually recover as most of the re-transmission is done,but it wont be very soon).
 
 For udp2raw there is no underlying TCP protocol,udp2raw just add TCP headers to UDP packets directly by using raw socket. It supports real-time/out-of-order delivery,there is no re-transmission and congestion control. It doesnt have all above issues.
 
