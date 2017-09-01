@@ -17,7 +17,7 @@ For udp2raw there is no underlying TCP protocol,udp2raw just add TCP headers to 
 ### Q: Is udp2raw designed for replacing VPN?
 Answer: No. Udp2raw is designed for bypassing UDP restriction. It doesnt have all of the features a VPN has.
 
-Instead of replacing VPN,udp2raw can be used with any UDP-base VPN together to grant it the ablity of bypassing UDP restriction. Check [this link](https://github.com/wangyu-/udp2raw-tunnel#tunneling-any-traffic-via-raw-traffic-by-using-udp2raw-openvpn) for more info.
+Instead of replacing VPN,udp2raw can be used with any UDP-base VPN together to grant it the ablity of bypassing UDP restrictions. Check [this link](https://github.com/wangyu-/udp2raw-tunnel#tunneling-any-traffic-via-raw-traffic-by-using-udp2raw-openvpn) for more info.
 
 # Support Platforms
 Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
