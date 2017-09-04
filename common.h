@@ -107,6 +107,7 @@ enum program_mode_t {unset_mode=0,client_mode,server_mode};
 extern program_mode_t program_mode;
 extern unordered_map<int, const char*> raw_mode_tostring ;
 extern int socket_buf_size;
+extern int force_socket_buf;
 
 typedef u32_t id_t;
 

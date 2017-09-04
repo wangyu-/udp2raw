@@ -199,11 +199,22 @@ int init_raw_socket()
 
 	}
 
-    if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
-    {
-    	mylog(log_fatal,"SO_SNDBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
-    	myexit(1);
-    }
+	if(force_socket_buf)
+	{
+		if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
+		{
+			mylog(log_fatal,"SO_SNDBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			myexit(1);
+		}
+	}
+	else
+	{
+		if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
+		{
+			mylog(log_fatal,"SO_SNDBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			myexit(1);
+		}
+	}
 
 
 
@@ -217,11 +228,22 @@ int init_raw_socket()
         myexit(1);
     }
 
-    if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
-    {
-    	mylog(log_fatal,"SO_RCVBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
-    	myexit(1);
-    }
+	if(force_socket_buf)
+	{
+		if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
+		{
+			mylog(log_fatal,"SO_RCVBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			myexit(1);
+		}
+	}
+	else
+	{
+		if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
+		{
+			mylog(log_fatal,"SO_RCVBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			myexit(1);
+		}
+	}
 
     //IP_HDRINCL to tell the kernel that headers are included in the packet
 

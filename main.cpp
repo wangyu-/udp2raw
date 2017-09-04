@@ -2615,6 +2615,7 @@ void print_help()
 	printf("                                          unless you suspect there is a bug\n");
 //	printf("\n");
 	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024\n");
+	printf("    --force-sock-buf                      bypass system limitation while setting sock-buf\n");
 	printf("    --seqmode             <number>        seq increase mode for faketcp:\n");
 	printf("                                          0:dont increase\n");
 	printf("                                          1:increase every packet(default)\n");
@@ -2748,6 +2749,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"sock-buf", required_argument,    0, 1},
 		{"seq-mode", required_argument,    0, 1},
 		{"conf-file", required_argument,   0, 1},
+		{"force-sock-buf", no_argument,   0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -3031,6 +3033,10 @@ void process_arg(int argc, char *argv[])  //process all options
 			else if(strcmp(long_options[option_index].name,"log-position")==0)
 			{
 				//enable_log_position=1;
+			}
+			else if(strcmp(long_options[option_index].name,"force-sock-buf")==0)
+			{
+				force_socket_buf=1;
 			}
 			else if(strcmp(long_options[option_index].name,"disable-bpf")==0)
 			{
