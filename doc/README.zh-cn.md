@@ -85,6 +85,9 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 如果要在梅林固件的路由器上使用，添加`--lower-level auto` `--keep-rule`
 
+如果client和server无法连接，请看一下`--seq-mode`的用法，尝试不同的seq-mode。
+
+udp2raw可以用非root账号运行，这样更安全。具体方法见：[#26](https://github.com/wangyu-/udp2raw-tunnel/issues/26) 
 # 进阶操作说明
 
 ### 命令选项
