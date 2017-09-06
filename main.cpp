@@ -1131,7 +1131,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 				send_handshake(raw_info,conn_info.my_id,0,const_id);
 
-				send_info.seq+=raw_info.last_send_len;
+				send_info.seq+=raw_info.send_info.data_len;
 			}
 			else
 			{
@@ -1165,13 +1165,13 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			{
 				if(conn_info.last_hb_sent_time==0)
 				{
-					send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
+					send_info.ack_seq=recv_info.seq+raw_info.recv_info.data_len;
 					send_info.ts_ack=recv_info.ts;
 					raw_info.reserved_seq=send_info.seq;
 				}
 				send_info.seq=raw_info.reserved_seq;
 				send_handshake(raw_info,conn_info.my_id,conn_info.oppsite_id,const_id);
-				send_info.seq+=raw_info.last_send_len;
+				send_info.seq+=raw_info.send_info.data_len;
 
 			}
 			else
@@ -1705,7 +1705,7 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 		if(raw_mode==mode_faketcp)
 		{
 			send_info.seq=recv_info.ack_seq;
-			send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
+			send_info.ack_seq=recv_info.seq+raw_info.recv_info.data_len;
 			send_info.ts_ack=recv_info.ts;
 		}
 		if(raw_mode==mode_icmp)
@@ -1729,7 +1729,7 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 		if(raw_mode==mode_faketcp)
 		{
 			send_info.seq=recv_info.ack_seq;
-			send_info.ack_seq=recv_info.seq+raw_info.last_recv_len;
+			send_info.ack_seq=recv_info.seq+raw_info.recv_info.data_len;
 			send_info.ts_ack=recv_info.ts;
 		}
 
@@ -3063,7 +3063,7 @@ void process_arg(int argc, char *argv[])  //process all options
 			else if(strcmp(long_options[option_index].name,"seq-mode")==0)
 			{
 				sscanf(optarg,"%d",&seq_mode);
-				if(0<=seq_mode&&seq_mode<=2)
+				if(0<=seq_mode&&seq_mode<=3)
 				{
 				}
 				else

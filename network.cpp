@@ -981,7 +981,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 	}
 
 
-	raw_info.last_send_len=payloadlen;
+	raw_info.send_info.data_len=payloadlen;
 	return 0;
 }
 /*
@@ -1434,7 +1434,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	{
 		send_info.ack_seq=recv_info.seq;
 	}*/
-    raw_info.last_recv_len=payloadlen;
+    raw_info.recv_info.data_len=payloadlen;
     return 0;
 }
 /*
@@ -1636,18 +1636,18 @@ int after_send_raw0(raw_info_t &raw_info)
 
 	if(raw_mode==mode_faketcp)
 	{
-		if (send_info.syn == 0 && send_info.ack == 1&& raw_info.last_send_len != 0)   //only modify   send_info when the packet is not part of handshake
+		if (send_info.syn == 0 && send_info.ack == 1&& raw_info.send_info.data_len != 0)   //only modify   send_info when the packet is not part of handshake
 		{
 			if (seq_mode == 0)
 			{
 
 			} else if (seq_mode == 1)
 			{
-				send_info.seq += raw_info.last_send_len;    //////////////////modify
+				send_info.seq += raw_info.send_info.data_len;    //////////////////modify
 			} else if (seq_mode == 2)
 			{
 				if (random() % 5 == 3)
-					send_info.seq += raw_info.last_send_len; //////////////////modify
+					send_info.seq += raw_info.send_info.data_len; //////////////////modify
 			}
 		}
 	}
@@ -1669,10 +1669,17 @@ int after_recv_raw0(raw_info_t &raw_info)
 	{
 		if(recv_info.has_ts)
 			send_info.ts_ack=recv_info.ts;
-		if (recv_info.syn == 0 && recv_info.ack == 1 && raw_info.last_recv_len != 0) //only modify   send_info when the packet is not part of handshake
+		if (recv_info.syn == 0 && recv_info.ack == 1 && raw_info.recv_info.data_len != 0) //only modify   send_info when the packet is not part of handshake
 		{
-			if(larger_than_u32(recv_info.seq+raw_info.last_recv_len,send_info.ack_seq))
-				send_info.ack_seq = recv_info.seq+raw_info.last_recv_len;//TODO only update if its larger
+			if(seq_mode==0||seq_mode==1||seq_mode==2)
+			{
+				if(larger_than_u32(recv_info.seq+raw_info.recv_info.data_len,send_info.ack_seq))
+					send_info.ack_seq = recv_info.seq+raw_info.recv_info.data_len;//TODO only update if its larger
+			}
+			else if(seq_mode==3)
+			{
+
+			}
 		}
 	}
 	if(raw_mode==mode_icmp)

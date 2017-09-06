@@ -64,6 +64,8 @@ struct packet_info_t  //todo change this to union
 
 	sockaddr_ll addr_ll;
 
+	i32_t data_len;
+
 	packet_info_t();
 };
 
@@ -72,8 +74,8 @@ struct raw_info_t
 	packet_info_t send_info;
 	packet_info_t recv_info;
 
-	int last_send_len;
-	int last_recv_len;
+	//int last_send_len;
+	//int last_recv_len;
 
 	u32_t reserved_seq;
 	//uint32_t first_seq,first_ack_seq;
