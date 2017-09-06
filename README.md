@@ -86,6 +86,8 @@ To run on Android, check [Android_Guide](/doc/android_guide.md)
 
 Take a look at `--seq-mode` option,if you have connection problems.
 
+You can run udp2raw without root account(for better security).Take a look at [#26](https://github.com/wangyu-/udp2raw-tunnel/issues/26) for more info. 
+
 # Advanced Topic
 ### Usage
 ```
