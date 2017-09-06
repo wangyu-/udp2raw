@@ -93,7 +93,7 @@ udp2raw可以用非root账号运行，这样更安全。具体方法见：[#26](
 ### 命令选项
 ```
 udp2raw-tunnel
-version: Aug 26 2017 08:30:48
+git version:adbe7d110f    build date:Sep  6 2017 05:37:45
 repository: https://github.com/wangyu-/udp2raw-tunnel
 
 usage:
@@ -123,10 +123,14 @@ other options:
     --disable-bpf                         disable the kernel space filter,most time its not necessary
                                           unless you suspect there is a bug
     --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024
+    --force-sock-buf                      bypass system limitation while setting sock-buf
     --seqmode             <number>        seq increase mode for faketcp:
-                                          0:dont increase
-                                          1:increase every packet(default)
-                                          2:increase randomly, about every 3 packets
+                                          0:static header,do not increase seq and ack_seq
+                                          1:increase seq for every packet,simply ack last seq
+                                          2:increase seq randomly, about every 3 packets,simply ack last seq
+                                          3:simulate an almost real seq/ack procedure(default)
+                                          4:similiar to 3,but do not consider TCP Option Window_Scale,
+                                          maybe useful when firewall doesnt support TCP Option 
     --lower-level         <string>        send packets at OSI level 2, format:'if_name#dest_mac_adress'
                                           ie:'eth0#00:23:45:67:89:b9'.or try '--lower-level auto' to obtain
                                           the parameter automatically,specify it manually if 'auto' failed
