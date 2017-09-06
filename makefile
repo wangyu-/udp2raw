@@ -13,48 +13,48 @@ NAME=udp2raw
 TARGETS=amd64 mips34kc arm amd64_hw_aes arm_asm_aes mips34kc_asm_aes x86 x86_asm_aes
 TAR=${NAME}_binaries.tar.gz `echo ${TARGETS}|sed -r 's/([^ ]+)/udp2raw_\1/g'`
 
-all:
+all:git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -ggdb -static -O3
-fast:
+fast: git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -ggdb
-debug:
+debug: git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -D MY_DEBUG 
-debug2:
+debug2: git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -ggdb
 
-mips34kc: 
+mips34kc: git_version
 	${cc_mips34kc}  -o ${NAME}_$@   -I. ${SOURCES} ${FLAGS} -lrt -lgcc_eh -static -O3
 
-mips34kc_asm_aes: 
+mips34kc_asm_aes: git_version
 	${cc_mips34kc}  -o ${NAME}_$@   -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -lgcc_eh -static -O3 lib/aes_acc/asm/mips_be.S
 
 #bcm2708:
 #	${cc_bcm2708} -o ${NAME}_bcm2708  -I. ${SOURCES} ${FLAGS} -lrt -static -O3
-amd64:
+amd64:git_version
 	${cc_local}   -o ${NAME}_$@    -I. ${SOURCES} ${FLAGS} -lrt -static -O3
-amd64_hw_aes:
+amd64_hw_aes:git_version
 	${cc_local}   -o ${NAME}_$@   -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3 lib/aes_acc/asm/x64.S
-x86:
+x86:git_version
 	${cc_local}   -o ${NAME}_$@      -I. ${SOURCES} ${FLAGS} -lrt -static -O3 -m32
-x86_asm_aes:
+x86_asm_aes:git_version
 	${cc_local}   -o ${NAME}_$@    -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3 -m32 lib/aes_acc/asm/x86.S
-arm:
+arm:git_version
 	${cc_arm}   -o ${NAME}_$@      -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 
-arm_asm_aes:
+arm_asm_aes:git_version
 	${cc_arm}   -o ${NAME}_$@    -I. ${SOURCES_AES_ACC} ${FLAGS} -lrt -static -O3 lib/aes_acc/asm/arm.S
 
-cross:
+cross:git_version
 	${cc_cross}   -o ${NAME}_cross    -I. ${SOURCES} ${FLAGS} -lrt -O3
 
-cross2:
+cross2:git_version
 	${cc_cross}   -o ${NAME}_cross    -I. ${SOURCES} ${FLAGS} -lrt -static -lgcc_eh -O3   
 
-cross3:
+cross3:git_version
 	${cc_cross}   -o ${NAME}_cross    -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 
 release: ${TARGETS} 
@@ -63,4 +63,8 @@ release: ${TARGETS}
 clean:	
 	rm -f ${TAR}
 	rm -f udp2raw udp2raw_cross udp2raw_cmake
+	rm -f git_version.h
+
+git_version:
+	    echo "const char *gitversion = \"$(shell git rev-parse HEAD)\";" > git_version.h
 	

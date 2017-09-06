@@ -12,7 +12,8 @@ int raw_recv_fd=-1;
 int raw_send_fd=-1;
 u32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
 
-int seq_mode=1;
+int seq_mode=3;
+int max_seq_mode=4;
 
 int filter_port=-1;
 
@@ -30,6 +31,10 @@ unsigned short g_ip_id_counter=0;
 unsigned char dest_hw_addr[sizeof(sockaddr_ll::sll_addr)]=
     {0xff,0xff,0xff,0xff,0xff,0xff,0,0};
 //{0x00,0x23,0x45,0x67,0x89,0xb9};
+
+const u32_t receive_window_lower_bound=40960;
+const u32_t receive_window_random_range=512;
+const unsigned char wscale=0x05;
 
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
@@ -146,6 +151,7 @@ packet_info_t::packet_info_t()
 		ts_ack=0;
 		syn=0;
 		ack=1;
+		ack_seq_counter=0;
 
 		//mylog(log_info,"<cons ,ts_ack= %u>\n",ts_ack);
 	}
@@ -925,7 +931,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		send_raw_tcp_buf[i++] = 0x01;
 		send_raw_tcp_buf[i++] = 0x03;
 		send_raw_tcp_buf[i++] = 0x03;
-		send_raw_tcp_buf[i++] = 0x05;
+		send_raw_tcp_buf[i++] = wscale;
 	} else {
 		tcph->doff = 8;
 		int i = sizeof(pseudo_header)+sizeof(tcphdr);
@@ -954,7 +960,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 
 	tcph->urg = 0;
 	//tcph->window = htons((uint16_t)(1024));
-	tcph->window = htons((uint16_t) (10240 + random() % 100));
+	tcph->window = htons((uint16_t) (receive_window_lower_bound + random() % receive_window_random_range));
 
 	tcph->check = 0; //leave checksum 0 now, filled later by pseudo header
 	tcph->urg_ptr = 0;
@@ -1413,7 +1419,20 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     recv_info.dst_port=ntohs(tcph->dest);
 
     recv_info.seq=ntohl(tcph->seq);
+
+   // recv_info.last_last_ack_seq=recv_info.last_ack_seq;
+    //recv_info.last_ack_seq=recv_info.ack_seq;
+    u32_t last_ack_seq=recv_info.ack_seq;
     recv_info.ack_seq=ntohl(tcph->ack_seq);
+    if(recv_info.ack_seq==last_ack_seq)
+    {
+    	recv_info.ack_seq_counter++;
+    }
+    else
+    {
+    	recv_info.ack_seq_counter=0;
+    }
+
     recv_info.psh=tcph->psh;
 
     if(tcph->rst==1)
@@ -1649,6 +1668,35 @@ int after_send_raw0(raw_info_t &raw_info)
 				if (random() % 5 == 3)
 					send_info.seq += raw_info.send_info.data_len; //////////////////modify
 			}
+			else if(seq_mode==3||seq_mode==4)
+			{
+				send_info.seq += raw_info.send_info.data_len;
+
+				u32_t window_size;
+
+				if(seq_mode==3)
+				{
+					window_size=(u32_t)((u32_t)receive_window_lower_bound<<(u32_t)wscale);
+				}
+				else//seq_mode==4
+				{
+					window_size=(u32_t)((u32_t)receive_window_lower_bound);
+				}
+
+				if(larger_than_u32(send_info.seq+max_data_len,recv_info.ack_seq+window_size))
+				{
+					send_info.seq=raw_info.recv_info.ack_seq;
+				}
+				if(recv_info.ack_seq_counter>=3)
+				{
+					recv_info.ack_seq_counter=0;
+					send_info.seq=raw_info.recv_info.ack_seq;
+				}
+				if(larger_than_u32(raw_info.recv_info.ack_seq,send_info.seq))  //for further use,currently not useful.
+				{
+					send_info.seq=raw_info.recv_info.ack_seq;
+				}
+			}
 		}
 	}
 	if(raw_mode==mode_icmp)
@@ -1676,11 +1724,12 @@ int after_recv_raw0(raw_info_t &raw_info)
 				if(larger_than_u32(recv_info.seq+raw_info.recv_info.data_len,send_info.ack_seq))
 					send_info.ack_seq = recv_info.seq+raw_info.recv_info.data_len;//TODO only update if its larger
 			}
-			else if(seq_mode==3)
+			else if(seq_mode==3||seq_mode==4)
 			{
-				if(recv_info.seq==send_info.ack_seq+1)
+				if(recv_info.seq==send_info.ack_seq)
 				{
-					send_info.ack_seq=recv_info.seq+raw_info.recv_info.data_len;
+					send_info.ack_seq=recv_info.seq+raw_info.recv_info.data_len;//currently we dont remembr tcp segments,this is the simplest way
+					//TODO implement tcp segment remembering and SACK.
 				}
 			}
 		}

@@ -3,6 +3,7 @@
 #include "log.h"
 #include "lib/md5.h"
 #include "encrypt.h"
+#include "git_version.h"
 #include <fstream>
 #include <string>
 #include <vector>
@@ -2579,8 +2580,11 @@ int process_lower_level_arg()//handle --lower-level option
 }
 void print_help()
 {
+	char git_version_buf[100]={0};
+	strncpy(git_version_buf,gitversion,10);
 	printf("udp2raw-tunnel\n");
-	printf("version: %s %s\n",__DATE__,__TIME__);
+	printf("build date:%s %s\n",__DATE__,__TIME__);
+	printf("git version: %s\n",git_version_buf);
 	printf("repository: https://github.com/wangyu-/udp2raw-tunnel\n");
 	printf("\n");
 	printf("usage:\n");
@@ -2617,9 +2621,12 @@ void print_help()
 	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024\n");
 	printf("    --force-sock-buf                      bypass system limitation while setting sock-buf\n");
 	printf("    --seqmode             <number>        seq increase mode for faketcp:\n");
-	printf("                                          0:dont increase\n");
-	printf("                                          1:increase every packet(default)\n");
-	printf("                                          2:increase randomly, about every 3 packets\n");
+	printf("                                          0:static header,do not increase seq and ack_seq\n");
+	printf("                                          1:increase seq for every packet,simply ack last seq\n");
+	printf("                                          2:increase seq randomly, about every 3 packets,simply ack last seq\n");
+	printf("                                          3:simulate an almost real seq/ack procedure(default)\n");
+	printf("                                          4:similiar to 3,but do not consider TCP Option Window_Scale,\n");
+	printf("                                          maybe useful when firewall doesnt support TCP Option \n");
 //	printf("\n");
 	printf("    --lower-level         <string>        send packets at OSI level 2, format:'if_name#dest_mac_adress'\n");
 	printf("                                          ie:'eth0#00:23:45:67:89:b9'.or try '--lower-level auto' to obtain\n");
@@ -3063,7 +3070,7 @@ void process_arg(int argc, char *argv[])  //process all options
 			else if(strcmp(long_options[option_index].name,"seq-mode")==0)
 			{
 				sscanf(optarg,"%d",&seq_mode);
-				if(0<=seq_mode&&seq_mode<=3)
+				if(0<=seq_mode&&seq_mode<=max_seq_mode)
 				{
 				}
 				else
