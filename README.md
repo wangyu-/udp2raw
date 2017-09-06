@@ -84,6 +84,8 @@ Now,an encrypted raw tunnel has been established between client and server throu
 ### Note
 To run on Android, check [Android_Guide](/doc/android_guide.md)
 
+Take a look at `--seq-mode` option,if you have connection problems.
+
 # Advanced Topic
 ### Usage
 ```
