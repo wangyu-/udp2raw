@@ -84,9 +84,9 @@ Now,an encrypted raw tunnel has been established between client and server throu
 ### Note
 To run on Android, check [Android_Guide](/doc/android_guide.md)
 
-Take a look at `--seq-mode` option,if you have connection problems.
+If you have connection problems.Take a look at `--seq-mode` option.
 
-You can run udp2raw without root account(for better security).Take a look at [#26](https://github.com/wangyu-/udp2raw-tunnel/issues/26) for more info. 
+You can run udp2raw with a non-root account(for better security).Take a look at [#26](https://github.com/wangyu-/udp2raw-tunnel/issues/26) for more info. 
 
 # Advanced Topic
 ### Usage
