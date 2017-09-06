@@ -2583,8 +2583,9 @@ void print_help()
 	char git_version_buf[100]={0};
 	strncpy(git_version_buf,gitversion,10);
 	printf("udp2raw-tunnel\n");
+	printf("git version:%s    ",git_version_buf);
 	printf("build date:%s %s\n",__DATE__,__TIME__);
-	printf("git version: %s\n",git_version_buf);
+
 	printf("repository: https://github.com/wangyu-/udp2raw-tunnel\n");
 	printf("\n");
 	printf("usage:\n");
