@@ -1678,7 +1678,10 @@ int after_recv_raw0(raw_info_t &raw_info)
 			}
 			else if(seq_mode==3)
 			{
-
+				if(recv_info.seq==send_info.ack_seq+1)
+				{
+					send_info.ack_seq=recv_info.seq+raw_info.recv_info.data_len;
+				}
 			}
 		}
 	}

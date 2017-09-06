@@ -1121,9 +1121,9 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 					send_info.seq++;
 					send_info.ack_seq=recv_info.seq+1;
 					send_info.ts_ack=recv_info.ts;
-					raw_info.reserved_seq=send_info.seq;
+					raw_info.reserved_send_seq=send_info.seq;
 				}
-				send_info.seq=raw_info.reserved_seq;
+				send_info.seq=raw_info.reserved_send_seq;
 				send_info.psh = 0;
 				send_info.syn = 0;
 				send_info.ack = 1;
@@ -1167,9 +1167,9 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 				{
 					send_info.ack_seq=recv_info.seq+raw_info.recv_info.data_len;
 					send_info.ts_ack=recv_info.ts;
-					raw_info.reserved_seq=send_info.seq;
+					raw_info.reserved_send_seq=send_info.seq;
 				}
-				send_info.seq=raw_info.reserved_seq;
+				send_info.seq=raw_info.reserved_send_seq;
 				send_handshake(raw_info,conn_info.my_id,conn_info.oppsite_id,const_id);
 				send_info.seq+=raw_info.send_info.data_len;
 

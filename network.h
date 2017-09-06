@@ -77,7 +77,7 @@ struct raw_info_t
 	//int last_send_len;
 	//int last_recv_len;
 
-	u32_t reserved_seq;
+	u32_t reserved_send_seq;
 	//uint32_t first_seq,first_ack_seq;
 
 };//g_raw_info;
