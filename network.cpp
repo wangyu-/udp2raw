@@ -1687,12 +1687,12 @@ int after_send_raw0(raw_info_t &raw_info)
 				{
 					send_info.seq=raw_info.recv_info.ack_seq;
 				}
-				if(recv_info.ack_seq_counter>=3)
+				if(recv_info.ack_seq_counter>=3) //simulate tcp fast re-transmit
 				{
 					recv_info.ack_seq_counter=0;
 					send_info.seq=raw_info.recv_info.ack_seq;
 				}
-				if(larger_than_u32(raw_info.recv_info.ack_seq,send_info.seq))  //for further use,currently not useful.
+				if(larger_than_u32(raw_info.recv_info.ack_seq,send_info.seq))  //for further use,currently no effect.
 				{
 					send_info.seq=raw_info.recv_info.ack_seq;
 				}

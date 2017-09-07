@@ -2621,7 +2621,7 @@ void print_help()
 //	printf("\n");
 	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024\n");
 	printf("    --force-sock-buf                      bypass system limitation while setting sock-buf\n");
-	printf("    --seqmode             <number>        seq increase mode for faketcp:\n");
+	printf("    --seq-mode            <number>        seq increase mode for faketcp:\n");
 	printf("                                          0:static header,do not increase seq and ack_seq\n");
 	printf("                                          1:increase seq for every packet,simply ack last seq\n");
 	printf("                                          2:increase seq randomly, about every 3 packets,simply ack last seq\n");
