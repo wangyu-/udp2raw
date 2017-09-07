@@ -124,7 +124,7 @@ other options:
                                           unless you suspect there is a bug
     --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024
     --force-sock-buf                      bypass system limitation while setting sock-buf
-    --seqmode             <number>        seq increase mode for faketcp:
+    --seq-mode            <number>        seq increase mode for faketcp:
                                           0:static header,do not increase seq and ack_seq
                                           1:increase seq for every packet,simply ack last seq
                                           2:increase seq randomly, about every 3 packets,simply ack last seq
