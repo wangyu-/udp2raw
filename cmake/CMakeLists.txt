@@ -17,3 +17,4 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -W
 #set(CMAKE_LINK_LIBRARY_FLAG "-lrt")
 add_executable(udp2raw_cmake ${SOURCE_FILES})
 target_link_libraries(udp2raw_cmake rt)
+target_link_libraries(udp2raw_cmake pthread)
