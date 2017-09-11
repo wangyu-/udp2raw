@@ -1562,6 +1562,10 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 				return 0;
 			}
 		}
+		else
+		{
+			recv(raw_recv_fd, 0,0,0);
+		}
 		return 0;
 	}
 	if(!conn_manager.exist(ip,port))
@@ -1648,7 +1652,7 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		{
 			return -1;
 		}
-		server_on_raw_recv_handshake1(conn_info,ip_port,data,data_len);
+		return server_on_raw_recv_handshake1(conn_info,ip_port,data,data_len);
 	}
 	if(conn_info.state.server_current_state==server_ready)
 	{
@@ -1660,7 +1664,9 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		//mylog(log_info,"after recv_safer\n");
 		return server_on_raw_recv_ready(conn_info,ip_port,type,data,data_len);
 	}
-	return 0;
+	mylog(log_fatal,"we should never run to here\n");
+	myexit(-1);
+	return -1;
 }
 
 /*
