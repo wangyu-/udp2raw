@@ -1664,6 +1664,12 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		//mylog(log_info,"after recv_safer\n");
 		return server_on_raw_recv_ready(conn_info,ip_port,type,data,data_len);
 	}
+
+	if(conn_info.state.server_current_state==server_idle)
+	{
+		recv(raw_recv_fd, 0,0, 0  );//
+		return 0;
+	}
 	mylog(log_fatal,"we should never run to here\n");
 	myexit(-1);
 	return -1;
