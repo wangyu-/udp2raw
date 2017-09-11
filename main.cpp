@@ -650,7 +650,7 @@ int send_bare(raw_info_t &raw_info,const char* data,int len)//send function with
 	send_raw0(raw_info,send_data_buf2,new_len);
 	return 0;
 }
-int parse_bare(const char *input,int input_len,char* & data,int & len) // a sub function used in recv_bare
+int reserved_parse_bare(const char *input,int input_len,char* & data,int & len) // a sub function used in recv_bare
 {
 	static char recv_data_buf[buf_len];
 
@@ -695,7 +695,7 @@ int recv_bare(raw_info_t &raw_info,char* & data,int & len)//recv function with e
 		mylog(log_debug,"unexpect packet type recv_info.syn=%d recv_info.ack=%d \n",recv_info.syn,recv_info.ack);
 		return -1;
 	}
-	return parse_bare(data,len,data,len);
+	return reserved_parse_bare(data,len,data,len);
 }
 
 int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3)// a warp for send_bare for sending handshake(this is not tcp handshake) easily
