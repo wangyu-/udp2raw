@@ -3349,7 +3349,7 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule
 	}
 	if(generate_iptables_rule)
 	{
-		string rule="iptables -I ";
+		string rule="iptables -I INPUT ";
 		rule+=pattern;
 		rule+=" -j DROP";
 
