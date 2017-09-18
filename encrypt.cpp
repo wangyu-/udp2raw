@@ -208,6 +208,10 @@ int de_padding(const char *data ,int &data_len,int padding_num)
 }
 int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 {
+	static int first_time=1;
+	if(first_time==0) key=0;
+	else first_time=0;
+
 	char buf[buf_len];
 	memcpy(buf,data,len);//TODO inefficient code
 
@@ -253,6 +257,9 @@ int cipher_none_encrypt(const char *data,char *output,int &len,char * key)
 }
 int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 {
+	static int first_time=1;
+	if(first_time==0) key=0;
+	else first_time=0;
 
 	if(len%16 !=0) {mylog(log_debug,"len%%16!=0\n");return -1;}
 	//if(len<0) {mylog(log_debug,"len <0\n");return -1;}

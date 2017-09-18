@@ -340,30 +340,34 @@ int AES_support_hwaccel(void)
 void AES_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
   uint8_t iv_tmp[16];
-  uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE];
 
-  if (key == NULL || iv == NULL)
+  if (iv == NULL)
   {
     return;
   }
   aeshw_init();
   memcpy(iv_tmp, iv, 16);
-  setkey_enc(rk, key);
+  if(key!= NULL)
+	  setkey_enc(rk, key);
   encrypt_cbc(rk, length, iv_tmp, input, output);
 }
 
 void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
   uint8_t iv_tmp[16];
-  uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE];
 
-  if (key == NULL || iv == NULL)
+  if (iv == NULL)
   {
     return;
   }
   aeshw_init();
   memcpy(iv_tmp, iv, 16);
-  setkey_dec(rk, key);
+  if(key!= NULL)
+  {
+	  setkey_dec(rk, key);
+  }
   decrypt_cbc(rk, length, iv_tmp, input, output);
 }
 
