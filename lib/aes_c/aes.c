@@ -29,15 +29,18 @@
  *  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
  */
 
+/*
 #if !defined(POLARSSL_CONFIG_FILE)
 #include "polarssl/config.h"
 #else
 #include POLARSSL_CONFIG_FILE
 #endif
+*/
+//#if defined(POLARSSL_AES_C)
 
-#if defined(POLARSSL_AES_C)
 
-#include "polarssl/aes.h"
+#include "aes.h"
+/*
 #if defined(POLARSSL_PADLOCK_C)
 #include "polarssl/padlock.h"
 #endif
@@ -50,12 +53,13 @@
 #else
 #define polarssl_printf printf
 #endif
+*/
 
 #if !defined(POLARSSL_AES_ALT)
 
 /* Implementation that should never be optimized out by the compiler */
 static void polarssl_zeroize( void *v, size_t n ) {
-    volatile unsigned char *p = v; while( n-- ) *p++ = 0;
+    volatile unsigned char *p = (unsigned char *)v; while( n-- ) *p++ = 0;
 }
 
 /*
@@ -1451,4 +1455,4 @@ exit:
 
 #endif /* POLARSSL_SELF_TEST */
 
-#endif /* POLARSSL_AES_C */
+//#endif /* POLARSSL_AES_C */

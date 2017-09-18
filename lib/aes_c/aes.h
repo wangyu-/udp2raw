@@ -26,12 +26,22 @@
  */
 #ifndef POLARSSL_AES_H
 #define POLARSSL_AES_H
-
+/*
 #if !defined(POLARSSL_CONFIG_FILE)
 #include "config.h"
 #else
 #include POLARSSL_CONFIG_FILE
 #endif
+*/
+
+////////modification begin
+#define POLARSSL_AES_ROM_TABLES
+#define POLARSSL_CIPHER_MODE_CBC
+#define POLARSSL_SELF_TEST
+#define polarssl_printf printf
+///////add end
+
+
 
 #include <string.h>
 
