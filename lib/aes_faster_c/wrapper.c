@@ -31,9 +31,9 @@ void AES_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
 		aes_init( &ctx);
 		done=1;
 	}
+
 	char tmp_iv[16];
 	if(key!=0) aes_setkey_enc(&ctx,key,AES_KEYSIZE);
-
 	memcpy(tmp_iv,iv,16);
 	aes_crypt_cbc( &ctx, AES_ENCRYPT, length, (unsigned char* )tmp_iv, (const unsigned char*)input,(unsigned char*) output );
 	return ;
@@ -47,6 +47,7 @@ void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
 		aes_init( &ctx);
 		done=1;
 	}
+
 	char tmp_iv[16];
 	if(key!=0) aes_setkey_dec(&ctx,key,AES_KEYSIZE);
 	memcpy(tmp_iv,iv,16);
