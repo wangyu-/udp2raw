@@ -1221,6 +1221,7 @@ int aes_self_test( int verbose )
 
         memset( buf, 0, 16 );
 
+
         if( v == AES_DECRYPT )
         {
             aes_setkey_dec( &ctx, key, 128 + u * 64 );

@@ -2677,6 +2677,7 @@ int load_config(char *file_name, int &argc, vector<string> &argv) //load conf fi
 
 	return 0;
 }
+
 int unit_test()
 {
 	printf("running unit test\n");
@@ -2703,6 +2704,35 @@ int unit_test()
 
 	printf("%x %x\n",(int)c1,(int)c2);
 
+	const char buf[]={1,2,3,4,5,6,7,8,9,10,11,2,13,14,15,16};
+	char key[100]={0};
+	char buf2[100]={0};
+	char buf3[100]={0};
+	char buf4[100]={0};
+	int len=16;
+	for(int i=0;i<len;i++)
+	{
+		printf("<%d>",buf[i]);
+	}
+	printf("\n");
+	cipher_encrypt(buf,buf2,len,key);
+	for(int i=0;i<len;i++)
+	{
+		printf("<%d>",buf2[i]);
+	}
+	printf("\n");
+	int temp_len=len;
+	cipher_decrypt(buf2,buf3,len,key);
+	for(int i=0;i<len;i++)
+	{
+		printf("<%d>",buf3[i]);
+	}
+	printf("\n");
+	cipher_encrypt(buf2,buf4,temp_len,key);
+	for(int i=0;i<temp_len;i++)
+	{
+		printf("<%d>",buf4[i]);
+	}
 	return 0;
 }
 

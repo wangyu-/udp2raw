@@ -32,4 +32,10 @@ extern cipher_mode_t cipher_mode;
 extern unordered_map<int, const char *> auth_mode_tostring;
 extern unordered_map<int, const char *> cipher_mode_tostring;
 
+
+
+
+int cipher_decrypt(const char *data,char *output,int &len,char * key);
+int cipher_encrypt(const char *data,char *output,int &len,char * key);
+
 #endif
