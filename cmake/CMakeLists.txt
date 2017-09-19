@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.7)
 project(udp2raw_tunnel)
 
 set(CMAKE_CXX_STANDARD 11)
-set_source_files_properties(lib/aes.c lib/md5.c PROPERTIES LANGUAGE CXX )
+set_source_files_properties(lib/aes_faster_c/aes.c lib/aes_faster_c/wrapper.c lib/md5.c PROPERTIES LANGUAGE CXX )
 
 set(SOURCE_FILES
-        lib/aes.c
+        lib/aes_faster_c/aes.c
+	lib/aes_faster_c/wrapper.c
         lib/md5.c
         common.cpp
         encrypt.cpp
