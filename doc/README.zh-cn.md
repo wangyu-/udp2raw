@@ -82,7 +82,7 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 ### MTU设置(重要)
 
-不论你用udp2raw来加速kcptun还是vpn,都需要设置合理的MTU（在kcptun/vpn里设置，而不是在udp2raw里），建议把MTU设置成1200。client和server端都要设置。
+不论你用udp2raw来加速kcptun还是vpn,为了稳定使用,都需要设置合理的MTU（在kcptun/vpn里设置，而不是在udp2raw里），建议把MTU设置成1200。client和server端都要设置。
 
 ### 提醒
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
