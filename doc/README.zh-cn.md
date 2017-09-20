@@ -88,6 +88,11 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 如果client和server无法连接，或者连接经常断开，请看一下`--seq-mode`的用法，尝试不同的seq-mode。
 
 udp2raw可以用非root账号运行，这样更安全。具体方法见：[#26](https://github.com/wangyu-/udp2raw-tunnel/issues/26) 
+
+### MTU设置(重要)
+
+不论你用udp2raw来加速kcptun还是vpn,都需要设置合理的MTU（在kcptun/vpn里设置，而不是在udp2raw里），建议把MTU设置成1200。client和server端都要设置。
+
 # 进阶操作说明
 
 ### 命令选项
