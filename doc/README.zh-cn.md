@@ -80,6 +80,10 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 现在client和server之间建立起了，tunnel。想要在本地连接44.55.66.77:7777，只需要连接 127.0.0.1:3333。来回的所有的udp流量会被经过tunneling发送。在外界看起来是tcp流量，不会有udp流量暴露到公网。
 
+### MTU设置(重要)
+
+不论你用udp2raw来加速kcptun还是vpn,为了稳定使用,都需要设置合理的MTU（在kcptun/vpn里设置，而不是在udp2raw里），建议把MTU设置成1200。client和server端都要设置。
+
 ### 提醒
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
@@ -88,6 +92,7 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 如果client和server无法连接，或者连接经常断开，请看一下`--seq-mode`的用法，尝试不同的seq-mode。
 
 udp2raw可以用非root账号运行，这样更安全。具体方法见：[#26](https://github.com/wangyu-/udp2raw-tunnel/issues/26) 
+
 # 进阶操作说明
 
 ### 命令选项
