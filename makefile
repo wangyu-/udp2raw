@@ -27,8 +27,11 @@ debug: git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -D MY_DEBUG 
 debug2: git_version
-	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -ggdb
+	rm -f ${name}
+	${cc_local}   -o ${name}          -i. ${sources} ${flags} -lrt -wformat-nonliteral -ggdb
+
+dynamic: git_version
+	${cc_local}   -o ${NAME}_$@          -I. ${SOURCES} ${FLAGS} -lrt -O3
 
 mips24kc_be: git_version
 	${cc_mips24kc_be}  -o ${NAME}_$@   -I. ${SOURCES} ${FLAGS} -lrt -lgcc_eh -static -O3
@@ -70,7 +73,7 @@ release: ${TARGETS}
 
 clean:	
 	rm -f ${TAR}
-	rm -f udp2raw udp2raw_cross udp2raw_cmake
+	rm -f udp2raw udp2raw_cross udp2raw_cmake udp2raw_dynamic
 	rm -f git_version.h
 
 git_version:
