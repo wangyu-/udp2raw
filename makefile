@@ -27,8 +27,8 @@ debug: git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -D MY_DEBUG 
 debug2: git_version
-	rm -f ${name}
-	${cc_local}   -o ${name}          -i. ${sources} ${flags} -lrt -wformat-nonliteral -ggdb
+	rm -f ${NAME}
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -ggdb
 
 dynamic: git_version
 	${cc_local}   -o ${NAME}_$@          -I. ${SOURCES} ${FLAGS} -lrt -O3
