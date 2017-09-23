@@ -109,6 +109,15 @@ extern unordered_map<int, const char*> raw_mode_tostring ;
 extern int socket_buf_size;
 extern int force_socket_buf;
 
+enum server_current_state_t {server_idle=0,server_handshake1,server_ready};  //server state machine
+enum client_current_state_t {client_idle=0,client_tcp_handshake,client_handshake1,client_handshake2,client_ready};//client state machine
+
+union current_state_t
+{
+	server_current_state_t server_current_state;
+	client_current_state_t client_current_state;
+};
+
 typedef u32_t id_t;
 
 typedef u64_t iv_t;
