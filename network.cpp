@@ -1772,3 +1772,96 @@ int recv_raw(raw_info_t &raw_info,char *& payload,int & payloadlen)
 	}
 }*/
 
+int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick to get src adress for a dest adress,so that we can use the src address in raw socket as source ip
+{
+	struct sockaddr_in remote_addr_in={0};
+
+	socklen_t slen = sizeof(sockaddr_in);
+	//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
+	remote_addr_in.sin_family = AF_INET;
+	remote_addr_in.sin_port = htons(remote_port);
+	remote_addr_in.sin_addr.s_addr = remote_ip_uint32;
+
+
+	int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if(new_udp_fd<0)
+	{
+		mylog(log_warn,"create udp_fd error\n");
+		return -1;
+	}
+	//set_buf_size(new_udp_fd);
+
+	mylog(log_debug,"created new udp_fd %d\n",new_udp_fd);
+	int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in, slen);
+	if(ret!=0)
+	{
+		mylog(log_warn,"udp fd connect fail\n");
+		close(new_udp_fd);
+		return -1;
+	}
+
+	struct sockaddr_in my_addr={0};
+	socklen_t len=sizeof(my_addr);
+
+    if(getsockname(new_udp_fd, (struct sockaddr *) &my_addr, &len)!=0) return -1;
+
+    ip=my_addr.sin_addr.s_addr;
+
+    close(new_udp_fd);
+
+    return 0;
+}
+
+int try_to_list_and_bind(int bind_fd,u32_t local_ip_uint32,int port)  //try to bind to a port,may fail.
+{
+	 int old_bind_fd=bind_fd;
+
+	 if(raw_mode==mode_faketcp)
+	 {
+		 bind_fd=socket(AF_INET,SOCK_STREAM,0);
+	 }
+	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)
+	 {
+		 bind_fd=socket(AF_INET,SOCK_DGRAM,0);
+	 }
+     if(old_bind_fd!=-1)
+     {
+    	 close(old_bind_fd);
+     }
+
+	 struct sockaddr_in temp_bind_addr={0};
+     //bzero(&temp_bind_addr, sizeof(temp_bind_addr));
+
+     temp_bind_addr.sin_family = AF_INET;
+     temp_bind_addr.sin_port = htons(port);
+     temp_bind_addr.sin_addr.s_addr = local_ip_uint32;
+
+     if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
+     {
+    	 mylog(log_debug,"bind fail\n");
+    	 return -1;
+     }
+	 if(raw_mode==mode_faketcp)
+	 {
+
+		if (listen(bind_fd, SOMAXCONN) != 0) {
+			mylog(log_warn,"listen fail\n");
+			return -1;
+		}
+	 }
+     return 0;
+}
+int client_bind_to_a_new_port(int bind_fd,u32_t local_ip_uint32)//find a free port and bind to it.
+{
+	int raw_send_port=10000+get_true_random_number()%(65535-10000);
+	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
+	{
+		if (try_to_list_and_bind(bind_fd,local_ip_uint32,raw_send_port)==0)
+		{
+			return raw_send_port;
+		}
+	}
+	mylog(log_fatal,"bind port fail\n");
+	myexit(-1);
+	return -1;////for compiler check
+}

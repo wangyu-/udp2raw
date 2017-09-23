@@ -12,7 +12,7 @@
 
 
 const int aes_key_optimize=1; //if enabled,once you used a key for aes,you cant change it anymore
-
+extern char key[16];
 
 int my_encrypt(const char *data,char *output,int &len,char * key);
 int my_decrypt(const char *data,char *output,int &len,char * key);

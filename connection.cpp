@@ -6,7 +6,7 @@
  */
 
 #include "connection.h"
-
+#include "encrypt.h"
 
 
 int disable_anti_replay=0;//if anti_replay windows is diabled
@@ -455,3 +455,261 @@ int conn_manager_t::clear_inactive0()
 
 
 
+
+int send_bare(raw_info_t &raw_info,const char* data,int len)//send function with encryption but no anti replay,this is used when client and server verifys each other
+//you have to design the protocol carefully, so that you wont be affect by relay attack
+{
+	if(len<0)
+	{
+		mylog(log_debug,"input_len <0\n");
+		return -1;
+	}
+	packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &recv_info=raw_info.recv_info;
+
+	char send_data_buf[buf_len];  //buf for send data and send hb
+	char send_data_buf2[buf_len];
+
+
+	//static send_bare[buf_len];
+	iv_t iv=get_true_random_number_64();
+	padding_t padding=get_true_random_number_64();
+
+	memcpy(send_data_buf,&iv,sizeof(iv));
+	memcpy(send_data_buf+sizeof(iv),&padding,sizeof(padding));
+
+	send_data_buf[sizeof(iv)+sizeof(padding)]='b';
+	memcpy(send_data_buf+sizeof(iv)+sizeof(padding)+1,data,len);
+	int new_len=len+sizeof(iv)+sizeof(padding)+1;
+
+	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
+	{
+		return -1;
+	}
+	send_raw0(raw_info,send_data_buf2,new_len);
+	return 0;
+}
+int reserved_parse_bare(const char *input,int input_len,char* & data,int & len) // a sub function used in recv_bare
+{
+	static char recv_data_buf[buf_len];
+
+	if(input_len<0)
+	{
+		mylog(log_debug,"input_len <0\n");
+		return -1;
+	}
+	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
+	{
+		mylog(log_debug,"decrypt_fail in recv bare\n");
+		return -1;
+	}
+	if(recv_data_buf[sizeof(iv_t)+sizeof(padding_t)]!='b')
+	{
+		mylog(log_debug,"not a bare packet\n");
+		return -1;
+	}
+	len=input_len;
+	data=recv_data_buf+sizeof(iv_t)+sizeof(padding_t)+1;
+	len-=sizeof(iv_t)+sizeof(padding_t)+1;
+	if(len<0)
+	{
+		mylog(log_debug,"len <0\n");
+		return -1;
+	}
+	return 0;
+}
+int recv_bare(raw_info_t &raw_info,char* & data,int & len)//recv function with encryption but no anti replay,this is used when client and server verifys each other
+//you have to design the protocol carefully, so that you wont be affect by relay attack
+{
+	packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &recv_info=raw_info.recv_info;
+
+	if(recv_raw0(raw_info,data,len)<0)
+	{
+		//printf("recv_raw_fail in recv bare\n");
+		return -1;
+	}
+	if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1)))
+	{
+		mylog(log_debug,"unexpect packet type recv_info.syn=%d recv_info.ack=%d \n",recv_info.syn,recv_info.ack);
+		return -1;
+	}
+	return reserved_parse_bare(data,len,data,len);
+}
+
+int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3)// a warp for send_bare for sending handshake(this is not tcp handshake) easily
+{
+	packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &recv_info=raw_info.recv_info;
+
+	char * data;int len;
+	//len=sizeof(id_t)*3;
+	if(numbers_to_char(id1,id2,id3,data,len)!=0) return -1;
+	if(send_bare(raw_info,data,len)!=0) {mylog(log_warn,"send bare fail\n");return -1;}
+	return 0;
+}
+/*
+int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
+{
+	char * data;int len;
+	if(recv_bare(info,data,len)!=0) return -1;
+
+	if(char_to_numbers(data,len,id1,id2,id3)!=0) return -1;
+
+	return 0;
+}*/
+
+int send_safer(conn_info_t &conn_info,char type,const char* data,int len)  //safer transfer function with anti-replay,when mutually verification is done.
+{
+
+	packet_info_t &send_info=conn_info.raw_info.send_info;
+	packet_info_t &recv_info=conn_info.raw_info.recv_info;
+
+	if(type!='h'&&type!='d')
+	{
+		mylog(log_warn,"first byte is not h or d  ,%x\n",type);
+		return -1;
+	}
+
+
+
+	char send_data_buf[buf_len];  //buf for send data and send hb
+	char send_data_buf2[buf_len];
+
+
+
+	id_t n_tmp_id=htonl(conn_info.my_id);
+
+	memcpy(send_data_buf,&n_tmp_id,sizeof(n_tmp_id));
+
+	n_tmp_id=htonl(conn_info.oppsite_id);
+
+	memcpy(send_data_buf+sizeof(n_tmp_id),&n_tmp_id,sizeof(n_tmp_id));
+
+	anti_replay_seq_t n_seq=hton64(conn_info.blob->anti_replay.get_new_seq_for_send());
+
+	memcpy(send_data_buf+sizeof(n_tmp_id)*2,&n_seq,sizeof(n_seq));
+
+
+	send_data_buf[sizeof(n_tmp_id)*2+sizeof(n_seq)]=type;
+	send_data_buf[sizeof(n_tmp_id)*2+sizeof(n_seq)+1]=conn_info.my_roller;
+
+	memcpy(send_data_buf+2+sizeof(n_tmp_id)*2+sizeof(n_seq),data,len);//data;
+
+	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2+2;
+
+	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
+	{
+		return -1;
+	}
+
+	if(send_raw0(conn_info.raw_info,send_data_buf2,new_len)!=0) return -1;
+
+	if(after_send_raw0(conn_info.raw_info)!=0) return -1;
+
+	return 0;
+}
+int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_num)//a wrap for  send_safer for transfer data.
+{
+	packet_info_t &send_info=conn_info.raw_info.send_info;
+	packet_info_t &recv_info=conn_info.raw_info.recv_info;
+
+	char send_data_buf[buf_len];
+	//send_data_buf[0]='d';
+	u32_t n_conv_num=htonl(conv_num);
+	memcpy(send_data_buf,&n_conv_num,sizeof(n_conv_num));
+
+	memcpy(send_data_buf+sizeof(n_conv_num),data,len);
+	int new_len=len+sizeof(n_conv_num);
+	send_safer(conn_info,'d',send_data_buf,new_len);
+	return 0;
+
+}
+int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//subfunction for recv_safer,allow overlap
+{
+	 static char recv_data_buf[buf_len];
+
+	// char *recv_data_buf=recv_data_buf0; //fix strict alias warning
+	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
+	{
+		//printf("decrypt fail\n");
+		return -1;
+	}
+
+
+
+	//char *a=recv_data_buf;
+	//id_t h_oppiste_id= ntohl (  *((id_t * )(recv_data_buf)) );
+	id_t h_oppsite_id;
+	memcpy(&h_oppsite_id,recv_data_buf,sizeof(h_oppsite_id));
+	h_oppsite_id=ntohl(h_oppsite_id);
+
+	//id_t h_my_id= ntohl (  *((id_t * )(recv_data_buf+sizeof(id_t)))    );
+	id_t h_my_id;
+	memcpy(&h_my_id,recv_data_buf+sizeof(id_t),sizeof(h_my_id));
+	h_my_id=ntohl(h_my_id);
+
+	//anti_replay_seq_t h_seq= ntoh64 (  *((anti_replay_seq_t * )(recv_data_buf  +sizeof(id_t) *2 ))   );
+	anti_replay_seq_t h_seq;
+	memcpy(&h_seq,recv_data_buf  +sizeof(id_t) *2 ,sizeof(h_seq));
+	h_seq=ntoh64(h_seq);
+
+	if(h_oppsite_id!=conn_info.oppsite_id||h_my_id!=conn_info.my_id)
+	{
+		mylog(log_debug,"id and oppsite_id verification failed %x %x %x %x \n",h_oppsite_id,conn_info.oppsite_id,h_my_id,conn_info.my_id);
+		return -1;
+	}
+
+	if (conn_info.blob->anti_replay.is_vaild(h_seq) != 1) {
+		mylog(log_debug,"dropped replay packet\n");
+		return -1;
+	}
+
+	//printf("recv _len %d\n ",recv_len);
+	data=recv_data_buf+sizeof(anti_replay_seq_t)+sizeof(id_t)*2;
+	len=input_len-(sizeof(anti_replay_seq_t)+sizeof(id_t)*2  );
+
+
+	if(data[0]!='h'&&data[0]!='d')
+	{
+		mylog(log_debug,"first byte is not h or d  ,%x\n",data[0]);
+		return -1;
+	}
+
+	uint8_t roller=data[1];
+
+
+	type=data[0];
+	data+=2;
+	len-=2;
+
+	if(len<0)
+	{
+		mylog(log_debug,"len <0 ,%d\n",len);
+		return -1;
+	}
+
+	if(roller!=conn_info.oppsite_roller)
+	{
+		conn_info.oppsite_roller=roller;
+		conn_info.last_oppsite_roller_time=get_current_time();
+	}
+	conn_info.my_roller++;//increase on a successful recv
+
+
+	if(after_recv_raw0(conn_info.raw_info)!=0) return -1;
+
+	return 0;
+}
+int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)///safer transfer function with anti-replay,when mutually verification is done.
+{
+	packet_info_t &send_info=conn_info.raw_info.send_info;
+	packet_info_t &recv_info=conn_info.raw_info.recv_info;
+
+	char * recv_data;int recv_len;
+	static char recv_data_buf[buf_len];
+
+	if(recv_raw0(conn_info.raw_info,recv_data,recv_len)!=0) return -1;
+
+	return parse_safer(conn_info,recv_data,recv_len,type,data,len);
+}

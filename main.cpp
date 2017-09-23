@@ -40,7 +40,7 @@ int generate_iptables_rule_add=0;// if --gen-add is set
 int debug_resend=0; // debug only
 
 char key_string[1000]= "secret key";// -k option
-char key[16];//generated from key_string by md5.
+
 
 int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
 
@@ -96,318 +96,6 @@ void server_clear_function(u64_t u64)//used in conv_manager in server mode.for s
 
 
 
-int send_bare(raw_info_t &raw_info,const char* data,int len)//send function with encryption but no anti replay,this is used when client and server verifys each other
-//you have to design the protocol carefully, so that you wont be affect by relay attack
-{
-	if(len<0)
-	{
-		mylog(log_debug,"input_len <0\n");
-		return -1;
-	}
-	packet_info_t &send_info=raw_info.send_info;
-	packet_info_t &recv_info=raw_info.recv_info;
-
-	char send_data_buf[buf_len];  //buf for send data and send hb
-	char send_data_buf2[buf_len];
-
-
-	//static send_bare[buf_len];
-	iv_t iv=get_true_random_number_64();
-	padding_t padding=get_true_random_number_64();
-
-	memcpy(send_data_buf,&iv,sizeof(iv));
-	memcpy(send_data_buf+sizeof(iv),&padding,sizeof(padding));
-
-	send_data_buf[sizeof(iv)+sizeof(padding)]='b';
-	memcpy(send_data_buf+sizeof(iv)+sizeof(padding)+1,data,len);
-	int new_len=len+sizeof(iv)+sizeof(padding)+1;
-
-	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
-	{
-		return -1;
-	}
-	send_raw0(raw_info,send_data_buf2,new_len);
-	return 0;
-}
-int reserved_parse_bare(const char *input,int input_len,char* & data,int & len) // a sub function used in recv_bare
-{
-	static char recv_data_buf[buf_len];
-
-	if(input_len<0)
-	{
-		mylog(log_debug,"input_len <0\n");
-		return -1;
-	}
-	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
-	{
-		mylog(log_debug,"decrypt_fail in recv bare\n");
-		return -1;
-	}
-	if(recv_data_buf[sizeof(iv_t)+sizeof(padding_t)]!='b')
-	{
-		mylog(log_debug,"not a bare packet\n");
-		return -1;
-	}
-	len=input_len;
-	data=recv_data_buf+sizeof(iv_t)+sizeof(padding_t)+1;
-	len-=sizeof(iv_t)+sizeof(padding_t)+1;
-	if(len<0)
-	{
-		mylog(log_debug,"len <0\n");
-		return -1;
-	}
-	return 0;
-}
-int recv_bare(raw_info_t &raw_info,char* & data,int & len)//recv function with encryption but no anti replay,this is used when client and server verifys each other
-//you have to design the protocol carefully, so that you wont be affect by relay attack
-{
-	packet_info_t &send_info=raw_info.send_info;
-	packet_info_t &recv_info=raw_info.recv_info;
-
-	if(recv_raw0(raw_info,data,len)<0)
-	{
-		//printf("recv_raw_fail in recv bare\n");
-		return -1;
-	}
-	if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1)))
-	{
-		mylog(log_debug,"unexpect packet type recv_info.syn=%d recv_info.ack=%d \n",recv_info.syn,recv_info.ack);
-		return -1;
-	}
-	return reserved_parse_bare(data,len,data,len);
-}
-
-int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3)// a warp for send_bare for sending handshake(this is not tcp handshake) easily
-{
-	packet_info_t &send_info=raw_info.send_info;
-	packet_info_t &recv_info=raw_info.recv_info;
-
-	char * data;int len;
-	//len=sizeof(id_t)*3;
-	if(numbers_to_char(id1,id2,id3,data,len)!=0) return -1;
-	if(send_bare(raw_info,data,len)!=0) {mylog(log_warn,"send bare fail\n");return -1;}
-	return 0;
-}
-/*
-int recv_handshake(packet_info_t &info,id_t &id1,id_t &id2,id_t &id3)
-{
-	char * data;int len;
-	if(recv_bare(info,data,len)!=0) return -1;
-
-	if(char_to_numbers(data,len,id1,id2,id3)!=0) return -1;
-
-	return 0;
-}*/
-
-int send_safer(conn_info_t &conn_info,char type,const char* data,int len)  //safer transfer function with anti-replay,when mutually verification is done.
-{
-
-	packet_info_t &send_info=conn_info.raw_info.send_info;
-	packet_info_t &recv_info=conn_info.raw_info.recv_info;
-
-	if(type!='h'&&type!='d')
-	{
-		mylog(log_warn,"first byte is not h or d  ,%x\n",type);
-		return -1;
-	}
-
-
-
-	char send_data_buf[buf_len];  //buf for send data and send hb
-	char send_data_buf2[buf_len];
-
-
-
-	id_t n_tmp_id=htonl(conn_info.my_id);
-
-	memcpy(send_data_buf,&n_tmp_id,sizeof(n_tmp_id));
-
-	n_tmp_id=htonl(conn_info.oppsite_id);
-
-	memcpy(send_data_buf+sizeof(n_tmp_id),&n_tmp_id,sizeof(n_tmp_id));
-
-	anti_replay_seq_t n_seq=hton64(conn_info.blob->anti_replay.get_new_seq_for_send());
-
-	memcpy(send_data_buf+sizeof(n_tmp_id)*2,&n_seq,sizeof(n_seq));
-
-
-	send_data_buf[sizeof(n_tmp_id)*2+sizeof(n_seq)]=type;
-	send_data_buf[sizeof(n_tmp_id)*2+sizeof(n_seq)+1]=conn_info.my_roller;
-
-	memcpy(send_data_buf+2+sizeof(n_tmp_id)*2+sizeof(n_seq),data,len);//data;
-
-	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2+2;
-
-	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
-	{
-		return -1;
-	}
-
-	if(send_raw0(conn_info.raw_info,send_data_buf2,new_len)!=0) return -1;
-
-	if(after_send_raw0(conn_info.raw_info)!=0) return -1;
-
-	return 0;
-}
-int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_num)//a wrap for  send_safer for transfer data.
-{
-	packet_info_t &send_info=conn_info.raw_info.send_info;
-	packet_info_t &recv_info=conn_info.raw_info.recv_info;
-
-	char send_data_buf[buf_len];
-	//send_data_buf[0]='d';
-	u32_t n_conv_num=htonl(conv_num);
-	memcpy(send_data_buf,&n_conv_num,sizeof(n_conv_num));
-
-	memcpy(send_data_buf+sizeof(n_conv_num),data,len);
-	int new_len=len+sizeof(n_conv_num);
-	send_safer(conn_info,'d',send_data_buf,new_len);
-	return 0;
-
-}
-int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//subfunction for recv_safer,allow overlap
-{
-	 static char recv_data_buf[buf_len];
-
-	// char *recv_data_buf=recv_data_buf0; //fix strict alias warning
-	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
-	{
-		//printf("decrypt fail\n");
-		return -1;
-	}
-
-
-
-	//char *a=recv_data_buf;
-	//id_t h_oppiste_id= ntohl (  *((id_t * )(recv_data_buf)) );
-	id_t h_oppsite_id;
-	memcpy(&h_oppsite_id,recv_data_buf,sizeof(h_oppsite_id));
-	h_oppsite_id=ntohl(h_oppsite_id);
-
-	//id_t h_my_id= ntohl (  *((id_t * )(recv_data_buf+sizeof(id_t)))    );
-	id_t h_my_id;
-	memcpy(&h_my_id,recv_data_buf+sizeof(id_t),sizeof(h_my_id));
-	h_my_id=ntohl(h_my_id);
-
-	//anti_replay_seq_t h_seq= ntoh64 (  *((anti_replay_seq_t * )(recv_data_buf  +sizeof(id_t) *2 ))   );
-	anti_replay_seq_t h_seq;
-	memcpy(&h_seq,recv_data_buf  +sizeof(id_t) *2 ,sizeof(h_seq));
-	h_seq=ntoh64(h_seq);
-
-	if(h_oppsite_id!=conn_info.oppsite_id||h_my_id!=conn_info.my_id)
-	{
-		mylog(log_debug,"id and oppsite_id verification failed %x %x %x %x \n",h_oppsite_id,conn_info.oppsite_id,h_my_id,conn_info.my_id);
-		return -1;
-	}
-
-	if (conn_info.blob->anti_replay.is_vaild(h_seq) != 1) {
-		mylog(log_debug,"dropped replay packet\n");
-		return -1;
-	}
-
-	//printf("recv _len %d\n ",recv_len);
-	data=recv_data_buf+sizeof(anti_replay_seq_t)+sizeof(id_t)*2;
-	len=input_len-(sizeof(anti_replay_seq_t)+sizeof(id_t)*2  );
-
-
-	if(data[0]!='h'&&data[0]!='d')
-	{
-		mylog(log_debug,"first byte is not h or d  ,%x\n",data[0]);
-		return -1;
-	}
-
-	uint8_t roller=data[1];
-
-
-	type=data[0];
-	data+=2;
-	len-=2;
-
-	if(len<0)
-	{
-		mylog(log_debug,"len <0 ,%d\n",len);
-		return -1;
-	}
-
-	if(roller!=conn_info.oppsite_roller)
-	{
-		conn_info.oppsite_roller=roller;
-		conn_info.last_oppsite_roller_time=get_current_time();
-	}
-	conn_info.my_roller++;//increase on a successful recv
-
-
-	if(after_recv_raw0(conn_info.raw_info)!=0) return -1;
-
-	return 0;
-}
-int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)///safer transfer function with anti-replay,when mutually verification is done.
-{
-	packet_info_t &send_info=conn_info.raw_info.send_info;
-	packet_info_t &recv_info=conn_info.raw_info.recv_info;
-
-	char * recv_data;int recv_len;
-	static char recv_data_buf[buf_len];
-
-	if(recv_raw0(conn_info.raw_info,recv_data,recv_len)!=0) return -1;
-
-	return parse_safer(conn_info,recv_data,recv_len,type,data,len);
-}
-
-int try_to_list_and_bind(int port)  //try to bind to a port,may fail.
-{
-	 int old_bind_fd=bind_fd;
-
-	 if(raw_mode==mode_faketcp)
-	 {
-		 bind_fd=socket(AF_INET,SOCK_STREAM,0);
-	 }
-	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)
-	 {
-		 bind_fd=socket(AF_INET,SOCK_DGRAM,0);
-	 }
-     if(old_bind_fd!=-1)
-     {
-    	 close(old_bind_fd);
-     }
-
-	 struct sockaddr_in temp_bind_addr={0};
-     //bzero(&temp_bind_addr, sizeof(temp_bind_addr));
-
-     temp_bind_addr.sin_family = AF_INET;
-     temp_bind_addr.sin_port = htons(port);
-     temp_bind_addr.sin_addr.s_addr = local_ip_uint32;
-
-     if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
-     {
-    	 mylog(log_debug,"bind fail\n");
-    	 return -1;
-     }
-	 if(raw_mode==mode_faketcp)
-	 {
-
-		if (listen(bind_fd, SOMAXCONN) != 0) {
-			mylog(log_warn,"listen fail\n");
-			return -1;
-		}
-	 }
-     return 0;
-}
-int client_bind_to_a_new_port()//find a free port and bind to it.
-{
-	int raw_send_port=10000+get_true_random_number()%(65535-10000);
-	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
-	{
-		if (try_to_list_and_bind(raw_send_port)==0)
-		{
-			return raw_send_port;
-		}
-	}
-	mylog(log_fatal,"bind port fail\n");
-	myexit(-1);
-	return -1;////for compiler check
-}
-
 
 
 int set_timer(int epollfd,int &timer_fd)//put a timer_fd into epoll,general function,used both in client and server
@@ -461,7 +149,7 @@ int set_timer_server(int epollfd,int &timer_fd)//only for server
 
 
 	ev.events = EPOLLIN;
-	ev.data.u64 = pack_u64(2,timer_fd);
+	ev.data.u64 = pack_u64(2,timer_fd);////difference
 
 	ret=epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
@@ -470,7 +158,6 @@ int set_timer_server(int epollfd,int &timer_fd)//only for server
 	}
 	return 0;
 }
-int get_src_adress(u32_t &ip);
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
 	//keep_iptables_rule();
@@ -500,7 +187,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 		conn_info.my_id = get_true_random_number_nz(); ///todo no need to do this everytime
 
 		u32_t new_ip=0;
-		if(!force_source_ip&&get_src_adress(new_ip)==0)
+		if(!force_source_ip&&get_src_adress(new_ip,remote_ip_uint32,remote_port)==0)
 		{
 			if(new_ip!=source_ip_uint32)
 			{
@@ -513,7 +200,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 		if (source_port == 0)
 		{
-			send_info.src_port = client_bind_to_a_new_port();
+			send_info.src_port = client_bind_to_a_new_port(bind_fd,local_ip_uint32);
 		}
 		else
 		{
@@ -1475,45 +1162,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 	return 0;
 }
 
-int get_src_adress(u32_t &ip)  //a trick to get src adress for a dest adress,so that we can use the src address in raw socket as source ip
-{
-	struct sockaddr_in remote_addr_in={0};
 
-	socklen_t slen = sizeof(sockaddr_in);
-	//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
-	remote_addr_in.sin_family = AF_INET;
-	remote_addr_in.sin_port = htons(remote_port);
-	remote_addr_in.sin_addr.s_addr = remote_ip_uint32;
-
-
-	int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if(new_udp_fd<0)
-	{
-		mylog(log_warn,"create udp_fd error\n");
-		return -1;
-	}
-	//set_buf_size(new_udp_fd);
-
-	mylog(log_debug,"created new udp_fd %d\n",new_udp_fd);
-	int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in, slen);
-	if(ret!=0)
-	{
-		mylog(log_warn,"udp fd connect fail\n");
-		close(new_udp_fd);
-		return -1;
-	}
-
-	struct sockaddr_in my_addr={0};
-	socklen_t len=sizeof(my_addr);
-
-    if(getsockname(new_udp_fd, (struct sockaddr *) &my_addr, &len)!=0) return -1;
-
-    ip=my_addr.sin_addr.s_addr;
-
-    close(new_udp_fd);
-
-    return 0;
-}
 
 int client_event_loop()
 {
@@ -1586,7 +1235,7 @@ int client_event_loop()
 	if(source_ip_uint32==0)
 	{
 		mylog(log_info,"get_src_adress called\n");
-		if(get_src_adress(source_ip_uint32)!=0)
+		if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
 		{
 			mylog(log_fatal,"the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
 			myexit(-1);
@@ -1598,7 +1247,7 @@ int client_event_loop()
 	//printf("done\n");
 
 
-	if(try_to_list_and_bind(source_port)!=0)
+	if(try_to_list_and_bind(bind_fd,local_ip_uint32,source_port)!=0)
 	{
 		mylog(log_fatal,"bind to source_port:%d fail\n ",source_port);
 		myexit(-1);

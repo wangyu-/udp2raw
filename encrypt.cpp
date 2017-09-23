@@ -16,7 +16,7 @@ static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog
  * https://crypto.stackexchange.com/questions/5421/using-cbc-with-a-fixed-iv-and-a-random-first-plaintext-block
 ****/
 
-
+char key[16];//generated from key_string by md5.
 /*
 TODO
 
