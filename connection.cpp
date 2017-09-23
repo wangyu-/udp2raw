@@ -15,6 +15,7 @@ const int disable_conv_clear=0;//a udp connection in the multiplexer is called c
 
 const int disable_conn_clear=0;//a raw connection is called conn.
 
+conn_manager_t conn_manager;
 
 	anti_replay_seq_t anti_replay_t::get_new_seq_for_send()
 	{
@@ -712,4 +713,34 @@ int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)///safer t
 	if(recv_raw0(conn_info.raw_info,recv_data,recv_len)!=0) return -1;
 
 	return parse_safer(conn_info,recv_data,recv_len,type,data,len);
+}
+
+void server_clear_function(u64_t u64)//used in conv_manager in server mode.for server we have to use one udp fd for one conv(udp connection),
+//so we have to close the fd when conv expires
+{
+	int fd=int(u64);
+	int ret;
+	assert(fd!=0);
+	/*
+	epoll_event ev;
+
+	ev.events = EPOLLIN;
+	ev.data.u64 = u64;
+
+	ret = epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, &ev);
+	if (ret!=0)
+	{
+		mylog(log_fatal,"fd:%d epoll delete failed!!!!\n",fd);
+		myexit(-1);   //this shouldnt happen
+	}*/                //no need
+	ret= close(fd);  //closed fd should be auto removed from epoll
+
+	if (ret!=0)
+	{
+		mylog(log_fatal,"close fd %d failed !!!!\n",fd);
+		myexit(-1);  //this shouldnt happen
+	}
+	//mylog(log_fatal,"size:%d !!!!\n",conn_manager.udp_fd_mp.size());
+	assert(conn_manager.udp_fd_mp.find(fd)!=conn_manager.udp_fd_mp.end());
+	conn_manager.udp_fd_mp.erase(fd);
 }

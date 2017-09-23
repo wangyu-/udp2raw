@@ -14,6 +14,9 @@ extern int disable_anti_replay;
 #include "common.h"
 #include "log.h"
 #include "network.h"
+#include "misc.h"
+
+
 
 struct anti_replay_t  //its for anti replay attack,similar to openvpn/ipsec 's anti replay window
 {
@@ -141,6 +144,10 @@ int clear_inactive();
 int clear_inactive0();
 
 };
+
+extern conn_manager_t conn_manager;
+
+void server_clear_function(u64_t u64);
 
 int send_bare(raw_info_t &raw_info,const char* data,int len);//send function with encryption but no anti replay,this is used when client and server verifys each other
 //you have to design the protocol carefully, so that you wont be affect by relay attack
