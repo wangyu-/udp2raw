@@ -8,26 +8,9 @@
 
 int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
 
-//uint64_t current_time_rough=0;
-
-
-int VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV;
-////////==============================variable divider=============================================================
-
-
-int TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;
-////////==========================type divider=======================================================
-
 int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id);
 int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len);
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len);
-
-int DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD;
-////////////////=======================declear divider=============================
-
-
-
-
 
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
@@ -1005,8 +988,6 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 	return 0;
 }
 
-
-
 int client_event_loop()
 {
 
@@ -1532,11 +1513,6 @@ int server_event_loop()
 	}
 	return 0;
 }
-
-
-
-
-
 
 /*
 int test()
