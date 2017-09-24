@@ -1,10 +1,10 @@
 #include "log.h"
+#include "misc.h"
 
 int log_level=log_info;
 
 int enable_log_position=0;
 int enable_log_color=1;
-
 
 void log0(const char * file,const char * function,int line,int level,const char* str, ...) {
 

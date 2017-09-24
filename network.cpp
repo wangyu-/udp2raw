@@ -7,6 +7,7 @@
 #include "common.h"
 #include "network.h"
 #include "log.h"
+#include "misc.h"
 
 int raw_recv_fd=-1;
 int raw_send_fd=-1;

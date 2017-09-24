@@ -18,10 +18,7 @@ int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote
 
 int force_source_ip=0; //if --source-ip is enabled
 
-
 id_t const_id=0;//an id used for connection recovery,its generated randomly,it never change since its generated
-
-
 
 int udp_fd=-1;  //for client only. client use this fd to listen and handle udp connection
 int bind_fd=-1; //bind only,never send or recv.  its just a dummy fd for bind,so that other program wont occupy the same port
@@ -42,7 +39,21 @@ int debug_resend=0; // debug only
 
 char key_string[1000]= "secret key";// -k option
 
+string iptables_pattern="";
+int iptables_rule_added=0;
+int iptables_rule_keeped=0;
+int iptables_rule_keep_index=0;
 
+program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
+raw_mode_t raw_mode=mode_faketcp;
+unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
+
+int about_to_exit=0;
+
+
+
+int socket_buf_size=1024*1024;
+int force_socket_buf=0;
 
 //char lower_level_arg[1000];
 int process_lower_level_arg()//handle --lower-level option
@@ -970,6 +981,173 @@ int handle_lower_level(raw_info_t &raw_info)//fill lower_level info,when --lower
 	  mylog(log_debug,"[auto]lower level info %x %x\n ",send_info.addr_ll.sll_halen,send_info.addr_ll.sll_protocol);
 	}
 	return 0;
+}
+
+
+
+/*
+int add_iptables_rule(const char * s)
+{
+
+	iptables_pattern=s;
+
+	string rule="iptables -I INPUT ";
+	rule+=iptables_pattern;
+	rule+=" -j DROP";
+
+	char *output;
+	if(run_command(rule.c_str(),output)==0)
+	{
+		mylog(log_warn,"auto added iptables rule by:  %s\n",rule.c_str());
+	}
+	else
+	{
+		mylog(log_fatal,"auto added iptables failed by: %s\n",rule.c_str());
+		//mylog(log_fatal,"reason : %s\n",strerror(errno));
+		myexit(-1);
+	}
+	iptables_rule_added=1;
+	return 0;
+}*/
+string chain[2];
+string rule_keep[2];
+string rule_keep_add[2];
+string rule_keep_del[2];
+u64_t keep_rule_last_time=0;
+
+pthread_t keep_thread;
+int keep_thread_running=0;
+int iptables_gen_add(const char * s,u32_t const_id)
+{
+	string dummy="";
+	iptables_pattern=s;
+	chain[0] =dummy+ "udp2rawDwrW_C";
+	rule_keep[0]=dummy+ iptables_pattern+" -j " +chain[0];
+	rule_keep_add[0]=dummy+"iptables -I INPUT "+rule_keep[0];
+
+	char *output;
+	run_command(dummy+"iptables -N "+chain[0],output,show_none);
+	run_command(dummy+"iptables -F "+chain[0],output);
+	run_command(dummy+"iptables -I "+chain[0] + " -j DROP",output);
+
+	rule_keep_del[0]=dummy+"iptables -D INPUT "+rule_keep[0];
+
+	run_command(rule_keep_del[0],output,show_none);
+	run_command(rule_keep_del[0],output,show_none);
+
+	if(run_command(rule_keep_add[0],output)!=0)
+	{
+		mylog(log_fatal,"auto added iptables failed by: %s\n",rule_keep_add[0].c_str());
+		myexit(-1);
+	}
+	return 0;
+}
+int iptables_rule_init(const char * s,u32_t const_id,int keep)
+{
+	iptables_pattern=s;
+	iptables_rule_added=1;
+	iptables_rule_keeped=keep;
+
+	string dummy="";
+	char const_id_str[100];
+	sprintf(const_id_str, "%x", const_id);
+
+	chain[0] =dummy+ "udp2rawDwrW_"+const_id_str+"_C0";
+	chain[1] =dummy+ "udp2rawDwrW_"+const_id_str+"_C1";
+
+	rule_keep[0]=dummy+ iptables_pattern+" -j " +chain[0];
+	rule_keep[1]=dummy+ iptables_pattern+" -j " +chain[1];
+
+	rule_keep_add[0]=dummy+"iptables -I INPUT "+rule_keep[0];
+	rule_keep_add[1]=dummy+"iptables -I INPUT "+rule_keep[1];
+
+	rule_keep_del[0]=dummy+"iptables -D INPUT "+rule_keep[0];
+	rule_keep_del[1]=dummy+"iptables -D INPUT "+rule_keep[1];
+
+	keep_rule_last_time=get_current_time();
+
+	char *output;
+
+	for(int i=0;i<=iptables_rule_keeped;i++)
+	{
+		run_command(dummy+"iptables -N "+chain[i],output);
+		run_command(dummy+"iptables -F "+chain[i],output);
+		run_command(dummy+"iptables -I "+chain[i] + " -j DROP",output);
+
+		if(run_command(rule_keep_add[i],output)!=0)
+		{
+			mylog(log_fatal,"auto added iptables failed by: %s\n",rule_keep_add[i].c_str());
+			myexit(-1);
+		}
+	}
+	mylog(log_warn,"auto added iptables rules\n");
+	return 0;
+}
+
+int keep_iptables_rule()  //magic to work on a machine without grep/iptables --check/-m commment
+{
+	/*
+	if(iptables_rule_keeped==0) return  0;
+
+
+	uint64_t tmp_current_time=get_current_time();
+	if(tmp_current_time-keep_rule_last_time<=iptables_rule_keep_interval)
+	{
+		return 0;
+	}
+	else
+	{
+		keep_rule_last_time=tmp_current_time;
+	}*/
+
+	mylog(log_debug,"keep_iptables_rule begin %llu\n",get_current_time());
+	iptables_rule_keep_index+=1;
+	iptables_rule_keep_index%=2;
+
+	string dummy="";
+	char *output;
+
+	int i=iptables_rule_keep_index;
+
+	run_command(dummy + "iptables -N " + chain[i], output,show_none);
+
+	if (run_command(dummy + "iptables -F " + chain[i], output,show_none) != 0)
+		mylog(log_warn, "iptables -F failed %d\n",i);
+
+	if (run_command(dummy + "iptables -I " + chain[i] + " -j DROP",output,show_none) != 0)
+		mylog(log_warn, "iptables -I failed %d\n",i);
+
+	if (run_command(rule_keep_del[i], output,show_none) != 0)
+		mylog(log_warn, "rule_keep_del failed %d\n",i);
+
+	run_command(rule_keep_del[i], output,show_none); //do it twice,incase it fails for unknown random reason
+
+	if(run_command(rule_keep_add[i], output,show_log)!=0)
+		mylog(log_warn, "rule_keep_del failed %d\n",i);
+
+	mylog(log_debug,"keep_iptables_rule end %llu\n",get_current_time());
+	return 0;
+}
+
+int clear_iptables_rule()
+{
+	char *output;
+	string dummy="";
+	if(!iptables_rule_added) return 0;
+
+	for(int i=0;i<=iptables_rule_keeped;i++ )
+	{
+		run_command(rule_keep_del[i],output);
+		run_command(dummy+"iptables -F "+chain[i],output);
+		run_command(dummy+"iptables -X "+chain[i],output);
+	}
+	return 0;
+}
+
+void  signal_handler(int sig)
+{
+	about_to_exit=1;
+    // myexit(0);
 }
 
 
