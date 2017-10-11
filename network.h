@@ -21,6 +21,8 @@ extern int lower_level_manual;
 extern char if_name[100];
 extern unsigned char dest_hw_addr[];
 
+extern int random_drop;
+
 extern int ifindex;
 
 struct icmphdr

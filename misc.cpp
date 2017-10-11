@@ -236,6 +236,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"seq-mode", required_argument,    0, 1},
 		{"conf-file", required_argument,   0, 1},
 		{"force-sock-buf", no_argument,   0, 1},
+		{"random-drop", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -558,10 +559,21 @@ void process_arg(int argc, char *argv[])  //process all options
 					myexit(-1);
 				}
 			}
+			else if(strcmp(long_options[option_index].name,"random-drop")==0)
+			{
+				sscanf(optarg,"%d",&random_drop);
+				if(random_drop<0||random_drop>10000)
+				{
+					mylog(log_fatal,"random_drop must be between 0 10000 \n");
+					myexit(-1);
+				}
+				mylog(log_info,"random_drop =%d \n",random_drop);
+			}
 			else if(strcmp(long_options[option_index].name,"conf-file")==0)
 			{
 				mylog(log_info,"configuration loaded from %s\n",optarg);
 			}
+
 			else
 			{
 				mylog(log_warn,"ignored unknown long option ,option_index:%d code:<%x>\n",option_index, optopt);

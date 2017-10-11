@@ -219,6 +219,7 @@ conv_manager_t::~conv_manager_t()
 			}
 			cnt++;
 		}
+		clear_it=it;
 		return 0;
 	}
 
@@ -451,6 +452,7 @@ int conn_manager_t::clear_inactive0()
 		}
 		cnt++;
 	}
+	clear_it=it;
 	return 0;
 }
 

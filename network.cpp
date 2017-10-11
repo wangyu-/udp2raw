@@ -15,6 +15,7 @@ u32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PA
 
 int seq_mode=3;
 int max_seq_mode=4;
+int random_drop=0;
 
 int filter_port=-1;
 
@@ -1623,6 +1624,12 @@ int recv_raw_tcp_deprecated(packet_info_t &info,char * &payload,int &payloadlen)
 }*/
 int send_raw0(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
+	if (random_drop != 0) {
+		if (get_true_random_number() % 10000 < (u32_t) random_drop) {
+			return 0;
+		}
+	}
+
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
 	mylog(log_trace,"send_raw : from %x %d  to %x %d\n",send_info.src_ip,send_info.src_port,send_info.dst_ip,send_info.dst_port);
