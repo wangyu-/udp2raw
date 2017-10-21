@@ -8,7 +8,7 @@
 ##### 摘要
 udp2raw是一个把udp流量通过raw socket包装成tcp流量的工具。通过用udp2raw配合udp模式的 finalspeed一样可以达到在底层发tcp包，绕过QOS的效果。支持openvz,稳定性也好很多。原理上相当于在finalspeed外面再包了一层tunnel。
 
-本教程会一步一步演示用udp2raw+finalspeed加速http流量的过程。加速任何其他tcp流量也一样，包括ss。本文避免讨论科学上网，所以只演示加速http流量。
+本教程会一步一步演示用udp2raw+finalspeed加速http流量的过程。加速任何其他tcp流量也一样，包括$\*\*\*。本文避免讨论科学上网，所以只演示加速http流量。
 
 udp2raw也支持把udp流量包装成Icmp发送，本教程不做演示。
 
