@@ -94,7 +94,7 @@ You can run udp2raw with a non-root account(for better security).Take a look at 
 ### Usage
 ```
 udp2raw-tunnel
-git version:adbe7d110f    build date:Sep  6 2017 05:37:45
+git version:6e1df4b39f    build date:Oct 24 2017 09:21:15
 repository: https://github.com/wangyu-/udp2raw-tunnel
 
 usage:
@@ -117,7 +117,9 @@ client options:
 other options:
     --conf-file           <string>        read options from a configuration file instead of command line.
                                           check example.conf in repo for format
-    --log-level           <number>        0:never    1:fatal   2:error   3:warn 
+    --fifo                <string>        use a fifo(named pipe) for sending commands to the running program,
+                                          check readme.md in repository for supported commands.
+    --log-level           <number>        0:never    1:fatal   2:error   3:warn
                                           4:info (default)     5:debug   6:trace
     --log-position                        enable file name,function name,line number in log
     --disable-color                       disable log color
@@ -131,7 +133,7 @@ other options:
                                           2:increase seq randomly, about every 3 packets,simply ack last seq
                                           3:simulate an almost real seq/ack procedure(default)
                                           4:similiar to 3,but do not consider TCP Option Window_Scale,
-                                          maybe useful when firewall doesnt support TCP Option 
+                                          maybe useful when firewall doesnt support TCP Option
     --lower-level         <string>        send packets at OSI level 2, format:'if_name#dest_mac_adress'
                                           ie:'eth0#00:23:45:67:89:b9'.or try '--lower-level auto' to obtain
                                           the parameter automatically,specify it manually if 'auto' failed
