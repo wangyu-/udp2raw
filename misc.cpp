@@ -12,9 +12,9 @@
 #include "connection.h"
 
 
-char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
+char local_ip[100]="0.0.0.0", remote_host[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_host for -r option,source for --source-ip
 u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
-int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
+int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_host,buf for port.source_port=0 indicates --source-port is not enabled
 
 int force_source_ip=0; //if --source-ip is enabled
 
@@ -100,7 +100,7 @@ void print_help()
 	printf("\n");
 	printf("usage:\n");
 	printf("    run as client : ./this_program -c -l local_listen_ip:local_port -r server_ip:server_port  [options]\n");
-	printf("    run as server : ./this_program -s -l server_listen_ip:server_port -r remote_ip:remote_port  [options]\n");
+	printf("    run as server : ./this_program -s -l server_listen_ip:server_port -r remote_host:remote_port  [options]\n");
 	printf("\n");
 	printf("common options,these options must be same on both side:\n");
 	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp\n");
@@ -363,7 +363,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		case 'r':
 			no_r = 0;
 			if (strchr(optarg, ':') != 0) {
-				sscanf(optarg, "%[^:]:%d", remote_ip, &remote_port);
+				sscanf(optarg, "%[^:]:%d", remote_host, &remote_port);
 				if(remote_port==22)
 				{
 					mylog(log_fatal,"port 22 not allowed\n");
@@ -623,7 +623,7 @@ void process_arg(int argc, char *argv[])  //process all options
 
 	 log_bare(log_info,"local_ip=%s ",local_ip);
 	 log_bare(log_info,"local_port=%d ",local_port);
-	 log_bare(log_info,"remote_ip=%s ",remote_ip);
+	 log_bare(log_info,"remote_host=%s ",remote_host);
 	 log_bare(log_info,"remote_port=%d ",remote_port);
 	 log_bare(log_info,"source_ip=%s ",source_ip);
 	 log_bare(log_info,"source_port=%d ",source_port);
@@ -766,15 +766,15 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule
 	{
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p tcp -m tcp --sport %d",remote_ip,remote_port);
+			sprintf(tmp_pattern,"-s %s/32 -p tcp -m tcp --sport %d",remote_host,remote_port);
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p udp -m udp --sport %d",remote_ip,remote_port);
+			sprintf(tmp_pattern,"-s %s/32 -p udp -m udp --sport %d",remote_host,remote_port);
 		}
 		if(raw_mode==mode_icmp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p icmp",remote_ip);
+			sprintf(tmp_pattern,"-s %s/32 -p icmp",remote_host);
 		}
 		pattern=tmp_pattern;
 	}

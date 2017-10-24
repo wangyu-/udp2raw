@@ -1023,7 +1023,7 @@ int client_event_loop()
 			string hw_string;
 			if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
 			{
-				mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_ip);
+				mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_host);
 				myexit(-1);
 			}
 			mylog(log_info,"we are running at lower-level (auto) mode,%s %s %s\n",my_ntoa(dest_ip),if_name_string.c_str(),hw_string.c_str());
@@ -1611,8 +1611,15 @@ int main(int argc, char *argv[])
 		mylog(log_error,"root check failed,make sure you run this program with root,we can try to continue,but it will likely fail\n");
 	}
 
+
+	struct hostent        *he;
+	if ( (he = gethostbyname(remote_host) ) == NULL ) {
+		mylog(log_error,"Unable to resolve hostname: %s\n",remote_host);
+		exit(1); /* error */
+	}
+	remote_ip_uint32=inet_addr(he->h_addr_list[0]);
+
 	local_ip_uint32=inet_addr(local_ip);
-	remote_ip_uint32=inet_addr(remote_ip);
 	source_ip_uint32=inet_addr(source_ip);
 
 

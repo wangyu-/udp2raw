@@ -99,7 +99,7 @@ repository: https://github.com/wangyu-/udp2raw-tunnel
 
 usage:
     run as client : ./this_program -c -l local_listen_ip:local_port -r server_ip:server_port  [options]
-    run as server : ./this_program -s -l server_listen_ip:server_port -r remote_ip:remote_port  [options]
+    run as server : ./this_program -s -l server_listen_ip:server_port -r remote_host:remote_port  [options]
 
 common options,these options must be same on both side:
     --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp

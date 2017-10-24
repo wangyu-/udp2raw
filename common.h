@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <stdlib.h> //for exit(0);
 #include <errno.h> //For errno - the error number
+#include <netdb.h> // for gethostbyname()
 #include <netinet/tcp.h>   //Provides declarations for tcp header
 #include <netinet/udp.h>
 #include <netinet/ip.h>    //Provides declarations for ip header
