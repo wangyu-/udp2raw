@@ -89,6 +89,7 @@ extern int generate_iptables_rule_add;// if --gen-add is set
 extern int debug_resend; // debug only
 
 extern char key_string[1000];// -k option
+extern char fifo_file[1000];
 
 
 extern raw_mode_t raw_mode;

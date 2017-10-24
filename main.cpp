@@ -7,7 +7,6 @@
 #include "encrypt.h"
 
 int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
-char fifo_file[1000]="./test.fifo";
 
 int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id);
 int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len);
@@ -1002,13 +1001,6 @@ int client_event_loop()
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
-	assert(mkfifo (fifo_file, 0666)==0);
-	int fifo_fd=open (fifo_file, O_RDWR);
-	assert(fifo_fd>0);
-	setnonblocking(fifo_fd);
-
-
-
 	if(lower_level)
 	{
 		if(lower_level_manual)
@@ -1142,15 +1134,6 @@ int client_event_loop()
 		myexit(-1);
 	}
 
-	ev.events = EPOLLIN;
-	ev.data.u64 = fifo_fd;
-
-	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, fifo_fd, &ev);
-	if (ret!= 0) {
-		mylog(log_fatal,"add fifo_fd error\n");
-		myexit(-1);
-	}
-
 	////add_timer for fake_tcp_keep_connection_client
 
 	//sleep(10);
@@ -1158,10 +1141,25 @@ int client_event_loop()
 	//memset(&udp_old_addr_in,0,sizeof(sockaddr_in));
 	int unbind=1;
 
-
 	set_timer(epollfd,timer_fd);
 
 	mylog(log_debug,"send_raw : from %x %d  to %x %d\n",send_info.src_ip,send_info.src_port,send_info.dst_ip,send_info.dst_port);
+
+	int fifo_fd=-1;
+
+	if(fifo_file[0]!=0)
+	{
+		fifo_fd=create_fifo(fifo_file);
+		ev.events = EPOLLIN;
+		ev.data.u64 = fifo_fd;
+
+		ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, fifo_fd, &ev);
+		if (ret!= 0) {
+			mylog(log_fatal,"add fifo_fd to epoll error %s\n",strerror);
+			myexit(-1);
+		}
+		mylog(log_info,"fifo_file=%s\n",fifo_file);
+	}
 	while(1)////////////////////////
 	{
 		if(about_to_exit) myexit(0);
@@ -1171,8 +1169,6 @@ int client_event_loop()
 			if(errno==EINTR  )
 			{
 				mylog(log_info,"epoll interrupted by signal\n");
-				if(fifo_fd>0)
-					unlink(fifo_file);
 				//close(fifo_fd);
 				myexit(0);
 			}
@@ -1194,7 +1190,6 @@ int client_event_loop()
 				u64_t value;
 				read(timer_fd, &value, 8);
 				client_on_timer(conn_info);
-
 				mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
 				epoll_trigger_counter=0;
 			}
@@ -1203,10 +1198,19 @@ int client_event_loop()
 				int len=read (fifo_fd, buf, sizeof (buf));
 				assert(len>=0);
 				buf[len]=0;
-				mylog(log_info,"got data from fifo,len=%d,s=%s\n",len,buf);
-
-				conn_info.state.client_current_state=client_idle;
-				conn_info.my_id=get_true_random_number_nz();
+				while(len>=1&&buf[len-1]=='\n')
+					buf[len-1]=0;
+				mylog(log_info,"got data from fifo,len=%d,s=[%s]\n",len,buf);
+				if(strcmp(buf,"reconnect")==0)
+				{
+					mylog(log_info,"received command: reconnect\n");
+					conn_info.state.client_current_state=client_idle;
+					conn_info.my_id=get_true_random_number_nz();
+				}
+				else
+				{
+					mylog(log_info,"unknown command\n");
+				}
 
 			}
 			else if (events[idx].data.u64 == (u64_t)udp_fd)
@@ -1378,6 +1382,22 @@ int server_event_loop()
 	u64_t end_time=0;
 
 	mylog(log_info,"now listening at %s:%d\n",my_ntoa(local_ip_uint32),local_port);
+
+	int fifo_fd=-1;
+
+	if(fifo_file[0]!=0)
+	{
+		fifo_fd=create_fifo(fifo_file);
+		ev.events = EPOLLIN;
+		ev.data.u64 = fifo_fd;
+
+		ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, fifo_fd, &ev);
+		if (ret!= 0) {
+			mylog(log_fatal,"add fifo_fd to epoll error %s\n",strerror);
+			myexit(-1);
+		}
+		mylog(log_info,"fifo_file=%s\n",fifo_file);
+	}
 	while(1)////////////////////////
 	{
 
@@ -1428,6 +1448,16 @@ int server_event_loop()
 					end_time=get_current_time();
 					mylog(log_debug,"raw_recv_fd,%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
 				}
+			}
+			else if (events[idx].data.u64 == (u64_t)fifo_fd)
+			{
+				int len=read (fifo_fd, buf, sizeof (buf));
+				assert(len>=0);
+				buf[len]=0;
+				while(len>=1&&buf[len-1]=='\n')
+					buf[len-1]=0;
+				mylog(log_info,"got data from fifo,len=%d,s=[%s]\n",len,buf);
+				mylog(log_info,"unknown command\n");
 			}
 			else if ((events[idx].data.u64 >>32u) == 2u)
 			{
@@ -1560,6 +1590,7 @@ int test()
 }*/
 int main(int argc, char *argv[])
 {
+	//printf("%llu\n",u64_t(-1));
 	//test();
 	//printf("%s\n",my_ntoa(0x00ffffff));
 	//auto a=string_to_vec("a b c d ");

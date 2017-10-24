@@ -39,6 +39,8 @@ int debug_resend=0; // debug only
 
 char key_string[1000]= "secret key";// -k option
 
+char fifo_file[1000]="";
+
 string iptables_pattern="";
 int iptables_rule_added=0;
 int iptables_rule_keeped=0;
@@ -49,6 +51,8 @@ raw_mode_t raw_mode=mode_faketcp;
 unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 
 int about_to_exit=0;
+
+
 
 
 
@@ -237,6 +241,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"conf-file", required_argument,   0, 1},
 		{"force-sock-buf", no_argument,   0, 1},
 		{"random-drop", required_argument,    0, 1},
+		{"fifo", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -568,6 +573,12 @@ void process_arg(int argc, char *argv[])  //process all options
 					myexit(-1);
 				}
 				mylog(log_info,"random_drop =%d \n",random_drop);
+			}
+			else if(strcmp(long_options[option_index].name,"fifo")==0)
+			{
+				sscanf(optarg,"%s",fifo_file);
+
+				mylog(log_info,"fifo_file =%s \n",fifo_file);
 			}
 			else if(strcmp(long_options[option_index].name,"conf-file")==0)
 			{

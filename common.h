@@ -122,4 +122,6 @@ int hex_to_u32_with_endian(const string & a,u32_t &output);
 int hex_to_u32(const string & a,u32_t &output);
 //extern string iptables_pattern;
 
+int create_fifo(char * file);
+
 #endif /* COMMON_H_ */

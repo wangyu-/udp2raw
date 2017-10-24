@@ -556,10 +556,42 @@ vector<string> parse_conf_line(const string& s0)
 }
 
 
+int create_fifo(char * file)
+{
+	if(mkfifo (file, 0666)!=0)
+	{
+		if(errno==EEXIST)
+		{
+			mylog(log_warn,"warning fifo file %s exist\n",file);
+		}
+		else
+		{
+			mylog(log_fatal,"create fifo file %s failed\n",file);
+			myexit(-1);
+		}
+	}
+	int fifo_fd=open (file, O_RDWR);
+	if(fifo_fd<0)
+	{
+		mylog(log_fatal,"create fifo file %s failed\n",file);
+		myexit(-1);
+	}
+	struct stat st;
+	if (fstat(fifo_fd, &st)!=0)
+	{
+		mylog(log_fatal,"fstat failed for fifo file %s\n",file);
+		myexit(-1);
+	}
 
+	if(!S_ISFIFO(st.st_mode))
+	{
+		mylog(log_fatal,"%s is not a fifo\n",file);
+		myexit(-1);
+	}
 
-
-
+	setnonblocking(fifo_fd);
+	return fifo_fd;
+}
 
 
 
