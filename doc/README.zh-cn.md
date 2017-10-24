@@ -165,9 +165,9 @@ facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和
 大部分udp2raw不能连通的情况都是设置了不兼容的iptables造成的。--lower-level选项允许绕过本地iptables。在一些iptables不好改动的情况下尤其有效（比如你用的是梅林固件，iptables全是固件自己生成的）。
 
 ### `--fifo`
-指定一个fifo(named pipe)来向运行中的程序发送命令. 例如对于`--fifo fifo.file`：
+指定一个fifo(named pipe)来向运行中的程序发送命令，例如`--fifo fifo.file`：
 
-再client端,可以用`echo reconnect >fifo.file`来强制client换端口重连（上层不断线）.对Server，目前没有效果。
+在client端,可以用`echo reconnect >fifo.file`来强制client换端口重连（上层不断线）.对Server，目前没有效果。
 
 ##### 格式
 `if_name#dest_mac_adress`,例如 `eth0#00:23:45:67:89:b9` 。`eth0`换成你的出口网卡名。`00:23:45:67:89:b9`换成网关的mac地址（如果client和server在同一个局域网内，可能不需要网关，这时候直接用对方主机的mac地址，这个属于罕见的应用场景，可以忽略）。
