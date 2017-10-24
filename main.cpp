@@ -37,6 +37,17 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			myexit(-1);
 		}
 
+		struct hostent        *he;
+		if ( (he = gethostbyname(remote_host) ) == NULL ) {
+			mylog(log_warn,"Unable to resolve hostname: %s, server ip wasn't updated.\n",remote_host);
+		} else {
+			struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
+			if ((*addr_list[0]).s_addr!=remote_ip_uint32) {
+				remote_ip_uint32=(*addr_list[0]).s_addr;
+				mylog(log_info,"Updated server ip '%s' as resolved result of '%s'\n",my_ntoa(remote_ip_uint32),remote_host);	
+			}
+		}
+
 		conn_info.blob->anti_replay.re_init();
 		conn_info.my_id = get_true_random_number_nz(); ///todo no need to do this everytime
 
@@ -1065,7 +1076,7 @@ int client_event_loop()
 		}
 
 	}
-	//printf("?????\n");
+	
 	if(source_ip_uint32==0)
 	{
 		mylog(log_info,"get_src_adress called\n");
@@ -1630,6 +1641,7 @@ int main(int argc, char *argv[])
 	}
 	struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
 	remote_ip_uint32=(*addr_list[0]).s_addr;
+	mylog(log_info,"%s ip = %s\n", program_mode==client_mode?"server":"remote", my_ntoa(remote_ip_uint32));
 
 	local_ip_uint32=inet_addr(local_ip);
 	source_ip_uint32=inet_addr(source_ip);
