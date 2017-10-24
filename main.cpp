@@ -795,6 +795,17 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 						tmp_conv_id);
 				return 0;
 			}
+			struct hostent        *he;
+			if ( (he = gethostbyname(remote_host) ) == NULL ) {
+				mylog(log_warn,"Unable to resolve hostname: %s, remote ip wasn't updated.\n",remote_host);
+			} else {
+				struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
+				if ((*addr_list[0]).s_addr!=remote_ip_uint32) {
+					remote_ip_uint32=(*addr_list[0]).s_addr;
+					mylog(log_info,"Updated remote ip '%s' as resolved result of '%s'\n",my_ntoa(remote_ip_uint32),remote_host);	
+				}
+			}
+			
 			struct sockaddr_in remote_addr_in={0};
 
 			socklen_t slen = sizeof(sockaddr_in);
@@ -1617,7 +1628,8 @@ int main(int argc, char *argv[])
 		mylog(log_error,"Unable to resolve hostname: %s\n",remote_host);
 		exit(1); /* error */
 	}
-	remote_ip_uint32=inet_addr(he->h_addr_list[0]);
+	struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
+	remote_ip_uint32=(*addr_list[0]).s_addr;
 
 	local_ip_uint32=inet_addr(local_ip);
 	source_ip_uint32=inet_addr(source_ip);
