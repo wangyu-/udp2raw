@@ -1155,7 +1155,7 @@ int client_event_loop()
 
 		ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, fifo_fd, &ev);
 		if (ret!= 0) {
-			mylog(log_fatal,"add fifo_fd to epoll error %s\n",strerror);
+			mylog(log_fatal,"add fifo_fd to epoll error %s\n",strerror(errno));
 			myexit(-1);
 		}
 		mylog(log_info,"fifo_file=%s\n",fifo_file);
@@ -1393,7 +1393,7 @@ int server_event_loop()
 
 		ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, fifo_fd, &ev);
 		if (ret!= 0) {
-			mylog(log_fatal,"add fifo_fd to epoll error %s\n",strerror);
+			mylog(log_fatal,"add fifo_fd to epoll error %s\n",strerror(errno));
 			myexit(-1);
 		}
 		mylog(log_info,"fifo_file=%s\n",fifo_file);

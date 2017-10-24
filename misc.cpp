@@ -121,6 +121,8 @@ void print_help()
 	printf("other options:\n");
 	printf("    --conf-file           <string>        read options from a configuration file instead of command line.\n");
 	printf("                                          check example.conf in repo for format\n");
+	printf("    --fifo                <string>        use a fifo(named pipe) for sending commands to the running program,\n");
+	printf("                                          check readme.md in repository for supported commands.\n");
 	printf("    --log-level           <number>        0:never    1:fatal   2:error   3:warn \n");
 	printf("                                          4:info (default)     5:debug   6:trace\n");
 //	printf("\n");
