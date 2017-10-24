@@ -191,6 +191,10 @@ Then start the server with
 ./udp2raw_amd64 --conf-file server.conf
 ```
 
+### `--fifo`
+Use a fifo(named pipe) for sending commands to the running program. For example `--fifo fifo.file`.
+
+At client side,you can use `echo reconnect >fifo.file` to force client to reconnect.Currently no command has been implemented for server.
 
 # Peformance Test
 #### Test method:
