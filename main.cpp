@@ -1196,7 +1196,12 @@ int client_event_loop()
 			else if (events[idx].data.u64 == (u64_t)fifo_fd)
 			{
 				int len=read (fifo_fd, buf, sizeof (buf));
-				assert(len>=0);
+				//assert(len>=0);
+				if(len<0)
+				{
+					mylog(log_warn,"fifo read failed len=%d,errno=%s\n",len,strerror(errno));
+					continue;
+				}
 				buf[len]=0;
 				while(len>=1&&buf[len-1]=='\n')
 					buf[len-1]=0;
@@ -1452,7 +1457,12 @@ int server_event_loop()
 			else if (events[idx].data.u64 == (u64_t)fifo_fd)
 			{
 				int len=read (fifo_fd, buf, sizeof (buf));
-				assert(len>=0);
+				if(len<0)
+				{
+					mylog(log_warn,"fifo read failed len=%d,errno=%s\n",len,strerror(errno));
+					continue;
+				}
+				//assert(len>=0);
 				buf[len]=0;
 				while(len>=1&&buf[len-1]=='\n')
 					buf[len-1]=0;
