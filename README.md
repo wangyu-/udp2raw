@@ -1,9 +1,15 @@
 # Udp2raw-tunnel
-![image0](images/image0.PNG)
+
 
 A Tunnel which turns UDP Traffic into Encrypted FakeTCP/UDP/ICMP Traffic by using Raw Socket, helps you Bypass UDP FireWalls(or Unstable UDP Environment). It can defend Replay-Attack and supports Multiplexing. It also acts as a Connection Stabilizer.
 
-It can tunnel any traffic when used together with a UDP-based VPN(such as OpenVPN).Check [this link](https://github.com/wangyu-/udp2raw-tunnel#tunneling-any-traffic-via-raw-traffic-by-using-udp2raw-openvpn) for more info.
+When used alone,udp2raw tunnels only UDP traffic. Nevertheless,if you used udp2raw + any UDP-based VPN together,you can tunnel any traffic(include TCP/UDP/ICMP),currently OpenVPN/L2TP/ShadowVPN are confirmed to be supported。
+
+![image0](images/image0.PNG)
+
+or
+
+![image_vpn](images/udp2rawopenvpn.PNG)
 
 [简体中文](/doc/README.zh-cn.md)
 
@@ -226,7 +232,7 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 
 # Application
 ## Tunneling any traffic via raw traffic by using udp2raw +openvpn
-![image_vpn](images/openvpn.PNG)
+![image_vpn](images/udp2rawopenvpn.PNG)
 1. Bypasses UDP block/UDP QOS
 
 2. No TCP over TCP problem (TCP over TCP problem http://sites.inka.de/bigred/devel/tcp-tcp.html ,https://community.openvpn.net/openvpn/ticket/2 )
