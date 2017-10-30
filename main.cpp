@@ -826,6 +826,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 			struct epoll_event ev;
 
 			fd64_t new_udp_fd64 =  fd_manager.create(new_udp_fd);
+			fd_manager.get_info(new_udp_fd64).ip_port=conn_info.ip_port;
 
 			mylog(log_trace, "[%s]u64: %lld\n",ip_port, new_udp_fd64);
 			ev.events = EPOLLIN;
@@ -842,7 +843,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 
 			conn_info.blob->conv_manager.insert_conv(tmp_conv_id, new_udp_fd64);
 
-			fd_manager.get_info(new_udp_fd64).ip_port=conn_info.ip_port;
+
 
 			//assert(conn_manager.udp_fd_mp.find(new_udp_fd)==conn_manager.udp_fd_mp.end());
 
@@ -857,11 +858,11 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 
 		}
 
-		u64_t u64 = conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
+		fd64_t fd64 = conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
 
 		conn_info.blob->conv_manager.update_active_time(tmp_conv_id);
 
-		int fd = int((u64 << 32u) >> 32u);
+		int fd = fd_manager.to_fd(fd64);
 
 		mylog(log_trace, "[%s]received a data from fake tcp,len:%d\n",ip_port, data_len);
 		int ret = send(fd, data + sizeof(u32_t),
@@ -1484,7 +1485,7 @@ int server_event_loop()
 
 				fd64_t fd64=events[idx].data.u64;
 
-				if(fd_manager.exist(fd64))
+				if(!fd_manager.exist(fd64))
 				{
 					mylog(log_trace ,"fd64 no longer exist\n");
 					continue;
