@@ -12,6 +12,8 @@ udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过
 
 [udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
 
+**提示：**
+
 udp2raw不是加速器，只是一个帮助你绕过UDP限制的工具。如果你需要UDP加速器，请看UDPspeeder。
 
 UDPspeeder的repo:
