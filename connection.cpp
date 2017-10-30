@@ -7,6 +7,7 @@
 
 #include "connection.h"
 #include "encrypt.h"
+#include "fd_manager.h"
 
 
 int disable_anti_replay=0;//if anti_replay windows is diabled
@@ -249,7 +250,7 @@ conv_manager_t::~conv_manager_t()
 		last_state_time=0;
 		oppsite_const_id=0;
 
-		timer_fd=0;
+		timer_fd64=0;
 
 		my_roller=0;
 		oppsite_roller=0;
@@ -310,9 +311,9 @@ conv_manager_t::~conv_manager_t()
 	 ready_num=0;
 	 mp.reserve(10007);
 	 clear_it=mp.begin();
-	 timer_fd_mp.reserve(10007);
+	// timer_fd_mp.reserve(10007);
 	 const_id_mp.reserve(10007);
-	 udp_fd_mp.reserve(100007);
+	// udp_fd_mp.reserve(100007);
 	 last_clear_time=0;
 	 //current_ready_ip=0;
 	// current_ready_port=0;
@@ -372,21 +373,32 @@ conv_manager_t::~conv_manager_t()
 			ready_num--;
 			assert(i32_t(ready_num)!=-1);
 			assert(erase_it->second!=0);
-			assert(erase_it->second->timer_fd !=0);
+
+			assert(erase_it->second->timer_fd64 !=0);
+
+			assert(fd_manager.exist(erase_it->second->timer_fd64));
+
 			assert(erase_it->second->oppsite_const_id!=0);
 			assert(const_id_mp.find(erase_it->second->oppsite_const_id)!=const_id_mp.end());
-			assert(timer_fd_mp.find(erase_it->second->timer_fd)!=timer_fd_mp.end());
+
+
+			//assert(timer_fd_mp.find(erase_it->second->timer_fd)!=timer_fd_mp.end());
 
 			const_id_mp.erase(erase_it->second->oppsite_const_id);
-			timer_fd_mp.erase(erase_it->second->timer_fd);
-			close(erase_it->second->timer_fd);// close will auto delte it from epoll
+
+			fd_manager.fd64_close(erase_it->second->timer_fd64);
+
+			//timer_fd_mp.erase(erase_it->second->timer_fd);
+			//close(erase_it->second->timer_fd);// close will auto delte it from epoll
 			delete(erase_it->second);
 			mp.erase(erase_it->first);
 		}
 		else
 		{
 			assert(erase_it->second->blob==0);
-			assert(erase_it->second->timer_fd ==0);
+			assert(erase_it->second->timer_fd64 ==0);
+
+
 			assert(erase_it->second->oppsite_const_id==0);
 			delete(erase_it->second);
 			mp.erase(erase_it->first);
@@ -743,6 +755,9 @@ void server_clear_function(u64_t u64)//used in conv_manager in server mode.for s
 		myexit(-1);  //this shouldnt happen
 	}
 	//mylog(log_fatal,"size:%d !!!!\n",conn_manager.udp_fd_mp.size());
-	assert(conn_manager.udp_fd_mp.find(fd)!=conn_manager.udp_fd_mp.end());
-	conn_manager.udp_fd_mp.erase(fd);
+	assert(fd_manager.exist(u64));
+	fd_manager.fd64_close(u64);
+
+	//assert(conn_manager.udp_fd_mp.find(fd)!=conn_manager.udp_fd_mp.end());
+	//conn_manager.udp_fd_mp.erase(fd);
 }

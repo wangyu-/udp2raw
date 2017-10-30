@@ -10,7 +10,10 @@
 #include "misc.h"
 #include "network.h"
 #include "connection.h"
+#include "fd_manager.h"
 
+
+fd_manager_t fd_manager;
 
 char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
 u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.

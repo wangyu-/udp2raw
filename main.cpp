@@ -5,6 +5,7 @@
 #include "log.h"
 #include "lib/md5.h"
 #include "encrypt.h"
+#include "fd_manager.h"
 
 int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
 
@@ -602,6 +603,9 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		conn_info_t &conn_info=conn_manager.find_insert(ip,port);
 		conn_info.raw_info=tmp_raw_info;
 
+		conn_info.ip_port.ip=ip;
+		conn_info.ip_port.port=port;
+
 		packet_info_t &send_info=conn_info.raw_info.send_info;
 		packet_info_t &recv_info=conn_info.raw_info.recv_info;
 		raw_info_t &raw_info=conn_info.raw_info;
@@ -821,11 +825,12 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 			}
 			struct epoll_event ev;
 
-			u64_t u64 = (u32_t(new_udp_fd))+(1llu<<32u);
-			mylog(log_trace, "[%s]u64: %lld\n",ip_port, u64);
+			fd64_t new_udp_fd64 =  fd_manager.create(new_udp_fd);
+
+			mylog(log_trace, "[%s]u64: %lld\n",ip_port, new_udp_fd64);
 			ev.events = EPOLLIN;
 
-			ev.data.u64 = u64;
+			ev.data.u64 = new_udp_fd64;
 
 			ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, new_udp_fd, &ev);
 
@@ -835,10 +840,13 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 				return -1;
 			}
 
-			conn_info.blob->conv_manager.insert_conv(tmp_conv_id, new_udp_fd);
-			assert(conn_manager.udp_fd_mp.find(new_udp_fd)==conn_manager.udp_fd_mp.end());
+			conn_info.blob->conv_manager.insert_conv(tmp_conv_id, new_udp_fd64);
 
-			conn_manager.udp_fd_mp[new_udp_fd] = &conn_info;
+			fd_manager.get_info(new_udp_fd64).ip_port=conn_info.ip_port;
+
+			//assert(conn_manager.udp_fd_mp.find(new_udp_fd)==conn_manager.udp_fd_mp.end());
+
+			//conn_manager.udp_fd_mp[new_udp_fd] = &conn_info;
 
 			//pack_u64(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
 
@@ -918,9 +926,11 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 		//g_conn_info=conn_info;
 		int new_timer_fd;
 		set_timer_server(epollfd, new_timer_fd);
-		conn_info.timer_fd=new_timer_fd;
-		assert(conn_manager.timer_fd_mp.find(new_timer_fd)==conn_manager.timer_fd_mp.end());
-		conn_manager.timer_fd_mp[new_timer_fd] = &conn_info;//pack_u64(ip,port);
+		conn_info.timer_fd64=fd_manager.create(new_timer_fd);
+
+		fd_manager.get_info(conn_info.timer_fd64).ip_port=conn_info.ip_port;
+		//assert(conn_manager.timer_fd_mp.find(new_timer_fd)==conn_manager.timer_fd_mp.end());
+		//conn_manager.timer_fd_mp[new_timer_fd] = &conn_info;//pack_u64(ip,port);
 
 
 		//timer_fd_mp[new_timer_fd]
@@ -1469,22 +1479,48 @@ int server_event_loop()
 				mylog(log_info,"got data from fifo,len=%d,s=[%s]\n",len,buf);
 				mylog(log_info,"unknown command\n");
 			}
-			else if ((events[idx].data.u64 >>32u) == 2u)
+			else if (events[idx].data.u64>u32_t(-1) )
 			{
+
+				fd64_t fd64=events[idx].data.u64;
+
+				if(fd_manager.exist(fd64))
+				{
+					mylog(log_trace ,"fd64 no longer exist\n");
+					continue;
+				}
+
+				assert(fd_manager.exist_info(fd64));
+
+				ip_port_t ip_port=fd_manager.get_info(fd64).ip_port;
+				u32_t ip=ip_port.ip;
+				u32_t port=ip_port.port;
+
+				assert(conn_manager.exist(ip,port));
+
+				conn_info_t* p_conn_info=conn_manager.find_insert_p(ip,port);
+
+
+
+
+
+				if(fd64==p_conn_info->timer_fd64)//////////timer_fd64
+				{
+
 				if(debug_flag)begin_time=get_current_time();
 				int fd=get_u64_l(events[idx].data.u64);
 				u64_t dummy;
 				read(fd, &dummy, 8);
 
-				if(conn_manager.timer_fd_mp.find(fd)==conn_manager.timer_fd_mp.end()) //this can happen,when fd is a just closed fd
+				/*if(conn_manager.timer_fd_mp.find(fd)==conn_manager.timer_fd_mp.end()) //this can happen,when fd is a just closed fd
 				{
 					mylog(log_info,"timer_fd no longer exits\n");
 					continue;
-				}
-				conn_info_t* p_conn_info=conn_manager.timer_fd_mp[fd];
-				u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
-				u32_t port=p_conn_info->raw_info.recv_info.src_port;
-				assert(conn_manager.exist(ip,port));//TODO remove this for peformance
+				}*/
+				//conn_info_t* p_conn_info=conn_manager.timer_fd_mp[fd];
+				//u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
+				//u32_t port=p_conn_info->raw_info.recv_info.src_port;
+				//assert(conn_manager.exist(ip,port));//TODO remove this for peformance
 
 				assert(p_conn_info->state.server_current_state == server_ready); //TODO remove this for peformance
 
@@ -1500,30 +1536,36 @@ int server_event_loop()
 					end_time=get_current_time();
 					mylog(log_debug,"(events[idx].data.u64 >>32u) == 2u ,%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
 				}
-			}
-			else if ((events[idx].data.u64 >>32u) == 1u)
-			{
+
+				}
+				else//udp_fd64
+				{
+			//}
+			//else if ((events[idx].data.u64 >>32u) == 1u)
+			//{
 				//uint32_t conv_id=events[n].data.u64>>32u;
 
 				if(debug_flag)begin_time=get_current_time();
 
-				int fd=int((events[idx].data.u64<<32u)>>32u);
+				//int fd=int((events[idx].data.u64<<32u)>>32u);
 
+				/*
 				if(conn_manager.udp_fd_mp.find(fd)==conn_manager.udp_fd_mp.end()) //this can happen,when fd is a just closed fd
 				{
 					mylog(log_debug,"fd no longer exists in udp_fd_mp,udp fd %d\n",fd);
 					recv(fd,0,0,0);
 					continue;
-				}
-				conn_info_t* p_conn_info=conn_manager.udp_fd_mp[fd];
+				}*/
+				//conn_info_t* p_conn_info=conn_manager.udp_fd_mp[fd];
 
-				u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
-				u32_t port=p_conn_info->raw_info.recv_info.src_port;
-				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
+				//u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
+				//u32_t port=p_conn_info->raw_info.recv_info.src_port;
+
+				/*if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
 					mylog(log_fatal,"ip port no longer exits 2!!!this shouldnt happen\n");
 					myexit(-1);
-				}
+				}*/
 
 				if(p_conn_info->state.server_current_state!=server_ready)//TODO remove this for peformance
 				{
@@ -1533,14 +1575,11 @@ int server_event_loop()
 
 				conn_info_t &conn_info=*p_conn_info;
 
-				if(!conn_info.blob->conv_manager.is_u64_used(fd))
-				{
-					mylog(log_debug,"conv no longer exists,udp fd %d\n",fd);
-					int recv_len=recv(fd,0,0,0); ///////////TODO ,delete this
-					continue;
-				}
+				assert(conn_info.blob->conv_manager.is_u64_used(fd64));
 
-				u32_t conv_id=conn_info.blob->conv_manager.find_conv_by_u64(fd);
+				u32_t conv_id=conn_info.blob->conv_manager.find_conv_by_u64(fd64);
+
+				int fd=fd_manager.to_fd(fd64);
 
 				int recv_len=recv(fd,buf,max_data_len,0);
 
@@ -1571,6 +1610,9 @@ int server_event_loop()
 				{
 					end_time=get_current_time();
 				    mylog(log_debug,"(events[idx].data.u64 >>32u) == 1u,%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+				}
+
+
 				}
 			}
 			else

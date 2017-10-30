@@ -85,7 +85,8 @@ struct conn_info_t     //stores info for a raw connection.for client ,there is o
 	id_t oppsite_id;
 
 
-	int timer_fd;
+	fd64_t timer_fd64;
+
 	id_t oppsite_const_id;
 
 	blob_t *blob;
@@ -93,6 +94,8 @@ struct conn_info_t     //stores info for a raw connection.for client ,there is o
 	uint8_t my_roller;
 	uint8_t oppsite_roller;
 	u64_t last_oppsite_roller_time;
+
+	ip_port_t ip_port;
 
 /*
 	const uint32_t &ip=raw_info.recv_info.src_ip;
@@ -113,8 +116,8 @@ struct conn_manager_t  //manager for connections. for client,we dont need conn_m
 
  u32_t ready_num;
 
- unordered_map<int,conn_info_t *> udp_fd_mp;  //a bit dirty to used pointer,but can void unordered_map search
- unordered_map<int,conn_info_t *> timer_fd_mp;//we can use pointer here since unordered_map.rehash() uses shallow copy
+ //unordered_map<int,conn_info_t *> udp_fd_mp;  //a bit dirty to used pointer,but can void unordered_map search
+ //unordered_map<int,conn_info_t *> timer_fd_mp;//we can use pointer here since unordered_map.rehash() uses shallow copy
 
  unordered_map<id_t,conn_info_t *> const_id_mp;
 
