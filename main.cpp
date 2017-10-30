@@ -1501,9 +1501,6 @@ int server_event_loop()
 				conn_info_t* p_conn_info=conn_manager.find_insert_p(ip,port);
 
 
-
-
-
 				if(fd64==p_conn_info->timer_fd64)//////////timer_fd64
 				{
 
