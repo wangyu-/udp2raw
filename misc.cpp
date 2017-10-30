@@ -951,7 +951,7 @@ int set_timer(int epollfd,int &timer_fd)//put a timer_fd into epoll,general func
 }
 
 
-int set_timer_server(int epollfd,int &timer_fd)//only for server
+int set_timer_server(int epollfd,int &timer_fd,fd64_t &fd64)//only for server
 {
 	int ret;
 	epoll_event ev;
@@ -969,9 +969,11 @@ int set_timer_server(int epollfd,int &timer_fd)//only for server
 	its.it_value.tv_nsec=1; //imidiately
 	timerfd_settime(timer_fd,0,&its,0);
 
+	fd64=fd_manager.create(timer_fd);
+
 
 	ev.events = EPOLLIN;
-	ev.data.u64 = pack_u64(2,timer_fd);////difference
+	ev.data.u64 = fd64;////difference
 
 	ret=epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {

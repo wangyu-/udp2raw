@@ -926,8 +926,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 
 		//g_conn_info=conn_info;
 		int new_timer_fd;
-		set_timer_server(epollfd, new_timer_fd);
-		conn_info.timer_fd64=fd_manager.create(new_timer_fd);
+		set_timer_server(epollfd, new_timer_fd,conn_info.timer_fd64);
 
 		fd_manager.get_info(conn_info.timer_fd64).ip_port=conn_info.ip_port;
 		//assert(conn_manager.timer_fd_mp.find(new_timer_fd)==conn_manager.timer_fd_mp.end());
@@ -1509,7 +1508,8 @@ int server_event_loop()
 				{
 
 				if(debug_flag)begin_time=get_current_time();
-				int fd=get_u64_l(events[idx].data.u64);
+				//int fd=get_u64_l(events[idx].data.u64);
+				int fd=fd_manager.to_fd(fd64);
 				u64_t dummy;
 				read(fd, &dummy, 8);
 
