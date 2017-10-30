@@ -70,6 +70,24 @@ typedef u64_t padding_t;
 
 typedef u64_t anti_replay_seq_t;
 
+
+struct ip_port_t
+{
+	u32_t ip;
+	int port;
+	void from_u64(u64_t u64);
+	u64_t to_u64();
+	char * to_s();
+};
+
+struct fd_info_t
+{
+	ip_port_t ip_port;
+};
+
+
+typedef u64_t fd64_t;
+
 const int max_data_len=1600;
 const int buf_len=max_data_len+400;
 

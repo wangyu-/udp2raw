@@ -593,7 +593,21 @@ int create_fifo(char * file)
 	return fifo_fd;
 }
 
-
+void ip_port_t::from_u64(u64_t u64)
+{
+	ip=get_u64_h(u64);
+	port=get_u64_l(u64);
+}
+u64_t ip_port_t::to_u64()
+{
+	return pack_u64(ip,port);
+}
+char * ip_port_t::to_s()
+{
+	static char res[40];
+	sprintf(res,"%s:%d",my_ntoa(ip),port);
+	return res;
+}
 
 
 
