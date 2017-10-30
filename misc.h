@@ -112,7 +112,7 @@ void iptables_rule();
 void pre_process_arg(int argc, char *argv[]);//mainly for load conf file;
 int unit_test();
 int set_timer(int epollfd,int &timer_fd);
-int set_timer_server(int epollfd,int &timer_fd);
+int set_timer_server(int epollfd,int &timer_fd,fd64_t &fd64);
 int handle_lower_level(raw_info_t &raw_info);
 
 int add_iptables_rule(const char *);
