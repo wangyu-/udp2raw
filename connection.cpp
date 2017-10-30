@@ -734,9 +734,9 @@ int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)///safer t
 void server_clear_function(u64_t u64)//used in conv_manager in server mode.for server we have to use one udp fd for one conv(udp connection),
 //so we have to close the fd when conv expires
 {
-	int fd=int(u64);
-	int ret;
-	assert(fd!=0);
+	//int fd=int(u64);
+//	int ret;
+	//assert(fd!=0);
 	/*
 	epoll_event ev;
 
@@ -749,16 +749,18 @@ void server_clear_function(u64_t u64)//used in conv_manager in server mode.for s
 		mylog(log_fatal,"fd:%d epoll delete failed!!!!\n",fd);
 		myexit(-1);   //this shouldnt happen
 	}*/                //no need
-	ret= close(fd);  //closed fd should be auto removed from epoll
+
+	/*ret= close(fd);  //closed fd should be auto removed from epoll
 
 	if (ret!=0)
 	{
 		mylog(log_fatal,"close fd %d failed !!!!\n",fd);
 		myexit(-1);  //this shouldnt happen
-	}
+	}*/
 	//mylog(log_fatal,"size:%d !!!!\n",conn_manager.udp_fd_mp.size());
-	assert(fd_manager.exist(u64));
-	fd_manager.fd64_close(u64);
+	fd64_t fd64=u64;
+	assert(fd_manager.exist(fd64));
+	fd_manager.fd64_close(fd64);
 
 	//assert(conn_manager.udp_fd_mp.find(fd)!=conn_manager.udp_fd_mp.end());
 	//conn_manager.udp_fd_mp.erase(fd);
