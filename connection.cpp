@@ -297,6 +297,7 @@ conv_manager_t::~conv_manager_t()
 				assert(oppsite_const_id==0);
 			}
 		}
+		assert(timer_fd64==0);
 		//if(oppsite_const_id!=0)     //do this at conn_manager 's deconstuction function
 			//conn_manager.const_id_mp.erase(oppsite_const_id);
 		if(blob!=0)
@@ -388,6 +389,7 @@ conv_manager_t::~conv_manager_t()
 
 			fd_manager.fd64_close(erase_it->second->timer_fd64);
 
+			erase_it->second->timer_fd64=0;
 			//timer_fd_mp.erase(erase_it->second->timer_fd);
 			//close(erase_it->second->timer_fd);// close will auto delte it from epoll
 			delete(erase_it->second);
