@@ -4,8 +4,6 @@ udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过
 
 支持心跳保活、自动重连，重连后会恢复上次连接，在底层掉线的情况下可以保持上层不掉线。同时有加密、防重放攻击、信道复用的功能。
 
-**欢迎任何形式的转载**
-
 [English](/README.md)
 
 [udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
