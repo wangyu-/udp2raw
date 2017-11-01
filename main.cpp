@@ -27,8 +27,6 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 	mylog(log_trace,"<client_on_timer,send_info.ts_ack= %u>\n",send_info.ts_ack);
 
 
-
-
 	if(conn_info.state.client_current_state==client_idle)
 	{
 		fail_time_counter++;
@@ -603,8 +601,8 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		conn_info_t &conn_info=conn_manager.find_insert(ip,port);
 		conn_info.raw_info=tmp_raw_info;
 
-		conn_info.ip_port.ip=ip;
-		conn_info.ip_port.port=port;
+		//conn_info.ip_port.ip=ip;
+		//conn_info.ip_port.port=port;
 
 		packet_info_t &send_info=conn_info.raw_info.send_info;
 		packet_info_t &recv_info=conn_info.raw_info.recv_info;
@@ -826,7 +824,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 			struct epoll_event ev;
 
 			fd64_t new_udp_fd64 =  fd_manager.create(new_udp_fd);
-			fd_manager.get_info(new_udp_fd64).ip_port=conn_info.ip_port;
+			fd_manager.get_info(new_udp_fd64).p_conn_info=&conn_info;
 
 			mylog(log_trace, "[%s]u64: %lld\n",ip_port, new_udp_fd64);
 			ev.events = EPOLLIN;
@@ -928,7 +926,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 		int new_timer_fd;
 		set_timer_server(epollfd, new_timer_fd,conn_info.timer_fd64);
 
-		fd_manager.get_info(conn_info.timer_fd64).ip_port=conn_info.ip_port;
+		fd_manager.get_info(conn_info.timer_fd64).p_conn_info=&conn_info;
 		//assert(conn_manager.timer_fd_mp.find(new_timer_fd)==conn_manager.timer_fd_mp.end());
 		//conn_manager.timer_fd_mp[new_timer_fd] = &conn_info;//pack_u64(ip,port);
 
@@ -1492,13 +1490,13 @@ int server_event_loop()
 
 				assert(fd_manager.exist_info(fd64));
 
-				ip_port_t ip_port=fd_manager.get_info(fd64).ip_port;
-				u32_t ip=ip_port.ip;
-				u32_t port=ip_port.port;
+				conn_info_t* p_conn_info=fd_manager.get_info(fd64).p_conn_info;
+				u32_t ip=p_conn_info->raw_info.send_info.dst_ip;
+				u32_t port=p_conn_info->raw_info.send_info.dst_port;
 
-				assert(conn_manager.exist(ip,port));
+				//assert(conn_manager.exist(ip,port));
 
-				conn_info_t* p_conn_info=conn_manager.find_insert_p(ip,port);
+				///conn_info_t* p_conn_info=conn_manager.find_insert_p(ip,port);
 
 
 				if(fd64==p_conn_info->timer_fd64)//////////timer_fd64

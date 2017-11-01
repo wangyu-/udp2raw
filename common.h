@@ -80,10 +80,7 @@ struct ip_port_t
 	char * to_s();
 };
 
-struct fd_info_t
-{
-	ip_port_t ip_port;
-};
+
 
 
 typedef u64_t fd64_t;
