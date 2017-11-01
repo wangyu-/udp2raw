@@ -1820,17 +1820,17 @@ int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick 
     return 0;
 }
 
-int try_to_list_and_bind(int bind_fd,u32_t local_ip_uint32,int port)  //try to bind to a port,may fail.
+int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind to a port,may fail.
 {
-	 int old_bind_fd=bind_fd;
+	 int old_bind_fd=fd;
 
 	 if(raw_mode==mode_faketcp)
 	 {
-		 bind_fd=socket(AF_INET,SOCK_STREAM,0);
+		 fd=socket(AF_INET,SOCK_STREAM,0);
 	 }
 	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)
 	 {
-		 bind_fd=socket(AF_INET,SOCK_DGRAM,0);
+		 fd=socket(AF_INET,SOCK_DGRAM,0);
 	 }
      if(old_bind_fd!=-1)
      {
@@ -1844,7 +1844,7 @@ int try_to_list_and_bind(int bind_fd,u32_t local_ip_uint32,int port)  //try to b
      temp_bind_addr.sin_port = htons(port);
      temp_bind_addr.sin_addr.s_addr = local_ip_uint32;
 
-     if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
+     if (bind(fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
     	 mylog(log_debug,"bind fail\n");
     	 return -1;
@@ -1852,19 +1852,19 @@ int try_to_list_and_bind(int bind_fd,u32_t local_ip_uint32,int port)  //try to b
 	 if(raw_mode==mode_faketcp)
 	 {
 
-		if (listen(bind_fd, SOMAXCONN) != 0) {
+		if (listen(fd, SOMAXCONN) != 0) {
 			mylog(log_warn,"listen fail\n");
 			return -1;
 		}
 	 }
      return 0;
 }
-int client_bind_to_a_new_port(int bind_fd,u32_t local_ip_uint32)//find a free port and bind to it.
+int client_bind_to_a_new_port(int &fd,u32_t local_ip_uint32)//find a free port and bind to it.
 {
 	int raw_send_port=10000+get_true_random_number()%(65535-10000);
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
 	{
-		if (try_to_list_and_bind(bind_fd,local_ip_uint32,raw_send_port)==0)
+		if (try_to_list_and_bind(fd,local_ip_uint32,raw_send_port)==0)
 		{
 			return raw_send_port;
 		}

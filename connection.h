@@ -95,7 +95,7 @@ struct conn_info_t     //stores info for a raw connection.for client ,there is o
 	uint8_t oppsite_roller;
 	u64_t last_oppsite_roller_time;
 
-	ip_port_t ip_port;
+//	ip_port_t ip_port;
 
 /*
 	const uint32_t &ip=raw_info.recv_info.src_ip;
