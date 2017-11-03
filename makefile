@@ -15,7 +15,7 @@ SOURCES_AES_ACC=$(COMMON) $(wildcard lib/aes_acc/aes*.c)
 
 NAME=udp2raw
 TARGETS=amd64 arm amd64_hw_aes arm_asm_aes mips24kc_be mips24kc_be_asm_aes x86 x86_asm_aes mips24kc_le mips24kc_le_asm_aes
-TAR=${NAME}_binaries.tar.gz `echo ${TARGETS}|sed -r 's/([^ ]+)/udp2raw_\1/g'`
+TAR=${NAME}_binaries.tar.gz `echo ${TARGETS}|sed -r 's/([^ ]+)/udp2raw_\1/g'` version.txt
 
 all:git_version
 	rm -f ${NAME}
@@ -69,6 +69,7 @@ cross3:git_version
 	${cc_cross}   -o ${NAME}_cross    -I. ${SOURCES} ${FLAGS} -lrt -static -O3
 
 release: ${TARGETS} 
+	cp git_version.h version.txt
 	tar -zcvf ${TAR}
 
 clean:	
