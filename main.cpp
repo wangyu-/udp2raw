@@ -242,7 +242,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 		mylog(log_debug,"heartbeat sent <%x,%x>\n",conn_info.oppsite_id,conn_info.my_id);
 
-		send_safer(conn_info,'h',"",0);/////////////send
+		send_safer(conn_info,'h',hb_buf,hb_len);/////////////send
 
 		conn_info.last_hb_sent_time=get_current_time();
 		return 0;
@@ -285,7 +285,7 @@ int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)  //for server. 
 			return 0;
 		}
 
-		send_safer(conn_info,'h',"",0);  /////////////send
+		send_safer(conn_info,'h',hb_buf,hb_len);  /////////////send
 
 		conn_info.last_hb_sent_time=get_current_time();
 
@@ -920,7 +920,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 		conn_info.last_hb_recv_time = get_current_time();
 		conn_info.last_hb_sent_time = conn_info.last_hb_recv_time;//=get_current_time()
 
-		send_safer(conn_info, 'h',"", 0);		/////////////send
+		send_safer(conn_info, 'h',hb_buf, hb_len);		/////////////send
 
 		mylog(log_info, "[%s]changed state to server_ready\n",ip_port);
 		conn_info.blob->anti_replay.re_init();
@@ -980,7 +980,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 			//ori_conn_info.state.server_current_state=server_ready;
 			ori_conn_info.recover(conn_info);
 
-			send_safer(ori_conn_info, 'h',"", 0);
+			send_safer(ori_conn_info, 'h',hb_buf, hb_len);
 			//ori_conn_info.blob->anti_replay.re_init();
 
 
