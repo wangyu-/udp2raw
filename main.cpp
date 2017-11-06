@@ -9,6 +9,9 @@
 
 int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
 
+char hb_buf[buf_len];
+int hb_len=1200;
+
 int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id);
 int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len);
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len);
@@ -429,7 +432,7 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			conn_info.last_oppsite_roller_time=conn_info.last_hb_recv_time;
 			client_on_timer(conn_info);
 		}
-		if(data_len==0&&type=='h')
+		if(data_len>=0&&type=='h')
 		{
 			mylog(log_debug,"[hb]heart beat received\n");
 			conn_info.last_hb_recv_time=get_current_time();
@@ -773,7 +776,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 		return 0;
 	}*/
 
-	if (type == 'h' && data_len == 0) {
+	if (type == 'h' && data_len >= 0) {
 		//u32_t tmp = ntohl(*((u32_t *) &data[sizeof(u32_t)]));
 		mylog(log_debug,"[%s][hb]received hb \n",ip_port);
 		conn_info.last_hb_recv_time = get_current_time();
