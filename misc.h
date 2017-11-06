@@ -25,13 +25,13 @@ const u32_t client_retry_interval=1000;//ms
 
 const u32_t server_handshake_timeout=client_handshake_timeout+5000;// this should be longer than clients. client retry initially ,server retry passtively
 
-const int conv_clear_ratio=10;  //conv grabage collecter check 1/10 of all conv one time
-const int conn_clear_ratio=30;
+const int conv_clear_ratio=30;  //conv grabage collecter check 1/30 of all conv one time
+const int conn_clear_ratio=50;
 const int conv_clear_min=1;
 const int conn_clear_min=1;
 
-const u32_t conv_clear_interval=3000;//ms
-const u32_t conn_clear_interval=3000;//ms
+const u32_t conv_clear_interval=1000;//ms
+const u32_t conn_clear_interval=1000;//ms
 
 
 const i32_t max_fail_time=0;//disable
