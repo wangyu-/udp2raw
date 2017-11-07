@@ -13,6 +13,8 @@
 #include "fd_manager.h"
 
 
+int hb_mode=1;
+
 fd_manager_t fd_manager;
 
 char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
@@ -247,6 +249,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"force-sock-buf", no_argument,   0, 1},
 		{"random-drop", required_argument,    0, 1},
 		{"fifo", required_argument,    0, 1},
+		{"hb-mode", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -588,6 +591,12 @@ void process_arg(int argc, char *argv[])  //process all options
 			else if(strcmp(long_options[option_index].name,"conf-file")==0)
 			{
 				mylog(log_info,"configuration loaded from %s\n",optarg);
+			}
+			else if(strcmp(long_options[option_index].name,"hb-mode")==0)
+			{
+				sscanf(optarg,"%d",&hb_mode);
+				assert(hb_mode==0||hb_mode==1);
+				mylog(log_info,"hb_mode =%d \n",hb_mode);
 			}
 
 			else
