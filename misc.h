@@ -13,7 +13,7 @@
 #include "log.h"
 #include "network.h"
 
-
+extern int hb_mode;
 
 const u32_t max_handshake_conn_num=10000;
 const u32_t max_ready_conn_num=1000;

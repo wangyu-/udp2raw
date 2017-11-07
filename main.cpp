@@ -9,6 +9,7 @@
 
 int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
 
+
 char hb_buf[buf_len];
 int hb_len=1200;
 
@@ -242,8 +243,10 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 		mylog(log_debug,"heartbeat sent <%x,%x>\n",conn_info.oppsite_id,conn_info.my_id);
 
-		send_safer(conn_info,'h',hb_buf,hb_len);/////////////send
-
+		if(hb_mode==0)
+			send_safer(conn_info,'h',hb_buf,0);/////////////send
+		else
+			send_safer(conn_info,'h',hb_buf,hb_len);
 		conn_info.last_hb_sent_time=get_current_time();
 		return 0;
 	}
@@ -285,8 +288,10 @@ int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)  //for server. 
 			return 0;
 		}
 
-		send_safer(conn_info,'h',hb_buf,hb_len);  /////////////send
-
+		if(hb_mode==0)
+			send_safer(conn_info,'h',hb_buf,0);  /////////////send
+		else
+			send_safer(conn_info,'h',hb_buf,hb_len);
 		conn_info.last_hb_sent_time=get_current_time();
 
 		mylog(log_debug,"heart beat sent<%x,%x>\n",conn_info.my_id,conn_info.oppsite_id);
@@ -442,7 +447,8 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 		{
 			mylog(log_trace,"received a data from fake tcp,len:%d\n",data_len);
 
-			conn_info.last_hb_recv_time=get_current_time();
+			if(hb_mode==0)
+				conn_info.last_hb_recv_time=get_current_time();
 
 			//u32_t tmp_conv_id= ntohl(* ((u32_t *)&data[0]));
 			u32_t tmp_conv_id;
@@ -790,7 +796,8 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 		tmp_conv_id=ntohl(tmp_conv_id);
 
 
-		conn_info.last_hb_recv_time = get_current_time();
+		if(hb_mode==0)
+			conn_info.last_hb_recv_time = get_current_time();
 
 		mylog(log_trace, "conv:%u\n", tmp_conv_id);
 		if (!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id)) {
@@ -916,11 +923,14 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 
 		//my_id=conn_info.my_id;
 		//oppsite_id=conn_info.oppsite_id;
-
 		conn_info.last_hb_recv_time = get_current_time();
+
 		conn_info.last_hb_sent_time = conn_info.last_hb_recv_time;//=get_current_time()
 
-		send_safer(conn_info, 'h',hb_buf, hb_len);		/////////////send
+		if(hb_mode==0)
+			send_safer(conn_info,'h',hb_buf,0);/////////////send
+		else
+			send_safer(conn_info,'h',hb_buf,hb_len);
 
 		mylog(log_info, "[%s]changed state to server_ready\n",ip_port);
 		conn_info.blob->anti_replay.re_init();
@@ -980,8 +990,14 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 			//ori_conn_info.state.server_current_state=server_ready;
 			ori_conn_info.recover(conn_info);
 
-			send_safer(ori_conn_info, 'h',hb_buf, hb_len);
+			//send_safer(ori_conn_info, 'h',hb_buf, hb_len);
 			//ori_conn_info.blob->anti_replay.re_init();
+			if(hb_mode==0)
+				send_safer(ori_conn_info,'h',hb_buf,0);/////////////send
+			else
+				send_safer(ori_conn_info,'h',hb_buf,hb_len);
+
+			ori_conn_info.last_hb_recv_time=get_current_time();
 
 
 
