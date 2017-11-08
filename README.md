@@ -16,7 +16,8 @@ or
 # Support Platforms
 Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
 
-For Winodws/MacOS,the 4.4mb virtual image with udp2raw pre-installed has been released,you can load it with Vmware/VirtualBox.The virtual image has been set to auto obtain ip,udp2raw can be run imidiately after boot finished(make sure network mode of virtual machine has been set to bridged)(only udp2raw has to be run under virtual machine,all other programs runs under Windows/MacOS as usual).
+For Windows and MacOS You can run udp2raw inside [this](https://github.com/wangyu-/udp2raw-tunnel/releases/download/20171108.0/lede-17.01.2-x86_virtual_machine_image.zip) 7.5mb virtual machine image(make sure network adapter runs at bridged mode).
+
 
 
 # Features 
