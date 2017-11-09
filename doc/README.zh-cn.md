@@ -20,8 +20,7 @@ https://github.com/wangyu-/UDPspeeder
 # 支持的平台
 Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
 
-在windows和mac上预装了udp2raw的虚拟机镜像已发布，可以用Vmware或VirtualBox加载，容量4.4mb，已经配置好了自动获取网卡ip，开机即用，稳定，性能很好。
-（udp2raw跑在虚拟机里，其他应用照常跑在windows上）（确保虚拟机网卡工作在桥接模式）（Vmware player 75mb,VirtualBox 118mb,很容易安装）。
+对于windows和mac用户，在虚拟机中可以稳定使用（udp2raw跑在Linux里，其他应用照常跑在window里；确保虚拟机网卡工作在桥接模式）。可以使用[这个](https://github.com/wangyu-/udp2raw-tunnel/releases/download/20171108.0/lede-17.01.2-x86_virtual_machine_image.zip)虚拟机镜像，大小只有7.5mb，免去在虚拟机里装系统的麻烦；虚拟机自带ssh server，可以scp拷贝文件，可以ssh进去，可以复制粘贴，root密码123456。
 
 # 功能特性
 ### 把udp流量伪装成tcp /icmp
