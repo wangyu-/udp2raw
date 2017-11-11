@@ -229,17 +229,20 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			return 0;
 		}
 
-		if(get_current_time()-conn_info.last_hb_sent_time<heartbeat_interval)
-		{
-			return 0;
-		}
-
 		if(get_current_time()- conn_info.last_oppsite_roller_time>client_conn_uplink_timeout)
 		{
 			conn_info.state.client_current_state=client_idle;
 			conn_info.my_id=get_true_random_number_nz();
 			mylog(log_info,"state back to client_idle from  client_ready bc of client-->server direction timeout\n");
 		}
+
+
+		if(get_current_time()-conn_info.last_hb_sent_time<heartbeat_interval)
+		{
+			return 0;
+		}
+
+
 
 		mylog(log_debug,"heartbeat sent <%x,%x>\n",conn_info.oppsite_id,conn_info.my_id);
 
