@@ -14,6 +14,7 @@
 
 
 int hb_mode=1;
+int hb_len=1200;
 
 fd_manager_t fd_manager;
 
@@ -151,6 +152,7 @@ void print_help()
 	printf("                                          the parameter automatically,specify it manually if 'auto' failed\n");
 	printf("    --gen-add                             generate iptables rule and add it permanently,then exit.overrides -g\n");
 	printf("    --keep-rule                           monitor iptables and auto re-add if necessary.implys -a\n");
+	printf("    --hb-len              <number>        length of heart-beat packet\n");
 	printf("    --clear                               clear any iptables rules added by this program.overrides everything\n");
 	printf("    -h,--help                             print this help message\n");
 
@@ -250,6 +252,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"random-drop", required_argument,    0, 1},
 		{"fifo", required_argument,    0, 1},
 		{"hb-mode", required_argument,    0, 1},
+		{"hb-len", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -597,6 +600,12 @@ void process_arg(int argc, char *argv[])  //process all options
 				sscanf(optarg,"%d",&hb_mode);
 				assert(hb_mode==0||hb_mode==1);
 				mylog(log_info,"hb_mode =%d \n",hb_mode);
+			}
+			else if(strcmp(long_options[option_index].name,"hb-len")==0)
+			{
+				sscanf(optarg,"%d",&hb_len);
+				assert(hb_len>=0&&hb_len<=1500);
+				mylog(log_info,"hb_len =%d \n",hb_len);
 			}
 
 			else
