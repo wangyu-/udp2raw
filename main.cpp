@@ -11,7 +11,7 @@ int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be 
 
 
 char hb_buf[buf_len];
-int hb_len=1200;
+
 
 int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id);
 int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len);
