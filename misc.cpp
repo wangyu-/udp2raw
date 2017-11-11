@@ -152,7 +152,7 @@ void print_help()
 	printf("                                          the parameter automatically,specify it manually if 'auto' failed\n");
 	printf("    --gen-add                             generate iptables rule and add it permanently,then exit.overrides -g\n");
 	printf("    --keep-rule                           monitor iptables and auto re-add if necessary.implys -a\n");
-	printf("    --hb-len              <number>        length of heart-beat packet\n");
+	printf("    --hb-len              <number>        length of heart-beat packet, >=0 and <=1500\n");
 	printf("    --clear                               clear any iptables rules added by this program.overrides everything\n");
 	printf("    -h,--help                             print this help message\n");
 
