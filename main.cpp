@@ -439,7 +439,7 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 		}
 		if(data_len>=0&&type=='h')
 		{
-			mylog(log_debug,"[hb]heart beat received\n");
+			mylog(log_debug,"[hb]heart beat received,oppsite_roller=%d\n",int(conn_info.oppsite_roller));
 			conn_info.last_hb_recv_time=get_current_time();
 			return 0;
 		}
