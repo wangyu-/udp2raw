@@ -711,7 +711,17 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &ty
 		conn_info.oppsite_roller=roller;
 		conn_info.last_oppsite_roller_time=get_current_time();
 	}
-	conn_info.my_roller++;//increase on a successful recv
+	if(hb_mode==0)
+		conn_info.my_roller++;//increase on a successful recv
+	else if(hb_mode==1)
+	{
+		if(type=='h')
+			conn_info.my_roller++;
+	}
+	else
+	{
+		assert(0==1);
+	}
 
 
 	if(after_recv_raw0(conn_info.raw_info)!=0) return -1;
