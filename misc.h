@@ -41,7 +41,7 @@ const u32_t heartbeat_interval=600;//ms
 
 const u32_t timer_interval=400;//ms. this should be smaller than heartbeat_interval and retry interval;
 
-const uint32_t conv_timeout=120000; //ms. 120 second
+const uint32_t conv_timeout=180000; //ms. 120 second
 //const u32_t conv_timeout=30000; //for test
 
 const u32_t client_conn_timeout=10000;//ms.
