@@ -16,6 +16,9 @@
 int hb_mode=1;
 int hb_len=1200;
 
+int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
+
+
 fd_manager_t fd_manager;
 
 char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
@@ -139,6 +142,7 @@ void print_help()
 //	printf("\n");
 	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024\n");
 	printf("    --force-sock-buf                      bypass system limitation while setting sock-buf\n");
+	printf("    --mtu-warn            <number>        mtu warning threshold, unit:byte, default:1375\n");
 	printf("    --seq-mode            <number>        seq increase mode for faketcp:\n");
 	printf("                                          0:static header,do not increase seq and ack_seq\n");
 	printf("                                          1:increase seq for every packet,simply ack last seq\n");
@@ -253,6 +257,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"fifo", required_argument,    0, 1},
 		{"hb-mode", required_argument,    0, 1},
 		{"hb-len", required_argument,    0, 1},
+		{"mtu-warn", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -607,7 +612,12 @@ void process_arg(int argc, char *argv[])  //process all options
 				assert(hb_len>=0&&hb_len<=1500);
 				mylog(log_info,"hb_len =%d \n",hb_len);
 			}
-
+			else if(strcmp(long_options[option_index].name,"mtu-warn")==0)
+			{
+				sscanf(optarg,"%d",&mtu_warn);
+				assert(mtu_warn>0);
+				mylog(log_info,"mtu_warn=%d \n",mtu_warn);
+			}
 			else
 			{
 				mylog(log_warn,"ignored unknown long option ,option_index:%d code:<%x>\n",option_index, optopt);
