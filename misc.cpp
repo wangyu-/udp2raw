@@ -142,7 +142,6 @@ void print_help()
 //	printf("\n");
 	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024\n");
 	printf("    --force-sock-buf                      bypass system limitation while setting sock-buf\n");
-	printf("    --mtu-warn            <number>        mtu warning threshold, unit:byte, default:1375\n");
 	printf("    --seq-mode            <number>        seq increase mode for faketcp:\n");
 	printf("                                          0:static header,do not increase seq and ack_seq\n");
 	printf("                                          1:increase seq for every packet,simply ack last seq\n");
@@ -157,6 +156,7 @@ void print_help()
 	printf("    --gen-add                             generate iptables rule and add it permanently,then exit.overrides -g\n");
 	printf("    --keep-rule                           monitor iptables and auto re-add if necessary.implys -a\n");
 	printf("    --hb-len              <number>        length of heart-beat packet, >=0 and <=1500\n");
+	printf("    --mtu-warn            <number>        mtu warning threshold, unit:byte, default:1375\n");
 	printf("    --clear                               clear any iptables rules added by this program.overrides everything\n");
 	printf("    -h,--help                             print this help message\n");
 
