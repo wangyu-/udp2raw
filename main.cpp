@@ -7,8 +7,6 @@
 #include "encrypt.h"
 #include "fd_manager.h"
 
-int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
-
 
 char hb_buf[buf_len];
 
