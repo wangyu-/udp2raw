@@ -1,5 +1,5 @@
 # Udp2raw-tunnel 
-![image2](/images/image2.PNG)
+![image2](/images/image0.PNG)
 udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过UDP屏蔽或QoS，或在UDP不稳定的环境下提升稳定性。可以有效防止在使用kcptun或者finalspeed的情况下udp端口被运营商限速。
 
 支持心跳保活、自动重连，重连后会恢复上次连接，在底层掉线的情况下可以保持上层不掉线。同时有加密、防重放攻击、信道复用的功能。
@@ -20,7 +20,17 @@ https://github.com/wangyu-/UDPspeeder
 # 支持的平台
 Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
 
-对于windows和mac用户，在虚拟机中可以稳定使用（udp2raw跑在Linux里，其他应用照常跑在window里；确保虚拟机网卡工作在桥接模式）。可以使用[这个](https://github.com/wangyu-/udp2raw-tunnel/releases/download/20171108.0/lede-17.01.2-x86_virtual_machine_image.zip)虚拟机镜像，大小只有7.5mb，免去在虚拟机里装系统的麻烦；虚拟机自带ssh server，可以scp拷贝文件，可以ssh进去，可以复制粘贴，root密码123456。
+Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译binary.
+
+##### 对于windows和mac用户：
+
+在虚拟机中可以稳定使用（udp2raw跑在Linux里，其他应用照常跑在window里；确保虚拟机网卡工作在桥接模式）。可以使用[这个](https://github.com/wangyu-/udp2raw-tunnel/releases/download/20171108.0/lede-17.01.2-x86_virtual_machine_image.zip)虚拟机镜像，大小只有7.5mb，免去在虚拟机里装系统的麻烦；虚拟机自带ssh server，可以scp拷贝文件，可以ssh进去，可以复制粘贴，root密码123456。
+
+如果你的网络不允许桥接，也是有办法用的，具体方法请看wiki。
+
+##### 对于ios和游戏主机用户：
+
+可以把udp2raw运行在局域网的其他机器上。最好的办法是买个能刷OpenWrt/LEDE/梅林的路由器，把udp2raw运行在路由器上。
 
 # 功能特性
 ### 把udp流量伪装成tcp /icmp
@@ -50,7 +60,7 @@ NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
 
 支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed
 
-支持Openwrt，没有编译依赖，容易编译到任何平台上。release中提供了ar71xx版本的binary
+支持Openwrt，没有编译依赖，容易编译到任何平台上。
 
 epoll实现，高并发，除了回收过期连接外，所有操作的时间复杂度都跟连接数无关。回收过期连接的操做也是柔和进行的，不会因为消耗太多cpu时间造成延迟抖动。
 
