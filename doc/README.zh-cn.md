@@ -28,7 +28,7 @@ Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由
 
 ##### 对于ios和游戏主机用户：
 
-最好的办法是买个能刷OpenWrt/LEDE/梅林的路由器，把udp2raw运行在路由器上。
+可以把udp2raw运行在局域网的其他机器上。最好的办法是买个能刷OpenWrt/LEDE/梅林的路由器，把udp2raw运行在路由器上。
 
 # 功能特性
 ### 把udp流量伪装成tcp /icmp
