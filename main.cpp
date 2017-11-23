@@ -1196,9 +1196,9 @@ int client_event_loop()
 		if (nfds < 0) {  //allow zero
 			if(errno==EINTR  )
 			{
-				mylog(log_info,"epoll interrupted by signal\n");
+				mylog(log_info,"epoll interrupted by signal,continue\n");
 				//close(fifo_fd);
-				myexit(0);
+				//myexit(0);
 			}
 			else
 			{
@@ -1440,8 +1440,8 @@ int server_event_loop()
 		if (nfds < 0) {  //allow zero
 			if(errno==EINTR  )
 			{
-				mylog(log_info,"epoll interrupted by signal\n");
-				myexit(0);
+				mylog(log_info,"epoll interrupted by signal,continue\n");
+				//myexit(0);
 			}
 			else
 			{
