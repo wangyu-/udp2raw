@@ -16,7 +16,7 @@ u64_t get_current_time()
 {
 	timespec tmp_time;
 	clock_gettime(CLOCK_MONOTONIC, &tmp_time);
-	return tmp_time.tv_sec*1000+tmp_time.tv_nsec/(1000*1000l);
+	return ((u64_t)tmp_time.tv_sec)*1000llu+((u64_t)tmp_time.tv_nsec)/(1000*1000llu);
 }
 
 u64_t pack_u64(u32_t a,u32_t b)
