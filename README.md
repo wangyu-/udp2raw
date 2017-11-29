@@ -9,7 +9,7 @@ When used alone,udp2raw tunnels only UDP traffic. Nevertheless,if you used udp2r
 
 ![image_vpn](images/udp2rawopenvpn.PNG)
 
-[简体中文](/doc/README.zh-cn.md)
+[简体中文](/doc/README.zh-cn.md)(内容更丰富)
 
 # Support Platforms
 Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.

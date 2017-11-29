@@ -1,8 +1,10 @@
 # udp2raw build guide
 
-the guide on how to build udp2raw to you own platform
+the guide on how to build udp2raw
 
-## linux platform which supports local compile
+## Build udp2raw for a specific platform
+
+### linux platform which supports local compile
 such as PC,raspberry pi
 
 ##### install git
@@ -36,7 +38,7 @@ sudo yum groupinstall 'Development Tools'
 
 run 'make'，compilation done. the udp2raw file is the just compiled binary
 
-## platform which needs cross-compile
+### platform which needs cross-compile
 such as openwrt router,run following instructions on your PC
 
 ##### install git
@@ -74,3 +76,17 @@ cc_cross=/home/wangyu/Desktop/OpenWrt-SDK-15.05-ar71xx-generic_gcc-4.8-linaro_uC
 run `make cross`，the just generated `udp2raw_cross` is the binary,compile done. copy it to your router to run.
 
 `make cross` generates non-static binary. If you have any problem on running it,try to compile a static binary by using `make cross2` or `make cross3`.If your toolchain supports static compiling, usually one of them will succeed. The generated file is still named `udp2raw_cross`.
+
+
+
+## Build a full release (include all binaries supported in the makefile)
+
+1. make sure your linux is amd64 version
+
+2. clone the repo
+
+3. make sure you have g++ , make sure your g++ support the `-m32` option; make your your have installed libraries for `-m32` option
+
+4. download https://github.com/wangyu-/files/releases/download/files/toolchains.tar.gz , and extract it to the right position (according to the makefile)
+
+5. run `make release` inside udp2raw's directory

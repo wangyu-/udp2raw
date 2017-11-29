@@ -79,10 +79,10 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 ```
 在server端运行:
-./udp2raw_amd64 -s -l0.0.0.0:4096 -r 127.0.0.1:7777  -a -k "passwd" --raw-mode faketcp
+./udp2raw_amd64 -s -l0.0.0.0:4096  -r127.0.0.1:7777   -a -k "passwd" --raw-mode faketcp   --cipher-mode xor
 
 在client端运行:
-./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp
+./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp   --cipher-mode xor
 ```
 ###### Server端输出:
 ![](/images/output_server.PNG)
@@ -96,6 +96,8 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 不论你用udp2raw来加速kcptun还是vpn,为了稳定使用,都需要设置合理的MTU（在kcptun/vpn里设置，而不是在udp2raw里），建议把MTU设置成1200。client和server端都要设置。
 
 ### 提醒
+`--cipher-mode xor`表示仅使用简单的XOR加密，这样可以节省CPU占用，以免CPU成为速度瓶颈。如果你需要更强的加密，可以去掉此选项，使用默认的AES加密。加密相关的选项见后文的`--cipher-mode`和`--auth-mode`。
+
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
 如果要在梅林固件的路由器上使用，添加`--lower-level auto` `--keep-rule`
@@ -164,7 +166,7 @@ other options:
 
 用raw收发udp包也类似，只是内核回复的是icmp unreachable。而用raw 收发icmp，内核会自动回复icmp echo。都需要相应的iptables规则。
 ### `--cipher-mode` 和 `--auth-mode` 
-如果要最大的安全性建议用aes128cbc+md5。如果要运行再路由器上，建议xor+simple。但是注意xor+simple只能骗过防火墙的包检测，不能防止真正的攻击者。
+如果要最大的安全性建议用aes128cbc+md5。如果要运行在路由器上，建议用xor+simple，可以节省CPU。但是注意xor+simple只能骗过防火墙的包检测，不能防止真正的攻击者。
 
 ### `--seq-mode`
 facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和真正的tcp流量区分开来（虽然大部分ISP不太可能做这种程度的包检测）。seq-mode可以改变一些seq ack的行为。如果遇到了连接问题，可以尝试更改。在我这边的移动线路用3种模式都没问题。
