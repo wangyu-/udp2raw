@@ -1676,7 +1676,11 @@ int main(int argc, char *argv[])
 
 	if(geteuid() != 0)
 	{
-		mylog(log_error,"root check failed,make sure you run this program with root,we can try to continue,but it will likely fail\n");
+		mylog(log_error,"root check failed, it seems like you are using a non-root account. we can try to continue, but it may fail. If you want to run udp2raw as non-root, you have to add iptables rule manually, and grant udp2raw CAP_NET_RAW capability, check README.md in repo for more info.\n");
+	}
+	else
+	{
+		mylog(log_warn,"you can run udp2raw with non-root account for better security. check README.md in repo for more info.\n");
 	}
 
 	local_ip_uint32=inet_addr(local_ip);
