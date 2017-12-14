@@ -104,7 +104,9 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 如果client和server无法连接，或者连接经常断开，请看一下`--seq-mode`的用法，尝试不同的seq-mode。
 
-udp2raw可以用非root账号运行，这样更安全。具体方法见：[#26](https://github.com/wangyu-/udp2raw-tunnel/issues/26) 
+### WARN
+
+udp2raw可以用非root账号运行，这样更安全。 如果你打算长期使用udp2raw的话，非常建议你阅读一下 [这个](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-with-non-root-account) 链接，学习一下如何用非root账号运行udp2raw。
 
 # 进阶操作说明
 
