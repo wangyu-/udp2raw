@@ -81,6 +81,8 @@ Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your
 # Run at client side
 ./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp
 ```
+(The above commands need to be run as root. For better security, with some extra steps, you can run udp2raw as non-root. Check [this link](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-as-non-root) for more info  )
+
 ###### Server Output:
 ![](images/output_server.PNG)
 ###### Client Output:
@@ -93,8 +95,7 @@ To run on Android, check [Android_Guide](/doc/android_guide.md)
 
 If you have connection problems. Take a look at `--seq-mode` option.
 
-### WARN
-For long-term usage, for security reason, its strongly suggested to run udp2raw with a non-root account, though it needs some extra steps. Take a look at [this link](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-with-non-root-account) for more info. 
+
 
 # Advanced Topic
 ### Usage

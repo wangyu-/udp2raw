@@ -84,6 +84,8 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 在client端运行:
 ./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp   --cipher-mode xor
 ```
+(以上例子需要用root账号运行。 用非root运行udp2raw需要一些额外的步骤，具体方法请看 [这个](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-as-non-root) 链接。用非root运行更安全)
+
 ###### Server端输出:
 ![](/images/output_server.PNG)
 ###### Client端输出:
@@ -103,10 +105,6 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 如果要在梅林固件的路由器上使用，添加`--lower-level auto` `--keep-rule`
 
 如果client和server无法连接，或者连接经常断开，请看一下`--seq-mode`的用法，尝试不同的seq-mode。
-
-### WARN
-
-udp2raw可以用非root账号运行，这样更安全。 如果你打算长期使用udp2raw的话，非常建议你阅读一下 [这个](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-with-non-root-account) 链接，学习一下如何用非root账号运行udp2raw。
 
 # 进阶操作说明
 
