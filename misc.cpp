@@ -50,6 +50,8 @@ char key_string[1000]= "secret key";// -k option
 
 char fifo_file[1000]="";
 
+string iptables_command0="iptables ";
+string iptables_command="iptables -w ";
 string iptables_pattern="";
 int iptables_rule_added=0;
 int iptables_rule_keeped=0;
@@ -428,9 +430,9 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				char *output;
 				//int ret =system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
-				int ret =run_command("iptables -S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-A/iptables -D/p'|sh",output);
+				int ret =run_command(iptables_command+"-S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-A/"+iptables_command+"-D/p'|sh",output);
 
-				int ret2 =run_command("iptables -S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-N/iptables -X/p'|sh",output);
+				int ret2 =run_command(iptables_command+"-S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-N/"+iptables_command+"-X/p'|sh",output);
 				//system("iptables-save |grep udp2raw_dWRwMnJhdw|sed 's/^-A/iptables -D/'|sh");
 				//system("iptables-save|grep -v udp2raw_dWRwMnJhdw|iptables-restore");
 				mylog(log_info,"tried to clear all iptables rule created previously,return value %d %d\n",ret,ret2);
@@ -872,7 +874,7 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule
 	}
 	if(generate_iptables_rule)
 	{
-		string rule="iptables -I INPUT ";
+		string rule=iptables_command+"-I INPUT ";
 		rule+=pattern;
 		rule+=" -j DROP";
 
@@ -1042,31 +1044,6 @@ int handle_lower_level(raw_info_t &raw_info)//fill lower_level info,when --lower
 }
 
 
-
-/*
-int add_iptables_rule(const char * s)
-{
-
-	iptables_pattern=s;
-
-	string rule="iptables -I INPUT ";
-	rule+=iptables_pattern;
-	rule+=" -j DROP";
-
-	char *output;
-	if(run_command(rule.c_str(),output)==0)
-	{
-		mylog(log_warn,"auto added iptables rule by:  %s\n",rule.c_str());
-	}
-	else
-	{
-		mylog(log_fatal,"auto added iptables failed by: %s\n",rule.c_str());
-		//mylog(log_fatal,"reason : %s\n",strerror(errno));
-		myexit(-1);
-	}
-	iptables_rule_added=1;
-	return 0;
-}*/
 string chain[2];
 string rule_keep[2];
 string rule_keep_add[2];
@@ -1081,14 +1058,14 @@ int iptables_gen_add(const char * s,u32_t const_id)
 	iptables_pattern=s;
 	chain[0] =dummy+ "udp2rawDwrW_C";
 	rule_keep[0]=dummy+ iptables_pattern+" -j " +chain[0];
-	rule_keep_add[0]=dummy+"iptables -I INPUT "+rule_keep[0];
+	rule_keep_add[0]=iptables_command+"-I INPUT "+rule_keep[0];
 
 	char *output;
-	run_command(dummy+"iptables -N "+chain[0],output,show_none);
-	run_command(dummy+"iptables -F "+chain[0],output);
-	run_command(dummy+"iptables -I "+chain[0] + " -j DROP",output);
+	run_command(iptables_command+"-N "+chain[0],output,show_none);
+	run_command(iptables_command+"-F "+chain[0],output);
+	run_command(iptables_command+"-I "+chain[0] + " -j DROP",output);
 
-	rule_keep_del[0]=dummy+"iptables -D INPUT "+rule_keep[0];
+	rule_keep_del[0]=iptables_command+"-D INPUT "+rule_keep[0];
 
 	run_command(rule_keep_del[0],output,show_none);
 	run_command(rule_keep_del[0],output,show_none);
@@ -1116,11 +1093,11 @@ int iptables_rule_init(const char * s,u32_t const_id,int keep)
 	rule_keep[0]=dummy+ iptables_pattern+" -j " +chain[0];
 	rule_keep[1]=dummy+ iptables_pattern+" -j " +chain[1];
 
-	rule_keep_add[0]=dummy+"iptables -I INPUT "+rule_keep[0];
-	rule_keep_add[1]=dummy+"iptables -I INPUT "+rule_keep[1];
+	rule_keep_add[0]=iptables_command+"-I INPUT "+rule_keep[0];
+	rule_keep_add[1]=iptables_command+"-I INPUT "+rule_keep[1];
 
-	rule_keep_del[0]=dummy+"iptables -D INPUT "+rule_keep[0];
-	rule_keep_del[1]=dummy+"iptables -D INPUT "+rule_keep[1];
+	rule_keep_del[0]=iptables_command+"-D INPUT "+rule_keep[0];
+	rule_keep_del[1]=iptables_command+"-D INPUT "+rule_keep[1];
 
 	keep_rule_last_time=get_current_time();
 
@@ -1128,9 +1105,9 @@ int iptables_rule_init(const char * s,u32_t const_id,int keep)
 
 	for(int i=0;i<=iptables_rule_keeped;i++)
 	{
-		run_command(dummy+"iptables -N "+chain[i],output);
-		run_command(dummy+"iptables -F "+chain[i],output);
-		run_command(dummy+"iptables -I "+chain[i] + " -j DROP",output);
+		run_command(iptables_command+"-N "+chain[i],output);
+		run_command(iptables_command+"-F "+chain[i],output);
+		run_command(iptables_command+"-I "+chain[i] + " -j DROP",output);
 
 		if(run_command(rule_keep_add[i],output)!=0)
 		{
@@ -1167,12 +1144,12 @@ int keep_iptables_rule()  //magic to work on a machine without grep/iptables --c
 
 	int i=iptables_rule_keep_index;
 
-	run_command(dummy + "iptables -N " + chain[i], output,show_none);
+	run_command(iptables_command + "-N " + chain[i], output,show_none);
 
-	if (run_command(dummy + "iptables -F " + chain[i], output,show_none) != 0)
+	if (run_command(iptables_command + "-F " + chain[i], output,show_none) != 0)
 		mylog(log_warn, "iptables -F failed %d\n",i);
 
-	if (run_command(dummy + "iptables -I " + chain[i] + " -j DROP",output,show_none) != 0)
+	if (run_command(iptables_command + "-I " + chain[i] + " -j DROP",output,show_none) != 0)
 		mylog(log_warn, "iptables -I failed %d\n",i);
 
 	if (run_command(rule_keep_del[i], output,show_none) != 0)
@@ -1196,8 +1173,8 @@ int clear_iptables_rule()
 	for(int i=0;i<=iptables_rule_keeped;i++ )
 	{
 		run_command(rule_keep_del[i],output);
-		run_command(dummy+"iptables -F "+chain[i],output);
-		run_command(dummy+"iptables -X "+chain[i],output);
+		run_command(iptables_command+"-F "+chain[i],output);
+		run_command(iptables_command+"-X "+chain[i],output);
 	}
 	return 0;
 }

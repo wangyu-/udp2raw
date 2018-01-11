@@ -51,7 +51,7 @@ const u32_t client_conn_uplink_timeout=client_conn_timeout+2000;//ms
 const uint32_t server_conn_timeout=conv_timeout+60000;//ms. this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
 //const u32_t server_conn_timeout=conv_timeout+10000;//for test
 
-const u32_t iptables_rule_keep_interval=15;//unit: second;
+const u32_t iptables_rule_keep_interval=20;//unit: second;
 
 enum server_current_state_t {server_idle=0,server_handshake1,server_ready};  //server state machine
 enum client_current_state_t {client_idle=0,client_tcp_handshake,client_handshake1,client_handshake2,client_ready};//client state machine
