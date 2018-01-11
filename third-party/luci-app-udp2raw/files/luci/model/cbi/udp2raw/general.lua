@@ -18,13 +18,14 @@ uci:foreach("udp2raw", "servers", function(s)
 end)
 
 m = Map("udp2raw", "%s - %s" %{translate("udp2raw-tunnel"), translate("Settings")})
-m:append(Template("udp2raw_status"))
+m:append(Template("udp2raw/status"))
 
 s = m:section(NamedSection, "general", "general", translate("General Settings"))
 s.anonymous = true
 s.addremove = false
 
-o = s:option(ListValue, "server", translate("Server"))
+o = s:option(DynamicList, "server", translate("Server"))
+o.template = "udp2raw/dynamiclist"
 o:value("nil", translate("Disable"))
 for _, s in ipairs(servers) do o:value(s.name, s.alias) end
 o.default = "nil"

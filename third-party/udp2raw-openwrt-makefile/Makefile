@@ -9,13 +9,13 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=udp2raw-tunnel
 PKG_VERSION:=20171125.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/wangyu-/udp2raw-tunnel.git
-PKG_SOURCE_VERSION:=b35edf74865275cdc970384681a1a076d3a8d0e1
+PKG_SOURCE_VERSION:=19b4d456365ea5d44e2fa6e7447e59061f14ef51
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.xz
 
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE
@@ -40,12 +40,11 @@ endef
 
 MAKE_FLAGS += cross2
 
-define Build/Prepare
-	$(PKG_UNPACK)
-	sed -i 's/cc_cross=.*/cc_cross=$(TARGET_CXX)/g' $(PKG_BUILD_DIR)/makefile
-	sed -i '/\*gitversion/d' $(PKG_BUILD_DIR)/makefile
-	echo 'const char *gitversion = "$(PKG_SOURCE_VERSION)";' > $(PKG_BUILD_DIR)/git_version.h
-	$(Build/Patch)
+define Build/Configure
+	$(call Build/Configure/Default)
+	$(SED) 's/cc_cross[[:space:]]*=.*/cc_cross=$(TARGET_CXX)/' \
+		-e 's/\\".*shell git rev-parse HEAD.*\\"/\\"$(PKG_SOURCE_VERSION)\\"/' \
+		$(PKG_BUILD_DIR)/makefile
 endef
 
 define Package/udp2raw-tunnel/install
