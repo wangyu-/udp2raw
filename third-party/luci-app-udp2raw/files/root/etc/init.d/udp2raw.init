@@ -40,6 +40,8 @@ create_config() {
 
 	[ -n "$log_level" ] && echo "--log-level ${log_level}" >> $config_file
 	echo "--disable-color" >> $config_file
+	
+	echo "--wait-lock" >> $config_file
 }
 
 validate_config_section() {

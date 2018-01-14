@@ -23,7 +23,7 @@ define Package/$(PKG_NAME)
 	SUBMENU:=3. Applications
 	TITLE:=LuCI Support for udp2raw-tunnel
 	PKGARCH:=all
-	DEPENDS:=+udp2raw-tunnel
+#	DEPENDS:=+udp2raw-tunnel
 endef
 
 define Package/$(PKG_NAME)/description
