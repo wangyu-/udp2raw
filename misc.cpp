@@ -786,9 +786,9 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 	{
 		char *output;
 		//int ret =system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
-		int ret =run_command(iptables_command0+"-S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-A/"+iptables_command0+"-D/p'|sh",output);
+		int ret =run_command(iptables_command+"-S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-A/"+iptables_command+"-D/p'|sh",output);
 
-		int ret2 =run_command(iptables_command0+"-S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-N/"+iptables_command0+"-X/p'|sh",output);
+		int ret2 =run_command(iptables_command+"-S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-N/"+iptables_command+"-X/p'|sh",output);
 		//system("iptables-save |grep udp2raw_dWRwMnJhdw|sed 's/^-A/iptables -D/'|sh");
 		//system("iptables-save|grep -v udp2raw_dWRwMnJhdw|iptables-restore");
 		mylog(log_info,"tried to clear all iptables rule created previously,return value %d %d\n",ret,ret2);

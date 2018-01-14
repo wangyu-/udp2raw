@@ -8,7 +8,7 @@ end
 
 if not has_bin("udp2raw") then
 	return Map("udp2raw", "%s - %s" %{translate("udp2raw-tunnel"),
-		translate("Settings")}, '<b style="color:red">udp2raw-tunnel binary file not found.</b>')
+		translate("Settings")}, '<b style="color:red">udp2raw-tunnel binary file(/usr/bin/udp2raw) not found. </b>')
 end
 
 uci:foreach("udp2raw", "servers", function(s)
