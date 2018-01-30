@@ -1111,7 +1111,7 @@ int client_event_loop()
 		{
 			if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
 			{
-				mylog(log_fatal,"the trick to auto get source ip failed, maybe you dont have internet\n");
+				mylog(log_fatal,"the trick to auto get source ip failed, maybe you dont have internet access\n");
 				myexit(-1);
 			}
 		}
@@ -1122,7 +1122,7 @@ int client_event_loop()
 			{
 				if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
 				{
-					mylog(log_warn,"the trick to auto get source ip failed, maybe you dont have internet, retry in %d seconds\n",retry_on_error_interval);
+					mylog(log_warn,"the trick to auto get source ip failed, maybe you dont have internet access, retry in %d seconds\n",retry_on_error_interval);
 					sleep(retry_on_error_interval);
 				}
 				else
