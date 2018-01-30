@@ -44,6 +44,8 @@ int auto_add_iptables_rule=0;//if -a is set
 int generate_iptables_rule=0;//if -g is set
 int generate_iptables_rule_add=0;// if --gen-add is set
 
+int retry_on_error=0;
+
 int debug_resend=0; // debug only
 
 char key_string[1000]= "secret key";// -k option
@@ -163,6 +165,7 @@ void print_help()
 	printf("    --hb-len              <number>        length of heart-beat packet, >=0 and <=1500\n");
 	printf("    --mtu-warn            <number>        mtu warning threshold, unit:byte, default:1375\n");
 	printf("    --clear                               clear any iptables rules added by this program.overrides everything\n");
+	printf("    --retry-on-error                      retry on error, allow to start udp2raw before network is initialized\n");
 	printf("    -h,--help                             print this help message\n");
 
 	//printf("common options,these options must be same on both side\n");
@@ -250,6 +253,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"gen-rule", no_argument,    0, 'g'},
 		{"gen-add", no_argument,    0, 1},
 		{"debug", no_argument,    0, 1},
+		{"retry-on-error", no_argument,    0, 1},
 		{"clear", no_argument,    0, 1},
 		{"simple-rule", no_argument,    0, 1},
 		{"keep-rule", no_argument,    0, 1},
@@ -543,6 +547,10 @@ void process_arg(int argc, char *argv[])  //process all options
 			else if(strcmp(long_options[option_index].name,"force-sock-buf")==0)
 			{
 				force_socket_buf=1;
+			}
+			else if(strcmp(long_options[option_index].name,"retry-on-error")==0)
+			{
+				retry_on_error=1;
 			}
 			else if(strcmp(long_options[option_index].name,"wait-lock")==0)
 			{

@@ -1049,10 +1049,31 @@ int client_event_loop()
 			u32_t dest_ip;
 			string if_name_string;
 			string hw_string;
-			if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
+
+			if(retry_on_error==0)
 			{
-				mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_ip);
-				myexit(-1);
+				if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
+				{
+					mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_ip);
+					myexit(-1);
+				}
+			}
+			else
+			{
+				int ok=0;
+				while(!ok)
+				{
+					if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
+					{
+						mylog(log_warn,"auto detect lower-level info failed for %s,retry in %d seconds\n",remote_ip,retry_on_error_interval);
+						sleep(retry_on_error_interval);
+					}
+					else
+					{
+						ok=1;
+					}
+
+				}
 			}
 			mylog(log_info,"we are running at lower-level (auto) mode,%s %s %s\n",my_ntoa(dest_ip),if_name_string.c_str(),hw_string.c_str());
 
@@ -1086,11 +1107,32 @@ int client_event_loop()
 	if(source_ip_uint32==0)
 	{
 		mylog(log_info,"get_src_adress called\n");
-		if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
+		if(retry_on_error==0)
 		{
-			mylog(log_fatal,"the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
-			myexit(-1);
+			if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
+			{
+				mylog(log_fatal,"the trick to auto get source ip failed, maybe you dont have internet\n");
+				myexit(-1);
+			}
 		}
+		else
+		{
+			int ok=0;
+			while(!ok)
+			{
+				if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
+				{
+					mylog(log_warn,"the trick to auto get source ip failed, maybe you dont have internet, retry in %d seconds\n",retry_on_error_interval);
+					sleep(retry_on_error_interval);
+				}
+				else
+				{
+					ok=1;
+				}
+
+			}
+		}
+
 	}
 	in_addr tmp;
 	tmp.s_addr=source_ip_uint32;

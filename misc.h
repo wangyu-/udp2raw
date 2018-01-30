@@ -87,6 +87,8 @@ extern int keep_rule; //whether to monitor the iptables rule periodly,re-add if 
 extern int auto_add_iptables_rule;//if -a is set
 extern int generate_iptables_rule;//if -g is set
 extern int generate_iptables_rule_add;// if --gen-add is set
+extern int retry_on_error;
+const  int retry_on_error_interval=10;
 
 extern int debug_resend; // debug only
 
