@@ -302,11 +302,15 @@ void md5_finish( md5_context *ctx, unsigned char output[16] )
  */
 void md5( const unsigned char *input, size_t ilen, unsigned char output[16] )
 {
-    md5_context ctx;
-
-    md5_init( &ctx );
+    static md5_context ctx;
+    static int done=0;
+    if(done==0)
+    {
+        md5_init( &ctx );
+    	done=1;
+    }
     md5_starts( &ctx );
     md5_update( &ctx, input, ilen );
     md5_finish( &ctx, output );
-    md5_free( &ctx );
+    //md5_free( &ctx );
 }

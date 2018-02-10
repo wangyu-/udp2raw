@@ -11,7 +11,7 @@
 #### run at client side
 assume server ip is 45.66.77.88
 ```
-./udp2raw_amd64 -s -l0.0.0.0:3333 -r 45.66.77.88:8855 -k "passwd" --raw-mode faketcp -a
+./udp2raw_amd64 -c -l0.0.0.0:3333 -r 45.66.77.88:8855 -k "passwd" --raw-mode faketcp -a
 ```
 
 #### hint

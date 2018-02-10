@@ -10,6 +10,10 @@
 
 //using namespace std;
 
+
+const int aes_key_optimize=1; //if enabled,once you used a key for aes,you cant change it anymore
+extern char key[16];
+
 int my_encrypt(const char *data,char *output,int &len,char * key);
 int my_decrypt(const char *data,char *output,int &len,char * key);
 
@@ -31,5 +35,11 @@ extern cipher_mode_t cipher_mode;
 
 extern unordered_map<int, const char *> auth_mode_tostring;
 extern unordered_map<int, const char *> cipher_mode_tostring;
+
+
+
+
+int cipher_decrypt(const char *data,char *output,int &len,char * key);//internal interface ,exposed for test only
+int cipher_encrypt(const char *data,char *output,int &len,char * key);//internal interface ,exposed for test only
 
 #endif
