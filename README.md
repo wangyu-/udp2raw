@@ -5,7 +5,7 @@ A Tunnel which turns UDP Traffic into Encrypted FakeTCP/UDP/ICMP Traffic by usin
 
 ![image0](images/image0.PNG)
 
-When used alone,udp2raw tunnels only UDP traffic. Nevertheless,if you used udp2raw + any UDP-based VPN together,you can tunnel any traffic(include TCP/UDP/ICMP),currently OpenVPN/L2TP/ShadowVPN and [tinyFecVPN](https://github.com/wangyu-/tinyFecVPN) are confirmed to be supported. 
+When used alone,udp2raw tunnels only UDP traffic. Nevertheless,if you used udp2raw + any UDP-based VPN together,you can tunnel any traffic(include TCP/UDP/ICMP),currently OpenVPN/L2TP/ShadowVPN and [tinyfecVPN](https://github.com/wangyu-/tinyfecVPN) are confirmed to be supported. 
 
 ![image_vpn](images/udp2rawopenvpn.PNG)
 
