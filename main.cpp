@@ -1294,11 +1294,17 @@ int client_event_loop()
 				int recv_len;
 				struct sockaddr_in udp_new_addr_in={0};
 				socklen_t udp_new_addr_len = sizeof(sockaddr_in);
-				if ((recv_len = recvfrom(udp_fd, buf, max_data_len, 0,
+				if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 						(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
 					mylog(log_error,"recv_from error,this shouldnt happen at client\n");
 					myexit(1);
 				};
+
+				if(recv_len==max_data_len+1)
+				{
+					mylog(log_warn,"huge packet, data_len > %d,dropped\n",max_data_len);
+					continue;
+				}
 
 				if(recv_len>=mtu_warn)
 				{
@@ -1639,9 +1645,15 @@ int server_event_loop()
 
 				int fd=fd_manager.to_fd(fd64);
 
-				int recv_len=recv(fd,buf,max_data_len,0);
+				int recv_len=recv(fd,buf,max_data_len+1,0);
 
 				mylog(log_trace,"received a packet from udp_fd,len:%d\n",recv_len);
+
+				if(recv_len==max_data_len+1)
+				{
+					mylog(log_warn,"huge packet, data_len > %d,dropped\n",max_data_len);
+					continue;
+				}
 
 				if(recv_len<0)
 				{

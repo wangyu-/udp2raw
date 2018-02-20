@@ -704,7 +704,13 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	struct sockaddr_ll saddr={0};
 	socklen_t saddr_size = sizeof(saddr);
 	int flag=0;
-	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len, flag ,(sockaddr*)&saddr , &saddr_size);
+	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
+
+	if(recv_len==max_data_len+1)
+	{
+		mylog(log_warn,"huge packet, data_len > %d,dropped\n",max_data_len);
+		return -1;
+	}
 
 	if(recv_len<0)
 	{

@@ -85,7 +85,7 @@ struct ip_port_t
 
 typedef u64_t fd64_t;
 
-const int max_data_len=1600;
+const int max_data_len=1800;
 const int buf_len=max_data_len+400;
 
 u64_t get_current_time();
