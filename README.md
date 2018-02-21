@@ -226,7 +226,7 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 
 4. Supports almost any UDP-based VPN
 
-More details at [openvpn+udp2raw_guide](/doc/openvpn_guide.md)
+More details at [openvpn+udp2raw_guide](https://github.com/wangyu-/udp2raw-tunnel/wiki/udp2raw-openvpn-config-guide)
 ## Speed-up tcp connection via raw traffic by using udp2raw+kcptun
 kcptun is a tcp connection speed-up program,it speeds-up tcp connection by using kcp protocol on-top of udp.by using udp2raw,you can use kcptun while udp is QoSed or blocked.
 (kcptun, https://github.com/xtaci/kcptun)
