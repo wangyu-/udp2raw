@@ -24,13 +24,11 @@ Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译bi
 
 ##### 对于windows和mac用户：
 
-在虚拟机中可以稳定使用（udp2raw跑在Linux里，其他应用照常跑在window里；确保虚拟机网卡工作在桥接模式）。可以使用[这个](https://github.com/wangyu-/udp2raw-tunnel/releases/download/20171108.0/lede-17.01.2-x86_virtual_machine_image.zip)虚拟机镜像，大小只有7.5mb，免去在虚拟机里装系统的麻烦；虚拟机自带ssh server，可以scp拷贝文件，可以ssh进去，可以复制粘贴，root密码123456。
-
-如果你的网络不允许桥接，也是有办法用的，具体方法请看wiki。
+https://github.com/wangyu-/udp2raw-tunnel/wiki/在windows-mac上运行udp2raw客户端，带图形界面
 
 ##### 对于ios和游戏主机用户：
 
-可以把udp2raw运行在局域网的其他机器上。最好的办法是买个能刷OpenWrt/LEDE/梅林的路由器，把udp2raw运行在路由器上。
+可以把udp2raw运行在局域网的其他机器/虚拟机上。最好的办法是买个能刷OpenWrt/LEDE/梅林的路由器，把udp2raw运行在路由器上。
 
 # 功能特性
 ### 把udp流量伪装成tcp /icmp
