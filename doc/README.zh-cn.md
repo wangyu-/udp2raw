@@ -292,3 +292,9 @@ Transparently tunnel your IP traffic through ICMP echo and reply packets.
 
 https://github.com/DhavalKapil/icmptunnel
 
+# wiki
+
+更多内容请看 wiki:
+
+https://github.com/wangyu-/udp2raw-tunnel/wiki
+
