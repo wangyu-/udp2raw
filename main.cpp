@@ -10,10 +10,12 @@
 
 char hb_buf[buf_len];
 
+int on_epoll_recv_event=0;  //TODO, just a flag to help detect epoll infinite shoot
 
 int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id);
 int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len);
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len);
+
 
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
@@ -28,9 +30,19 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 	mylog(log_trace,"<client_on_timer,send_info.ts_ack= %u>\n",send_info.ts_ack);
 
+	if(raw_info.disabled)
+	{
+		conn_info.state.client_current_state=client_idle;
+		conn_info.my_id=get_true_random_number_nz();
+
+		mylog(log_info,"state back to client_idle\n");
+	}
 
 	if(conn_info.state.client_current_state==client_idle)
 	{
+		raw_info.rst_received=0;
+		raw_info.disabled=0;
+
 		fail_time_counter++;
 		if(max_fail_time>0&&fail_time_counter>max_fail_time)
 		{
@@ -40,6 +52,8 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 		conn_info.blob->anti_replay.re_init();
 		conn_info.my_id = get_true_random_number_nz(); ///todo no need to do this everytime
+
+
 
 		u32_t new_ip=0;
 		if(!force_source_ip&&get_src_adress(new_ip,remote_ip_uint32,remote_port)==0)
@@ -610,13 +624,15 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 
 		conn_info_t &conn_info=conn_manager.find_insert(ip,port);
 		conn_info.raw_info=tmp_raw_info;
+		raw_info_t &raw_info=conn_info.raw_info;
+
+		packet_info_t &send_info=conn_info.raw_info.send_info;
+		packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
 		//conn_info.ip_port.ip=ip;
 		//conn_info.ip_port.port=port;
 
-		packet_info_t &send_info=conn_info.raw_info.send_info;
-		packet_info_t &recv_info=conn_info.raw_info.recv_info;
-		raw_info_t &raw_info=conn_info.raw_info;
+
 
 		send_info.src_ip=recv_info.dst_ip;
 		send_info.src_port=recv_info.dst_port;
@@ -643,6 +659,8 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		server_on_raw_recv_handshake1(conn_info,ip_port,data,data_len);
 		return 0;
 	}
+
+
 
 
 	conn_info_t & conn_info=conn_manager.find_insert(ip,port);//insert if not exist
@@ -1479,6 +1497,8 @@ int server_event_loop()
 		}
 		mylog(log_info,"fifo_file=%s\n",fifo_file);
 	}
+
+
 	while(1)////////////////////////
 	{
 
@@ -1730,7 +1750,7 @@ int main(int argc, char *argv[])
 
 	if(geteuid() != 0)
 	{
-		mylog(log_error,"root check failed, it seems like you are using a non-root account. we can try to continue, but it may fail. If you want to run udp2raw as non-root, you have to add iptables rule manually, and grant udp2raw CAP_NET_RAW capability, check README.md in repo for more info.\n");
+		mylog(log_warn,"root check failed, it seems like you are using a non-root account. we can try to continue, but it may fail. If you want to run udp2raw as non-root, you have to add iptables rule manually, and grant udp2raw CAP_NET_RAW capability, check README.md in repo for more info.\n");
 	}
 	else
 	{

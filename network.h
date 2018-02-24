@@ -77,12 +77,13 @@ struct raw_info_t
 {
 	packet_info_t send_info;
 	packet_info_t recv_info;
-
 	//int last_send_len;
 	//int last_recv_len;
 
 	u32_t reserved_send_seq;
 	//uint32_t first_seq,first_ack_seq;
+	int rst_received=0;
+	bool disabled=0;
 
 };//g_raw_info;
 

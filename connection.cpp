@@ -228,6 +228,10 @@ conv_manager_t::~conv_manager_t()
 	 void conn_info_t::recover(const conn_info_t &conn_info)
 	 {
 			raw_info=conn_info.raw_info;
+
+			raw_info.rst_received=0;
+			raw_info.disabled=0;
+
 			last_state_time=conn_info.last_state_time;
 			last_hb_recv_time=conn_info.last_hb_recv_time;
 			last_hb_sent_time=conn_info.last_hb_sent_time;
@@ -238,6 +242,7 @@ conv_manager_t::~conv_manager_t()
 			my_roller=0;//no need to set,but for easier debug,set it to zero
 			oppsite_roller=0;//same as above
 			last_oppsite_roller_time=0;
+
 	 }
 
 	void conn_info_t::re_init()
@@ -642,7 +647,7 @@ int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_n
 	return 0;
 
 }
-int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//subfunction for recv_safer,allow overlap
+int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//subfunction for recv_safer,allow overlap
 {
 	 static char recv_data_buf[buf_len];
 
@@ -738,7 +743,7 @@ int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)///safer t
 
 	if(recv_raw0(conn_info.raw_info,recv_data,recv_len)!=0) return -1;
 
-	return parse_safer(conn_info,recv_data,recv_len,type,data,len);
+	return reserved_parse_safer(conn_info,recv_data,recv_len,type,data,len);
 }
 
 void server_clear_function(u64_t u64)//used in conv_manager in server mode.for server we have to use one udp fd for one conv(udp connection),

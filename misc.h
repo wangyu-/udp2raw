@@ -17,6 +17,10 @@ extern int hb_mode;
 extern int hb_len;
 extern int mtu_warn;
 
+extern int max_rst_allowed;
+extern int max_rst_to_show;
+
+
 const u32_t max_handshake_conn_num=10000;
 const u32_t max_ready_conn_num=1000;
 const u32_t anti_replay_window_size=4000;

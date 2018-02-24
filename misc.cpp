@@ -18,6 +18,10 @@ int hb_len=1200;
 
 int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
 
+int max_rst_to_show=15;
+
+int max_rst_allowed=-1;
+
 
 fd_manager_t fd_manager;
 
@@ -268,6 +272,8 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"hb-mode", required_argument,    0, 1},
 		{"hb-len", required_argument,    0, 1},
 		{"mtu-warn", required_argument,    0, 1},
+		{"max-rst-to-show", required_argument,    0, 1},
+		{"max-rst-allowed", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -627,6 +633,18 @@ void process_arg(int argc, char *argv[])  //process all options
 				sscanf(optarg,"%d",&mtu_warn);
 				assert(mtu_warn>0);
 				mylog(log_info,"mtu_warn=%d \n",mtu_warn);
+			}
+			else if(strcmp(long_options[option_index].name,"max-rst-to-show")==0)
+			{
+				sscanf(optarg,"%d",&max_rst_to_show);
+				assert(max_rst_to_show>=-1);
+				mylog(log_info,"max_rst_to_show=%d \n",max_rst_to_show);
+			}
+			else if(strcmp(long_options[option_index].name,"max-rst-allowed")==0)
+			{
+				sscanf(optarg,"%d",&max_rst_allowed);
+				assert(max_rst_allowed>=-1);
+				mylog(log_info,"max_rst_allowed=%d \n",max_rst_allowed);
 			}
 			else
 			{

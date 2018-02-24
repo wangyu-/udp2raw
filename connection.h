@@ -154,12 +154,12 @@ void server_clear_function(u64_t u64);
 
 int send_bare(raw_info_t &raw_info,const char* data,int len);//send function with encryption but no anti replay,this is used when client and server verifys each other
 //you have to design the protocol carefully, so that you wont be affect by relay attack
-int reserved_parse_bare(const char *input,int input_len,char* & data,int & len); // a sub function used in recv_bare
+//int reserved_parse_bare(const char *input,int input_len,char* & data,int & len); // a sub function used in recv_bare
 int recv_bare(raw_info_t &raw_info,char* & data,int & len);//recv function with encryption but no anti replay,this is used when client and server verifys each other
 //you have to design the protocol carefully, so that you wont be affect by relay attack
 int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3);// a warp for send_bare for sending handshake(this is not tcp handshake) easily
 int send_safer(conn_info_t &conn_info,char type,const char* data,int len);  //safer transfer function with anti-replay,when mutually verification is done.
 int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_num);//a wrap for  send_safer for transfer data.
-int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len);//subfunction for recv_safer,allow overlap
+//int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len);//subfunction for recv_safer,allow overlap
 int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len);///safer transfer function with anti-replay,when mutually verification is done.
 #endif /* CONNECTION_H_ */
