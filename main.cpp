@@ -1092,13 +1092,9 @@ int client_event_loop()
 
 			if(retry_on_error==0)
 			{
-<<<<<<< HEAD
-				mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_host);
-				myexit(-1);
-=======
 				if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
 				{
-					mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_ip);
+					mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_host);
 					myexit(-1);
 				}
 			}
@@ -1109,7 +1105,7 @@ int client_event_loop()
 				{
 					if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
 					{
-						mylog(log_warn,"auto detect lower-level info failed for %s,retry in %d seconds\n",remote_ip,retry_on_error_interval);
+						mylog(log_warn,"auto detect lower-level info failed for %s,retry in %d seconds\n",remote_host,retry_on_error_interval);
 						sleep(retry_on_error_interval);
 					}
 					else
@@ -1118,7 +1114,6 @@ int client_event_loop()
 					}
 
 				}
->>>>>>> upstream/master
 			}
 			mylog(log_info,"we are running at lower-level (auto) mode,%s %s %s\n",my_ntoa(dest_ip),if_name_string.c_str(),hw_string.c_str());
 
