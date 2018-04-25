@@ -566,6 +566,13 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 	const packet_info_t &recv_info=raw_info.recv_info;
 	char send_raw_ip_buf[buf_len];
 
+	if(raw_info.disabled)
+	{
+		mylog(log_debug,"[%s,%d]connection disabled, no packet will be sent\n",my_ntoa(recv_info.src_ip),recv_info.src_port);
+		assert(max_rst_allowed>=0);
+		return 0;
+	}
+
 	struct iphdr *iph = (struct iphdr *) send_raw_ip_buf;
     memset(iph,0,sizeof(iphdr));
 
@@ -704,7 +711,13 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	struct sockaddr_ll saddr={0};
 	socklen_t saddr_size = sizeof(saddr);
 	int flag=0;
-	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len, flag ,(sockaddr*)&saddr , &saddr_size);
+	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
+
+	if(recv_len==max_data_len+1)
+	{
+		mylog(log_warn,"huge packet, data_len > %d,dropped\n",max_data_len);
+		return -1;
+	}
 
 	if(recv_len<0)
 	{
@@ -1439,7 +1452,37 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     if(tcph->rst==1)
     {
-    	mylog(log_error,"[%s,%d]rst==1\n",my_ntoa(recv_info.src_ip),recv_info.src_port);
+		raw_info.rst_received++;
+
+    	if(max_rst_to_show>0)
+    	{
+    		if(raw_info.rst_received < max_rst_to_show)
+    		{
+    			mylog(log_warn,"[%s,%d]rst==1,cnt=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    		}
+    		else if(raw_info.rst_received == max_rst_to_show)
+    		{
+    			mylog(log_warn,"[%s,%d]rst==1,cnt=%d >=max_rst_to_show, this log will be muted for current connection\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    		}
+    		else
+    		{
+    			mylog(log_debug,"[%s,%d]rst==1,cnt=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    		}
+    	}
+    	else if(max_rst_to_show==0)
+    	{
+    		mylog(log_debug,"[%s,%d]rst==1,cnt=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    	}
+    	else
+    	{
+    		mylog(log_warn,"[%s,%d]rst==1,cnt=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    	}
+
+		if(max_rst_allowed>=0 && raw_info.rst_received==max_rst_allowed+1 )
+		{
+			mylog(log_warn,"[%s,%d]connection disabled because of rst_received=%d > max_rst_allow=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received,(int)max_rst_allowed );
+			raw_info.disabled=1;
+		}
     }
 
    /* if(recv_info.has_ts)
@@ -1820,17 +1863,17 @@ int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick 
     return 0;
 }
 
-int try_to_list_and_bind(int bind_fd,u32_t local_ip_uint32,int port)  //try to bind to a port,may fail.
+int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind to a port,may fail.
 {
-	 int old_bind_fd=bind_fd;
+	 int old_bind_fd=fd;
 
 	 if(raw_mode==mode_faketcp)
 	 {
-		 bind_fd=socket(AF_INET,SOCK_STREAM,0);
+		 fd=socket(AF_INET,SOCK_STREAM,0);
 	 }
 	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)
 	 {
-		 bind_fd=socket(AF_INET,SOCK_DGRAM,0);
+		 fd=socket(AF_INET,SOCK_DGRAM,0);
 	 }
      if(old_bind_fd!=-1)
      {
@@ -1844,7 +1887,7 @@ int try_to_list_and_bind(int bind_fd,u32_t local_ip_uint32,int port)  //try to b
      temp_bind_addr.sin_port = htons(port);
      temp_bind_addr.sin_addr.s_addr = local_ip_uint32;
 
-     if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
+     if (bind(fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
     	 mylog(log_debug,"bind fail\n");
     	 return -1;
@@ -1852,19 +1895,19 @@ int try_to_list_and_bind(int bind_fd,u32_t local_ip_uint32,int port)  //try to b
 	 if(raw_mode==mode_faketcp)
 	 {
 
-		if (listen(bind_fd, SOMAXCONN) != 0) {
+		if (listen(fd, SOMAXCONN) != 0) {
 			mylog(log_warn,"listen fail\n");
 			return -1;
 		}
 	 }
      return 0;
 }
-int client_bind_to_a_new_port(int bind_fd,u32_t local_ip_uint32)//find a free port and bind to it.
+int client_bind_to_a_new_port(int &fd,u32_t local_ip_uint32)//find a free port and bind to it.
 {
 	int raw_send_port=10000+get_true_random_number()%(65535-10000);
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
 	{
-		if (try_to_list_and_bind(bind_fd,local_ip_uint32,raw_send_port)==0)
+		if (try_to_list_and_bind(fd,local_ip_uint32,raw_send_port)==0)
 		{
 			return raw_send_port;
 		}

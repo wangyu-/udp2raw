@@ -17,23 +17,13 @@ static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog
 ****/
 
 char key[16];//generated from key_string by md5.
-/*
-TODO
-
-Change md5 to HMAC-md5 if necessary.Change padding to PKCS#7 style if necessary.
-
-Need someone with cryptography knowledge to help review the encryption method.
-
-Change them if necessary(I can do this by myself,if it turns out to be necessary).
-
-github issue:
-
-https://github.com/wangyu-/udp2raw-tunnel/issues/17
-
-*/
+//TODO key derive function
 
 unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_simple,"simple"}};
+//TODO HMAC-md5 ,HMAC-sha1
+
 unordered_map<int, const char *> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"}};
+//TODO aes-gcm
 
 auth_mode_t auth_mode=auth_md5;
 cipher_mode_t cipher_mode=cipher_aes128cbc;
@@ -356,13 +346,28 @@ int my_decrypt(const char *data,char *output,int &len,char * key)
 	return 0;
 }
 
-int my_encrypt_pesudo_header(uint8_t *data,uint8_t *output,int &len,uint8_t * key,uint8_t *header,int hlen)
+int encrypt_AE(const char *data,char *output,int &len,char * key)
 {
-
-	return 0;
+	//TODO
+	//use encrypt-then-MAC scheme
+	return -1;
 }
-int my_decrypt_pesudo_header(uint8_t *data,uint8_t *output,int &len,uint8_t * key,uint8_t *header,int hlen)
+
+int decrypt_AE(const char *data,char *output,int &len,char * key)
 {
-	return 0;
+	//TODO
+	return -1;
+}
+
+int encrypt_AEAD(uint8_t *data,uint8_t *output,int &len,uint8_t * key,uint8_t *header,int hlen)
+{
+	//TODO
+	return -1;
+}
+
+int decrypt_AEAD(uint8_t *data,uint8_t *output,int &len,uint8_t * key,uint8_t *header,int hlen)
+{
+	//TODO
+	return -1;
 }
 

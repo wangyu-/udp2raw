@@ -1,10 +1,8 @@
-Udp2raw-tunnel 
-![image2](/images/image2.PNG)
+# Udp2raw-tunnel 
+![image2](/images/image0.PNG)
 udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过UDP屏蔽或QoS，或在UDP不稳定的环境下提升稳定性。可以有效防止在使用kcptun或者finalspeed的情况下udp端口被运营商限速。
 
 支持心跳保活、自动重连，重连后会恢复上次连接，在底层掉线的情况下可以保持上层不掉线。同时有加密、防重放攻击、信道复用的功能。
-
-**欢迎任何形式的转载**
 
 [English](/README.md)
 
@@ -12,14 +10,31 @@ udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过
 
 [udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
 
-如果你需要加速跨国网游、网页浏览，解决方案在另一个repo：
+[udp2raw wiki](https://github.com/wangyu-/udp2raw-tunnel/wiki)
+
+**提示：**
+
+udp2raw不是加速器，只是一个帮助你绕过UDP限制的工具。如果你需要UDP加速器，请看UDPspeeder。
+
+UDPspeeder的repo:
 
 https://github.com/wangyu-/UDPspeeder
 # 支持的平台
 Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
 
-在windows和mac上预装了udp2raw的虚拟机镜像已发布，可以用Vmware或VirtualBox加载，容量4.4mb，已经配置好了自动获取网卡ip，开机即用，稳定，性能很好。
-（udp2raw跑在虚拟机里，其他应用照常跑在windows上）（确保虚拟机网卡工作在桥接模式）（Vmware player 75mb,VirtualBox 118mb,很容易安装）。
+Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译binary.
+
+##### 对于windows和mac用户：
+
+可以把udp2raw运行在虚拟机上(网络必须是桥接模式)。
+
+另外可以参考：
+
+https://github.com/wangyu-/udp2raw-tunnel/wiki/在windows-mac上运行udp2raw客户端，带图形界面
+
+##### 对于ios和游戏主机用户：
+
+可以把udp2raw运行在局域网的其他机器/虚拟机上。最好的办法是买个能刷OpenWrt/LEDE/梅林的路由器，把udp2raw运行在路由器上。
 
 # 功能特性
 ### 把udp流量伪装成tcp /icmp
@@ -49,9 +64,9 @@ NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
 
 支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed
 
-支持Openwrt，没有编译依赖，容易编译到任何平台上。release中提供了ar71xx版本的binary
+支持Openwrt，没有编译依赖，容易编译到任何平台上。
 
-epoll纯异步，高并发，除了回收过期连接外，所有操作的时间复杂度都跟连接数无关。回收过期连接的操做也是柔和进行的，不会因为消耗太多cpu时间造成延迟抖动。
+epoll实现，高并发，除了回收过期连接外，所有操作的时间复杂度都跟连接数无关。回收过期连接的操做也是柔和进行的，不会因为消耗太多cpu时间造成延迟抖动。
 
 ### 关键词
 突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
@@ -68,11 +83,13 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 ```
 在server端运行:
-./udp2raw_amd64 -s -l0.0.0.0:4096 -r 127.0.0.1:7777  -a -k "passwd" --raw-mode faketcp
+./udp2raw_amd64 -s -l0.0.0.0:4096  -r127.0.0.1:7777   -a -k "passwd" --raw-mode faketcp   --cipher-mode xor
 
 在client端运行:
-./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp
+./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp   --cipher-mode xor
 ```
+(以上例子需要用root账号运行。 用非root运行udp2raw需要一些额外的步骤，具体方法请看 [这个](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-as-non-root) 链接。用非root运行更安全)
+
 ###### Server端输出:
 ![](/images/output_server.PNG)
 ###### Client端输出:
@@ -85,20 +102,20 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 不论你用udp2raw来加速kcptun还是vpn,为了稳定使用,都需要设置合理的MTU（在kcptun/vpn里设置，而不是在udp2raw里），建议把MTU设置成1200。client和server端都要设置。
 
 ### 提醒
+`--cipher-mode xor`表示仅使用简单的XOR加密，这样可以节省CPU占用，以免CPU成为速度瓶颈。如果你需要更强的加密，可以去掉此选项，使用默认的AES加密。加密相关的选项见后文的`--cipher-mode`和`--auth-mode`。
+
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
 如果要在梅林固件的路由器上使用，添加`--lower-level auto` `--keep-rule`
 
 如果client和server无法连接，或者连接经常断开，请看一下`--seq-mode`的用法，尝试不同的seq-mode。
 
-udp2raw可以用非root账号运行，这样更安全。具体方法见：[#26](https://github.com/wangyu-/udp2raw-tunnel/issues/26) 
-
 # 进阶操作说明
 
 ### 命令选项
 ```
 udp2raw-tunnel
-git version:adbe7d110f    build date:Sep  6 2017 05:37:45
+git version:6e1df4b39f    build date:Oct 24 2017 09:21:15
 repository: https://github.com/wangyu-/udp2raw-tunnel
 
 usage:
@@ -121,7 +138,9 @@ client options:
 other options:
     --conf-file           <string>        read options from a configuration file instead of command line.
                                           check example.conf in repo for format
-    --log-level           <number>        0:never    1:fatal   2:error   3:warn 
+    --fifo                <string>        use a fifo(named pipe) for sending commands to the running program,
+                                          check readme.md in repository for supported commands.
+    --log-level           <number>        0:never    1:fatal   2:error   3:warn
                                           4:info (default)     5:debug   6:trace
     --log-position                        enable file name,function name,line number in log
     --disable-color                       disable log color
@@ -135,7 +154,7 @@ other options:
                                           2:increase seq randomly, about every 3 packets,simply ack last seq
                                           3:simulate an almost real seq/ack procedure(default)
                                           4:similiar to 3,but do not consider TCP Option Window_Scale,
-                                          maybe useful when firewall doesnt support TCP Option 
+                                          maybe useful when firewall doesnt support TCP Option
     --lower-level         <string>        send packets at OSI level 2, format:'if_name#dest_mac_adress'
                                           ie:'eth0#00:23:45:67:89:b9'.or try '--lower-level auto' to obtain
                                           the parameter automatically,specify it manually if 'auto' failed
@@ -151,13 +170,18 @@ other options:
 
 用raw收发udp包也类似，只是内核回复的是icmp unreachable。而用raw 收发icmp，内核会自动回复icmp echo。都需要相应的iptables规则。
 ### `--cipher-mode` 和 `--auth-mode` 
-如果要最大的安全性建议用aes128cbc+md5。如果要运行再路由器上，建议xor+simple。但是注意xor+simple只能骗过防火墙的包检测，不能防止真正的攻击者。
+如果要最大的安全性建议用aes128cbc+md5。如果要运行在路由器上，建议用xor+simple，可以节省CPU。但是注意xor+simple只能骗过防火墙的包检测，不能防止真正的攻击者。
 
 ### `--seq-mode`
 facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和真正的tcp流量区分开来（虽然大部分ISP不太可能做这种程度的包检测）。seq-mode可以改变一些seq ack的行为。如果遇到了连接问题，可以尝试更改。在我这边的移动线路用3种模式都没问题。
 
 ### `--keep-rule`
 定期主动检查iptables，如果udp2raw添加的iptables规则丢了，就重新添加。在一些iptables可能会被其他程序清空的情况下(比如梅林固件和openwrt的路由器)格外有用。
+
+### `--fifo`
+指定一个fifo(named pipe)来向运行中的程序发送命令，例如`--fifo fifo.file`：
+
+在client端,可以用`echo reconnect >fifo.file`来强制client换端口重连（上层不断线）.对Server，目前没有效果。
 
 ### `--lower-level`
 大部分udp2raw不能连通的情况都是设置了不兼容的iptables造成的。--lower-level选项允许绕过本地iptables。在一些iptables不好改动的情况下尤其有效（比如你用的是梅林固件，iptables全是固件自己生成的）。
@@ -269,4 +293,10 @@ https://github.com/ccsexyz/kcpraw
 Transparently tunnel your IP traffic through ICMP echo and reply packets.
 
 https://github.com/DhavalKapil/icmptunnel
+
+# wiki
+
+更多内容请看 wiki:
+
+https://github.com/wangyu-/udp2raw-tunnel/wiki
 

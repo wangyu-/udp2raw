@@ -13,6 +13,12 @@
 #include "log.h"
 #include "network.h"
 
+extern int hb_mode;
+extern int hb_len;
+extern int mtu_warn;
+
+extern int max_rst_allowed;
+extern int max_rst_to_show;
 
 
 const u32_t max_handshake_conn_num=10000;
@@ -25,22 +31,22 @@ const u32_t client_retry_interval=1000;//ms
 
 const u32_t server_handshake_timeout=client_handshake_timeout+5000;// this should be longer than clients. client retry initially ,server retry passtively
 
-const int conv_clear_ratio=10;  //conv grabage collecter check 1/10 of all conv one time
-const int conn_clear_ratio=30;
+const int conv_clear_ratio=30;  //conv grabage collecter check 1/30 of all conv one time
+const int conn_clear_ratio=50;
 const int conv_clear_min=1;
 const int conn_clear_min=1;
 
-const u32_t conv_clear_interval=3000;//ms
-const u32_t conn_clear_interval=3000;//ms
+const u32_t conv_clear_interval=1000;//ms
+const u32_t conn_clear_interval=1000;//ms
 
 
 const i32_t max_fail_time=0;//disable
 
-const u32_t heartbeat_interval=1000;//ms
+const u32_t heartbeat_interval=600;//ms
 
 const u32_t timer_interval=400;//ms. this should be smaller than heartbeat_interval and retry interval;
 
-const uint32_t conv_timeout=120000; //ms. 120 second
+const uint32_t conv_timeout=180000; //ms. 120 second
 //const u32_t conv_timeout=30000; //for test
 
 const u32_t client_conn_timeout=10000;//ms.
@@ -49,7 +55,7 @@ const u32_t client_conn_uplink_timeout=client_conn_timeout+2000;//ms
 const uint32_t server_conn_timeout=conv_timeout+60000;//ms. this should be 60s+ longer than conv_timeout,so that conv_manager can destruct convs gradually,to avoid latency glicth
 //const u32_t server_conn_timeout=conv_timeout+10000;//for test
 
-const u32_t iptables_rule_keep_interval=15;//unit: second;
+const u32_t iptables_rule_keep_interval=20;//unit: second;
 
 enum server_current_state_t {server_idle=0,server_handshake1,server_ready};  //server state machine
 enum client_current_state_t {client_idle=0,client_tcp_handshake,client_handshake1,client_handshake2,client_ready};//client state machine
@@ -85,6 +91,8 @@ extern int keep_rule; //whether to monitor the iptables rule periodly,re-add if 
 extern int auto_add_iptables_rule;//if -a is set
 extern int generate_iptables_rule;//if -g is set
 extern int generate_iptables_rule_add;// if --gen-add is set
+extern int retry_on_error;
+const  int retry_on_error_interval=10;
 
 extern int debug_resend; // debug only
 
@@ -112,7 +120,7 @@ void iptables_rule();
 void pre_process_arg(int argc, char *argv[]);//mainly for load conf file;
 int unit_test();
 int set_timer(int epollfd,int &timer_fd);
-int set_timer_server(int epollfd,int &timer_fd);
+int set_timer_server(int epollfd,int &timer_fd,fd64_t &fd64);
 int handle_lower_level(raw_info_t &raw_info);
 
 int add_iptables_rule(const char *);

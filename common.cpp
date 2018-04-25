@@ -16,7 +16,7 @@ u64_t get_current_time()
 {
 	timespec tmp_time;
 	clock_gettime(CLOCK_MONOTONIC, &tmp_time);
-	return tmp_time.tv_sec*1000+tmp_time.tv_nsec/(1000*1000l);
+	return ((u64_t)tmp_time.tv_sec)*1000llu+((u64_t)tmp_time.tv_nsec)/(1000*1000llu);
 }
 
 u64_t pack_u64(u32_t a,u32_t b)
@@ -593,7 +593,21 @@ int create_fifo(char * file)
 	return fifo_fd;
 }
 
-
+void ip_port_t::from_u64(u64_t u64)
+{
+	ip=get_u64_h(u64);
+	port=get_u64_l(u64);
+}
+u64_t ip_port_t::to_u64()
+{
+	return pack_u64(ip,port);
+}
+char * ip_port_t::to_s()
+{
+	static char res[40];
+	sprintf(res,"%s:%d",my_ntoa(ip),port);
+	return res;
+}
 
 
 

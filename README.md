@@ -1,16 +1,23 @@
 # Udp2raw-tunnel
-![image0](images/image0.PNG)
+
 
 A Tunnel which turns UDP Traffic into Encrypted FakeTCP/UDP/ICMP Traffic by using Raw Socket, helps you Bypass UDP FireWalls(or Unstable UDP Environment). It can defend Replay-Attack and supports Multiplexing. It also acts as a Connection Stabilizer.
 
-It can tunnel any traffic when used together with a UDP-based VPN(such as OpenVPN).Check [this link](https://github.com/wangyu-/udp2raw-tunnel#tunneling-any-traffic-via-raw-traffic-by-using-udp2raw-openvpn) for more info.
+![image0](images/image0.PNG)
 
-[简体中文](/doc/README.zh-cn.md)
+When used alone,udp2raw tunnels only UDP traffic. Nevertheless,if you used udp2raw + any UDP-based VPN together,you can tunnel any traffic(include TCP/UDP/ICMP),currently OpenVPN/L2TP/ShadowVPN and [tinyfecVPN](https://github.com/wangyu-/tinyfecVPN) are confirmed to be supported. 
+
+![image_vpn](images/udp2rawopenvpn.PNG)
+
+[简体中文](/doc/README.zh-cn.md)(内容更丰富)
+
+[udp2raw wiki](https://github.com/wangyu-/udp2raw-tunnel/wiki)
 
 # Support Platforms
 Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
 
-For Winodws/MacOS,the 4.4mb virtual image with udp2raw pre-installed has been released,you can load it with Vmware/VirtualBox.The virtual image has been set to auto obtain ip,udp2raw can be run imidiately after boot finished(make sure network mode of virtual machine has been set to bridged)(only udp2raw has to be run under virtual machine,all other programs runs under Windows/MacOS as usual).
+For Windows and MacOS You can run udp2raw inside [this](https://github.com/wangyu-/udp2raw-tunnel/releases/download/20171108.0/lede-17.01.2-x86_virtual_machine_image.zip) 7.5mb virtual machine image(make sure network adapter runs at bridged mode).
+
 
 
 # Features 
@@ -46,22 +53,6 @@ For example, if you use udp2raw + OpenVPN, OpenVPN won't lose connection after a
 ### Keywords
 `Bypass UDP QoS` `Bypass UDP Blocking` `Bypass OpenVPN TCP over TCP problem` `OpenVPN over ICMP` `UDP to ICMP tunnel` `UDP to TCP tunnel` `UDP over ICMP` `UDP over TCP`
 
-# Frequently Asked Questions
-### Q: What is the advantage of using udp2raw FakeTCP mode,why not use a TCP-based VPN(such as OpenVPN TCP mode)?
-Answer: **TCP doesnt allow real-time/out-of-order delivery**. **If you use OpenVPN TCP mode to turn UDP traffic into TCP,there will be latency issue**:the loss of a single packet blocks all following packet until re-transmission is done. This will cause unacceptable delay for gaming and voice chatting.
-
-**TCP also has re-transmission and congestion control which cant be disabled.** UDP programs usualy want to control packet sending rate by themselves. If you use OpenVPN TCP mode this cant be done because of the congestion control of underlying TCP protocol. Further more,with the re-transmission of underlying TCP,**if you send too many udp packets via an OpenVPN TCP connection,the connection will become completely unusable for a while**(It will eventually recover as most of the re-transmission is done,but it wont be very soon).
-
-Those issues exist for almost all TCP-based VPNs.
-
-For udp2raw there is no underlying TCP protocol,udp2raw just add TCP headers to UDP packets directly by using raw socket. It supports real-time/out-of-order delivery,there is no re-transmission and congestion control. **Udp2raw doesnt have all above issues**.
-
-### Q: Is udp2raw designed for replacing VPN?
-Answer: No. Udp2raw is designed for bypassing UDP restrictions. It doesnt have all of the features a VPN has(such as transparently redirect all traffic).
-
-Instead of replacing VPN,udp2raw can be used with any UDP-based VPN together to grant UDP-based VPN the ablity of bypassing UDP restrictions,while not having the performance issue involved by a TCP-based VPN. Check [this link](https://github.com/wangyu-/udp2raw-tunnel#tunneling-any-traffic-via-raw-traffic-by-using-udp2raw-openvpn) for more info.
-
-
 # Getting Started
 ### Installing
 Download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
@@ -76,6 +67,8 @@ Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your
 # Run at client side
 ./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp
 ```
+(The above commands need to be run as root. For better security, with some extra steps, you can run udp2raw as non-root. Check [this link](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-as-non-root) for more info  )
+
 ###### Server Output:
 ![](images/output_server.PNG)
 ###### Client Output:
@@ -86,9 +79,9 @@ Now,an encrypted raw tunnel has been established between client and server throu
 ### Note
 To run on Android, check [Android_Guide](/doc/android_guide.md)
 
-If you have connection problems.Take a look at `--seq-mode` option.
+If you have connection problems. Take a look at `--seq-mode` option.
 
-You can run udp2raw with a non-root account(for better security).Take a look at [#26](https://github.com/wangyu-/udp2raw-tunnel/issues/26) for more info. 
+
 
 # Advanced Topic
 ### Usage
@@ -191,6 +184,10 @@ Then start the server with
 ./udp2raw_amd64 --conf-file server.conf
 ```
 
+### `--fifo`
+Use a fifo(named pipe) for sending commands to the running program. For example `--fifo fifo.file`.
+
+At client side,you can use `echo reconnect >fifo.file` to force client to reconnect.Currently no command has been implemented for server.
 
 # Peformance Test
 #### Test method:
@@ -222,7 +219,7 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 
 # Application
 ## Tunneling any traffic via raw traffic by using udp2raw +openvpn
-![image_vpn](images/openvpn.PNG)
+![image_vpn](images/udp2rawopenvpn.PNG)
 1. Bypasses UDP block/UDP QOS
 
 2. No TCP over TCP problem (TCP over TCP problem http://sites.inka.de/bigred/devel/tcp-tcp.html ,https://community.openvpn.net/openvpn/ticket/2 )
@@ -231,7 +228,7 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 
 4. Supports almost any UDP-based VPN
 
-More details at [openvpn+udp2raw_guide](/doc/openvpn_guide.md)
+More details at [openvpn+udp2raw_guide](https://github.com/wangyu-/udp2raw-tunnel/wiki/udp2raw-openvpn-config-guide)
 ## Speed-up tcp connection via raw traffic by using udp2raw+kcptun
 kcptun is a tcp connection speed-up program,it speeds-up tcp connection by using kcp protocol on-top of udp.by using udp2raw,you can use kcptun while udp is QoSed or blocked.
 (kcptun, https://github.com/xtaci/kcptun)
@@ -276,3 +273,9 @@ https://arxiv.org/abs/1103.0463
 http://korz.cs.yale.edu/2009/tng/papers/pfldnet10.pdf
 
 https://pdfs.semanticscholar.org/9e6f/e2306f4385b4eb5416d1fcab16e9361d6ba3.pdf
+
+# wiki
+
+Check wiki for more info:
+
+https://github.com/wangyu-/udp2raw-tunnel/wiki

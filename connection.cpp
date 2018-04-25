@@ -7,6 +7,7 @@
 
 #include "connection.h"
 #include "encrypt.h"
+#include "fd_manager.h"
 
 
 int disable_anti_replay=0;//if anti_replay windows is diabled
@@ -227,6 +228,10 @@ conv_manager_t::~conv_manager_t()
 	 void conn_info_t::recover(const conn_info_t &conn_info)
 	 {
 			raw_info=conn_info.raw_info;
+
+			raw_info.rst_received=0;
+			raw_info.disabled=0;
+
 			last_state_time=conn_info.last_state_time;
 			last_hb_recv_time=conn_info.last_hb_recv_time;
 			last_hb_sent_time=conn_info.last_hb_sent_time;
@@ -237,6 +242,7 @@ conv_manager_t::~conv_manager_t()
 			my_roller=0;//no need to set,but for easier debug,set it to zero
 			oppsite_roller=0;//same as above
 			last_oppsite_roller_time=0;
+
 	 }
 
 	void conn_info_t::re_init()
@@ -249,7 +255,7 @@ conv_manager_t::~conv_manager_t()
 		last_state_time=0;
 		oppsite_const_id=0;
 
-		timer_fd=0;
+		timer_fd64=0;
 
 		my_roller=0;
 		oppsite_roller=0;
@@ -296,6 +302,7 @@ conv_manager_t::~conv_manager_t()
 				assert(oppsite_const_id==0);
 			}
 		}
+		assert(timer_fd64==0);
 		//if(oppsite_const_id!=0)     //do this at conn_manager 's deconstuction function
 			//conn_manager.const_id_mp.erase(oppsite_const_id);
 		if(blob!=0)
@@ -310,9 +317,9 @@ conv_manager_t::~conv_manager_t()
 	 ready_num=0;
 	 mp.reserve(10007);
 	 clear_it=mp.begin();
-	 timer_fd_mp.reserve(10007);
+	// timer_fd_mp.reserve(10007);
 	 const_id_mp.reserve(10007);
-	 udp_fd_mp.reserve(100007);
+	// udp_fd_mp.reserve(100007);
 	 last_clear_time=0;
 	 //current_ready_ip=0;
 	// current_ready_port=0;
@@ -372,21 +379,33 @@ conv_manager_t::~conv_manager_t()
 			ready_num--;
 			assert(i32_t(ready_num)!=-1);
 			assert(erase_it->second!=0);
-			assert(erase_it->second->timer_fd !=0);
+
+			assert(erase_it->second->timer_fd64 !=0);
+
+			assert(fd_manager.exist(erase_it->second->timer_fd64));
+
 			assert(erase_it->second->oppsite_const_id!=0);
 			assert(const_id_mp.find(erase_it->second->oppsite_const_id)!=const_id_mp.end());
-			assert(timer_fd_mp.find(erase_it->second->timer_fd)!=timer_fd_mp.end());
+
+
+			//assert(timer_fd_mp.find(erase_it->second->timer_fd)!=timer_fd_mp.end());
 
 			const_id_mp.erase(erase_it->second->oppsite_const_id);
-			timer_fd_mp.erase(erase_it->second->timer_fd);
-			close(erase_it->second->timer_fd);// close will auto delte it from epoll
+
+			fd_manager.fd64_close(erase_it->second->timer_fd64);
+
+			erase_it->second->timer_fd64=0;
+			//timer_fd_mp.erase(erase_it->second->timer_fd);
+			//close(erase_it->second->timer_fd);// close will auto delte it from epoll
 			delete(erase_it->second);
 			mp.erase(erase_it->first);
 		}
 		else
 		{
 			assert(erase_it->second->blob==0);
-			assert(erase_it->second->timer_fd ==0);
+			assert(erase_it->second->timer_fd64 ==0);
+
+
 			assert(erase_it->second->oppsite_const_id==0);
 			delete(erase_it->second);
 			mp.erase(erase_it->first);
@@ -628,7 +647,7 @@ int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_n
 	return 0;
 
 }
-int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//subfunction for recv_safer,allow overlap
+int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len)//subfunction for recv_safer,allow overlap
 {
 	 static char recv_data_buf[buf_len];
 
@@ -697,7 +716,17 @@ int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &ty
 		conn_info.oppsite_roller=roller;
 		conn_info.last_oppsite_roller_time=get_current_time();
 	}
-	conn_info.my_roller++;//increase on a successful recv
+	if(hb_mode==0)
+		conn_info.my_roller++;//increase on a successful recv
+	else if(hb_mode==1)
+	{
+		if(type=='h')
+			conn_info.my_roller++;
+	}
+	else
+	{
+		assert(0==1);
+	}
 
 
 	if(after_recv_raw0(conn_info.raw_info)!=0) return -1;
@@ -714,15 +743,15 @@ int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)///safer t
 
 	if(recv_raw0(conn_info.raw_info,recv_data,recv_len)!=0) return -1;
 
-	return parse_safer(conn_info,recv_data,recv_len,type,data,len);
+	return reserved_parse_safer(conn_info,recv_data,recv_len,type,data,len);
 }
 
 void server_clear_function(u64_t u64)//used in conv_manager in server mode.for server we have to use one udp fd for one conv(udp connection),
 //so we have to close the fd when conv expires
 {
-	int fd=int(u64);
-	int ret;
-	assert(fd!=0);
+	//int fd=int(u64);
+//	int ret;
+	//assert(fd!=0);
 	/*
 	epoll_event ev;
 
@@ -735,14 +764,19 @@ void server_clear_function(u64_t u64)//used in conv_manager in server mode.for s
 		mylog(log_fatal,"fd:%d epoll delete failed!!!!\n",fd);
 		myexit(-1);   //this shouldnt happen
 	}*/                //no need
-	ret= close(fd);  //closed fd should be auto removed from epoll
+
+	/*ret= close(fd);  //closed fd should be auto removed from epoll
 
 	if (ret!=0)
 	{
 		mylog(log_fatal,"close fd %d failed !!!!\n",fd);
 		myexit(-1);  //this shouldnt happen
-	}
+	}*/
 	//mylog(log_fatal,"size:%d !!!!\n",conn_manager.udp_fd_mp.size());
-	assert(conn_manager.udp_fd_mp.find(fd)!=conn_manager.udp_fd_mp.end());
-	conn_manager.udp_fd_mp.erase(fd);
+	fd64_t fd64=u64;
+	assert(fd_manager.exist(fd64));
+	fd_manager.fd64_close(fd64);
+
+	//assert(conn_manager.udp_fd_mp.find(fd)!=conn_manager.udp_fd_mp.end());
+	//conn_manager.udp_fd_mp.erase(fd);
 }

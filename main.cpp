@@ -5,12 +5,17 @@
 #include "log.h"
 #include "lib/md5.h"
 #include "encrypt.h"
+#include "fd_manager.h"
 
-int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
+
+char hb_buf[buf_len];
+
+int on_epoll_recv_event=0;  //TODO, just a flag to help detect epoll infinite shoot
 
 int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp_oppsite_const_id);
 int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,char *data,int data_len);
 int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * data, int data_len);
+
 
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
@@ -25,11 +30,19 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 	mylog(log_trace,"<client_on_timer,send_info.ts_ack= %u>\n",send_info.ts_ack);
 
+	if(raw_info.disabled)
+	{
+		conn_info.state.client_current_state=client_idle;
+		conn_info.my_id=get_true_random_number_nz();
 
-
+		mylog(log_info,"state back to client_idle\n");
+	}
 
 	if(conn_info.state.client_current_state==client_idle)
 	{
+		raw_info.rst_received=0;
+		raw_info.disabled=0;
+
 		fail_time_counter++;
 		if(max_fail_time>0&&fail_time_counter>max_fail_time)
 		{
@@ -50,6 +63,8 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 		conn_info.blob->anti_replay.re_init();
 		conn_info.my_id = get_true_random_number_nz(); ///todo no need to do this everytime
+
+
 
 		u32_t new_ip=0;
 		if(!force_source_ip&&get_src_adress(new_ip,remote_ip_uint32,remote_port)==0)
@@ -237,11 +252,6 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			return 0;
 		}
 
-		if(get_current_time()-conn_info.last_hb_sent_time<heartbeat_interval)
-		{
-			return 0;
-		}
-
 		if(get_current_time()- conn_info.last_oppsite_roller_time>client_conn_uplink_timeout)
 		{
 			conn_info.state.client_current_state=client_idle;
@@ -249,10 +259,20 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			mylog(log_info,"state back to client_idle from  client_ready bc of client-->server direction timeout\n");
 		}
 
+
+		if(get_current_time()-conn_info.last_hb_sent_time<heartbeat_interval)
+		{
+			return 0;
+		}
+
+
+
 		mylog(log_debug,"heartbeat sent <%x,%x>\n",conn_info.oppsite_id,conn_info.my_id);
 
-		send_safer(conn_info,'h',"",0);/////////////send
-
+		if(hb_mode==0)
+			send_safer(conn_info,'h',hb_buf,0);/////////////send
+		else
+			send_safer(conn_info,'h',hb_buf,hb_len);
 		conn_info.last_hb_sent_time=get_current_time();
 		return 0;
 	}
@@ -294,8 +314,10 @@ int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)  //for server. 
 			return 0;
 		}
 
-		send_safer(conn_info,'h',"",0);  /////////////send
-
+		if(hb_mode==0)
+			send_safer(conn_info,'h',hb_buf,0);  /////////////send
+		else
+			send_safer(conn_info,'h',hb_buf,hb_len);
 		conn_info.last_hb_sent_time=get_current_time();
 
 		mylog(log_debug,"heart beat sent<%x,%x>\n",conn_info.my_id,conn_info.oppsite_id);
@@ -441,9 +463,9 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			conn_info.last_oppsite_roller_time=conn_info.last_hb_recv_time;
 			client_on_timer(conn_info);
 		}
-		if(data_len==0&&type=='h')
+		if(data_len>=0&&type=='h')
 		{
-			mylog(log_debug,"[hb]heart beat received\n");
+			mylog(log_debug,"[hb]heart beat received,oppsite_roller=%d\n",int(conn_info.oppsite_roller));
 			conn_info.last_hb_recv_time=get_current_time();
 			return 0;
 		}
@@ -451,7 +473,8 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 		{
 			mylog(log_trace,"received a data from fake tcp,len:%d\n",data_len);
 
-			conn_info.last_hb_recv_time=get_current_time();
+			if(hb_mode==0)
+				conn_info.last_hb_recv_time=get_current_time();
 
 			//u32_t tmp_conv_id= ntohl(* ((u32_t *)&data[0]));
 			u32_t tmp_conv_id;
@@ -612,10 +635,15 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 
 		conn_info_t &conn_info=conn_manager.find_insert(ip,port);
 		conn_info.raw_info=tmp_raw_info;
+		raw_info_t &raw_info=conn_info.raw_info;
 
 		packet_info_t &send_info=conn_info.raw_info.send_info;
 		packet_info_t &recv_info=conn_info.raw_info.recv_info;
-		raw_info_t &raw_info=conn_info.raw_info;
+
+		//conn_info.ip_port.ip=ip;
+		//conn_info.ip_port.port=port;
+
+
 
 		send_info.src_ip=recv_info.dst_ip;
 		send_info.src_port=recv_info.dst_port;
@@ -642,6 +670,8 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		server_on_raw_recv_handshake1(conn_info,ip_port,data,data_len);
 		return 0;
 	}
+
+
 
 
 	conn_info_t & conn_info=conn_manager.find_insert(ip,port);//insert if not exist
@@ -782,7 +812,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 		return 0;
 	}*/
 
-	if (type == 'h' && data_len == 0) {
+	if (type == 'h' && data_len >= 0) {
 		//u32_t tmp = ntohl(*((u32_t *) &data[sizeof(u32_t)]));
 		mylog(log_debug,"[%s][hb]received hb \n",ip_port);
 		conn_info.last_hb_recv_time = get_current_time();
@@ -796,7 +826,8 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 		tmp_conv_id=ntohl(tmp_conv_id);
 
 
-		conn_info.last_hb_recv_time = get_current_time();
+		if(hb_mode==0)
+			conn_info.last_hb_recv_time = get_current_time();
 
 		mylog(log_trace, "conv:%u\n", tmp_conv_id);
 		if (!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id)) {
@@ -843,11 +874,13 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 			}
 			struct epoll_event ev;
 
-			u64_t u64 = (u32_t(new_udp_fd))+(1llu<<32u);
-			mylog(log_trace, "[%s]u64: %lld\n",ip_port, u64);
+			fd64_t new_udp_fd64 =  fd_manager.create(new_udp_fd);
+			fd_manager.get_info(new_udp_fd64).p_conn_info=&conn_info;
+
+			mylog(log_trace, "[%s]u64: %lld\n",ip_port, new_udp_fd64);
 			ev.events = EPOLLIN;
 
-			ev.data.u64 = u64;
+			ev.data.u64 = new_udp_fd64;
 
 			ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, new_udp_fd, &ev);
 
@@ -857,10 +890,13 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 				return -1;
 			}
 
-			conn_info.blob->conv_manager.insert_conv(tmp_conv_id, new_udp_fd);
-			assert(conn_manager.udp_fd_mp.find(new_udp_fd)==conn_manager.udp_fd_mp.end());
+			conn_info.blob->conv_manager.insert_conv(tmp_conv_id, new_udp_fd64);
 
-			conn_manager.udp_fd_mp[new_udp_fd] = &conn_info;
+
+
+			//assert(conn_manager.udp_fd_mp.find(new_udp_fd)==conn_manager.udp_fd_mp.end());
+
+			//conn_manager.udp_fd_mp[new_udp_fd] = &conn_info;
 
 			//pack_u64(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
 
@@ -871,11 +907,11 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 
 		}
 
-		u64_t u64 = conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
+		fd64_t fd64 = conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
 
 		conn_info.blob->conv_manager.update_active_time(tmp_conv_id);
 
-		int fd = int((u64 << 32u) >> 32u);
+		int fd = fd_manager.to_fd(fd64);
 
 		mylog(log_trace, "[%s]received a data from fake tcp,len:%d\n",ip_port, data_len);
 		int ret = send(fd, data + sizeof(u32_t),
@@ -928,21 +964,25 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 
 		//my_id=conn_info.my_id;
 		//oppsite_id=conn_info.oppsite_id;
-
 		conn_info.last_hb_recv_time = get_current_time();
+
 		conn_info.last_hb_sent_time = conn_info.last_hb_recv_time;//=get_current_time()
 
-		send_safer(conn_info, 'h',"", 0);		/////////////send
+		if(hb_mode==0)
+			send_safer(conn_info,'h',hb_buf,0);/////////////send
+		else
+			send_safer(conn_info,'h',hb_buf,hb_len);
 
 		mylog(log_info, "[%s]changed state to server_ready\n",ip_port);
 		conn_info.blob->anti_replay.re_init();
 
 		//g_conn_info=conn_info;
 		int new_timer_fd;
-		set_timer_server(epollfd, new_timer_fd);
-		conn_info.timer_fd=new_timer_fd;
-		assert(conn_manager.timer_fd_mp.find(new_timer_fd)==conn_manager.timer_fd_mp.end());
-		conn_manager.timer_fd_mp[new_timer_fd] = &conn_info;//pack_u64(ip,port);
+		set_timer_server(epollfd, new_timer_fd,conn_info.timer_fd64);
+
+		fd_manager.get_info(conn_info.timer_fd64).p_conn_info=&conn_info;
+		//assert(conn_manager.timer_fd_mp.find(new_timer_fd)==conn_manager.timer_fd_mp.end());
+		//conn_manager.timer_fd_mp[new_timer_fd] = &conn_info;//pack_u64(ip,port);
 
 
 		//timer_fd_mp[new_timer_fd]
@@ -991,8 +1031,14 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 			//ori_conn_info.state.server_current_state=server_ready;
 			ori_conn_info.recover(conn_info);
 
-			send_safer(ori_conn_info, 'h',"", 0);
+			//send_safer(ori_conn_info, 'h',hb_buf, hb_len);
 			//ori_conn_info.blob->anti_replay.re_init();
+			if(hb_mode==0)
+				send_safer(ori_conn_info,'h',hb_buf,0);/////////////send
+			else
+				send_safer(ori_conn_info,'h',hb_buf,hb_len);
+
+			ori_conn_info.last_hb_recv_time=get_current_time();
 
 
 
@@ -1043,10 +1089,36 @@ int client_event_loop()
 			u32_t dest_ip;
 			string if_name_string;
 			string hw_string;
-			if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
+
+			if(retry_on_error==0)
 			{
+<<<<<<< HEAD
 				mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_host);
 				myexit(-1);
+=======
+				if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
+				{
+					mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_ip);
+					myexit(-1);
+				}
+			}
+			else
+			{
+				int ok=0;
+				while(!ok)
+				{
+					if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
+					{
+						mylog(log_warn,"auto detect lower-level info failed for %s,retry in %d seconds\n",remote_ip,retry_on_error_interval);
+						sleep(retry_on_error_interval);
+					}
+					else
+					{
+						ok=1;
+					}
+
+				}
+>>>>>>> upstream/master
 			}
 			mylog(log_info,"we are running at lower-level (auto) mode,%s %s %s\n",my_ntoa(dest_ip),if_name_string.c_str(),hw_string.c_str());
 
@@ -1080,11 +1152,32 @@ int client_event_loop()
 	if(source_ip_uint32==0)
 	{
 		mylog(log_info,"get_src_adress called\n");
-		if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
+		if(retry_on_error==0)
 		{
-			mylog(log_fatal,"the trick to auto get source ip failed,you should specific an ip by --source-ip\n");
-			myexit(-1);
+			if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
+			{
+				mylog(log_fatal,"the trick to auto get source ip failed, maybe you dont have internet access\n");
+				myexit(-1);
+			}
 		}
+		else
+		{
+			int ok=0;
+			while(!ok)
+			{
+				if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
+				{
+					mylog(log_warn,"the trick to auto get source ip failed, maybe you dont have internet access, retry in %d seconds\n",retry_on_error_interval);
+					sleep(retry_on_error_interval);
+				}
+				else
+				{
+					ok=1;
+				}
+
+			}
+		}
+
 	}
 	in_addr tmp;
 	tmp.s_addr=source_ip_uint32;
@@ -1190,13 +1283,13 @@ int client_event_loop()
 		if (nfds < 0) {  //allow zero
 			if(errno==EINTR  )
 			{
-				mylog(log_info,"epoll interrupted by signal\n");
+				mylog(log_info,"epoll interrupted by signal,continue\n");
 				//close(fifo_fd);
-				myexit(0);
+				//myexit(0);
 			}
 			else
 			{
-				mylog(log_fatal,"epoll_wait return %d\n", nfds);
+				mylog(log_fatal,"epoll_wait return %d,%s\n", nfds,strerror(errno));
 				myexit(-1);
 			}
 		}
@@ -1218,7 +1311,12 @@ int client_event_loop()
 			else if (events[idx].data.u64 == (u64_t)fifo_fd)
 			{
 				int len=read (fifo_fd, buf, sizeof (buf));
-				assert(len>=0);
+				//assert(len>=0);
+				if(len<0)
+				{
+					mylog(log_warn,"fifo read failed len=%d,errno=%s\n",len,strerror(errno));
+					continue;
+				}
 				buf[len]=0;
 				while(len>=1&&buf[len-1]=='\n')
 					buf[len-1]=0;
@@ -1241,11 +1339,17 @@ int client_event_loop()
 				int recv_len;
 				struct sockaddr_in udp_new_addr_in={0};
 				socklen_t udp_new_addr_len = sizeof(sockaddr_in);
-				if ((recv_len = recvfrom(udp_fd, buf, max_data_len, 0,
+				if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 						(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
 					mylog(log_error,"recv_from error,this shouldnt happen at client\n");
 					myexit(1);
 				};
+
+				if(recv_len==max_data_len+1)
+				{
+					mylog(log_warn,"huge packet, data_len > %d,dropped\n",max_data_len);
+					continue;
+				}
 
 				if(recv_len>=mtu_warn)
 				{
@@ -1420,6 +1524,8 @@ int server_event_loop()
 		}
 		mylog(log_info,"fifo_file=%s\n",fifo_file);
 	}
+
+
 	while(1)////////////////////////
 	{
 
@@ -1429,12 +1535,12 @@ int server_event_loop()
 		if (nfds < 0) {  //allow zero
 			if(errno==EINTR  )
 			{
-				mylog(log_info,"epoll interrupted by signal\n");
-				myexit(0);
+				mylog(log_info,"epoll interrupted by signal,continue\n");
+				//myexit(0);
 			}
 			else
 			{
-				mylog(log_fatal,"epoll_wait return %d\n", nfds);
+				mylog(log_fatal,"epoll_wait return %d,%s\n", nfds,strerror(errno));
 				myexit(-1);
 			}
 		}
@@ -1474,29 +1580,58 @@ int server_event_loop()
 			else if (events[idx].data.u64 == (u64_t)fifo_fd)
 			{
 				int len=read (fifo_fd, buf, sizeof (buf));
-				assert(len>=0);
+				if(len<0)
+				{
+					mylog(log_warn,"fifo read failed len=%d,errno=%s\n",len,strerror(errno));
+					continue;
+				}
+				//assert(len>=0);
 				buf[len]=0;
 				while(len>=1&&buf[len-1]=='\n')
 					buf[len-1]=0;
 				mylog(log_info,"got data from fifo,len=%d,s=[%s]\n",len,buf);
 				mylog(log_info,"unknown command\n");
 			}
-			else if ((events[idx].data.u64 >>32u) == 2u)
+			else if (events[idx].data.u64>u32_t(-1) )
 			{
+
+				fd64_t fd64=events[idx].data.u64;
+
+				if(!fd_manager.exist(fd64))
+				{
+					mylog(log_trace ,"fd64 no longer exist\n");
+					continue;
+				}
+
+				assert(fd_manager.exist_info(fd64));
+
+				conn_info_t* p_conn_info=fd_manager.get_info(fd64).p_conn_info;
+				u32_t ip=p_conn_info->raw_info.send_info.dst_ip;
+				u32_t port=p_conn_info->raw_info.send_info.dst_port;
+
+				//assert(conn_manager.exist(ip,port));
+
+				///conn_info_t* p_conn_info=conn_manager.find_insert_p(ip,port);
+
+
+				if(fd64==p_conn_info->timer_fd64)//////////timer_fd64
+				{
+
 				if(debug_flag)begin_time=get_current_time();
-				int fd=get_u64_l(events[idx].data.u64);
+				//int fd=get_u64_l(events[idx].data.u64);
+				int fd=fd_manager.to_fd(fd64);
 				u64_t dummy;
 				read(fd, &dummy, 8);
 
-				if(conn_manager.timer_fd_mp.find(fd)==conn_manager.timer_fd_mp.end()) //this can happen,when fd is a just closed fd
+				/*if(conn_manager.timer_fd_mp.find(fd)==conn_manager.timer_fd_mp.end()) //this can happen,when fd is a just closed fd
 				{
 					mylog(log_info,"timer_fd no longer exits\n");
 					continue;
-				}
-				conn_info_t* p_conn_info=conn_manager.timer_fd_mp[fd];
-				u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
-				u32_t port=p_conn_info->raw_info.recv_info.src_port;
-				assert(conn_manager.exist(ip,port));//TODO remove this for peformance
+				}*/
+				//conn_info_t* p_conn_info=conn_manager.timer_fd_mp[fd];
+				//u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
+				//u32_t port=p_conn_info->raw_info.recv_info.src_port;
+				//assert(conn_manager.exist(ip,port));//TODO remove this for peformance
 
 				assert(p_conn_info->state.server_current_state == server_ready); //TODO remove this for peformance
 
@@ -1512,30 +1647,36 @@ int server_event_loop()
 					end_time=get_current_time();
 					mylog(log_debug,"(events[idx].data.u64 >>32u) == 2u ,%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
 				}
-			}
-			else if ((events[idx].data.u64 >>32u) == 1u)
-			{
+
+				}
+				else//udp_fd64
+				{
+			//}
+			//else if ((events[idx].data.u64 >>32u) == 1u)
+			//{
 				//uint32_t conv_id=events[n].data.u64>>32u;
 
 				if(debug_flag)begin_time=get_current_time();
 
-				int fd=int((events[idx].data.u64<<32u)>>32u);
+				//int fd=int((events[idx].data.u64<<32u)>>32u);
 
+				/*
 				if(conn_manager.udp_fd_mp.find(fd)==conn_manager.udp_fd_mp.end()) //this can happen,when fd is a just closed fd
 				{
 					mylog(log_debug,"fd no longer exists in udp_fd_mp,udp fd %d\n",fd);
 					recv(fd,0,0,0);
 					continue;
-				}
-				conn_info_t* p_conn_info=conn_manager.udp_fd_mp[fd];
+				}*/
+				//conn_info_t* p_conn_info=conn_manager.udp_fd_mp[fd];
 
-				u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
-				u32_t port=p_conn_info->raw_info.recv_info.src_port;
-				if(!conn_manager.exist(ip,port))//TODO remove this for peformance
+				//u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
+				//u32_t port=p_conn_info->raw_info.recv_info.src_port;
+
+				/*if(!conn_manager.exist(ip,port))//TODO remove this for peformance
 				{
 					mylog(log_fatal,"ip port no longer exits 2!!!this shouldnt happen\n");
 					myexit(-1);
-				}
+				}*/
 
 				if(p_conn_info->state.server_current_state!=server_ready)//TODO remove this for peformance
 				{
@@ -1545,18 +1686,21 @@ int server_event_loop()
 
 				conn_info_t &conn_info=*p_conn_info;
 
-				if(!conn_info.blob->conv_manager.is_u64_used(fd))
-				{
-					mylog(log_debug,"conv no longer exists,udp fd %d\n",fd);
-					int recv_len=recv(fd,0,0,0); ///////////TODO ,delete this
-					continue;
-				}
+				assert(conn_info.blob->conv_manager.is_u64_used(fd64));
 
-				u32_t conv_id=conn_info.blob->conv_manager.find_conv_by_u64(fd);
+				u32_t conv_id=conn_info.blob->conv_manager.find_conv_by_u64(fd64);
 
-				int recv_len=recv(fd,buf,max_data_len,0);
+				int fd=fd_manager.to_fd(fd64);
+
+				int recv_len=recv(fd,buf,max_data_len+1,0);
 
 				mylog(log_trace,"received a packet from udp_fd,len:%d\n",recv_len);
+
+				if(recv_len==max_data_len+1)
+				{
+					mylog(log_warn,"huge packet, data_len > %d,dropped\n",max_data_len);
+					continue;
+				}
 
 				if(recv_len<0)
 				{
@@ -1583,6 +1727,9 @@ int server_event_loop()
 				{
 					end_time=get_current_time();
 				    mylog(log_debug,"(events[idx].data.u64 >>32u) == 1u,%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+				}
+
+
 				}
 			}
 			else
@@ -1630,7 +1777,11 @@ int main(int argc, char *argv[])
 
 	if(geteuid() != 0)
 	{
-		mylog(log_error,"root check failed,make sure you run this program with root,we can try to continue,but it will likely fail\n");
+		mylog(log_warn,"root check failed, it seems like you are using a non-root account. we can try to continue, but it may fail. If you want to run udp2raw as non-root, you have to add iptables rule manually, and grant udp2raw CAP_NET_RAW capability, check README.md in repo for more info.\n");
+	}
+	else
+	{
+		mylog(log_warn,"you can run udp2raw with non-root account for better security. check README.md in repo for more info.\n");
 	}
 
 

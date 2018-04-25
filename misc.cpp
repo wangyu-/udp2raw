@@ -10,7 +10,20 @@
 #include "misc.h"
 #include "network.h"
 #include "connection.h"
+#include "fd_manager.h"
 
+
+int hb_mode=1;
+int hb_len=1200;
+
+int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
+
+int max_rst_to_show=15;
+
+int max_rst_allowed=-1;
+
+
+fd_manager_t fd_manager;
 
 char local_ip[100]="0.0.0.0", remote_host[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_host for -r option,source for --source-ip
 u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
@@ -35,12 +48,18 @@ int auto_add_iptables_rule=0;//if -a is set
 int generate_iptables_rule=0;//if -g is set
 int generate_iptables_rule_add=0;// if --gen-add is set
 
+int retry_on_error=0;
+
 int debug_resend=0; // debug only
 
 char key_string[1000]= "secret key";// -k option
 
 char fifo_file[1000]="";
 
+int clear_iptables=0;
+int wait_xtables_lock=0;
+string iptables_command0="iptables ";
+string iptables_command="";
 string iptables_pattern="";
 int iptables_rule_added=0;
 int iptables_rule_keeped=0;
@@ -144,9 +163,13 @@ void print_help()
 	printf("    --lower-level         <string>        send packets at OSI level 2, format:'if_name#dest_mac_adress'\n");
 	printf("                                          ie:'eth0#00:23:45:67:89:b9'.or try '--lower-level auto' to obtain\n");
 	printf("                                          the parameter automatically,specify it manually if 'auto' failed\n");
+	printf("    --wait-lock                           wait for xtables lock while invoking iptables, need iptables v1.4.20+\n");
 	printf("    --gen-add                             generate iptables rule and add it permanently,then exit.overrides -g\n");
 	printf("    --keep-rule                           monitor iptables and auto re-add if necessary.implys -a\n");
+	printf("    --hb-len              <number>        length of heart-beat packet, >=0 and <=1500\n");
+	printf("    --mtu-warn            <number>        mtu warning threshold, unit:byte, default:1375\n");
 	printf("    --clear                               clear any iptables rules added by this program.overrides everything\n");
+	printf("    --retry-on-error                      retry on error, allow to start udp2raw before network is initialized\n");
 	printf("    -h,--help                             print this help message\n");
 
 	//printf("common options,these options must be same on both side\n");
@@ -234,6 +257,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"gen-rule", no_argument,    0, 'g'},
 		{"gen-add", no_argument,    0, 1},
 		{"debug", no_argument,    0, 1},
+		{"retry-on-error", no_argument,    0, 1},
 		{"clear", no_argument,    0, 1},
 		{"simple-rule", no_argument,    0, 1},
 		{"keep-rule", no_argument,    0, 1},
@@ -242,8 +266,14 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"seq-mode", required_argument,    0, 1},
 		{"conf-file", required_argument,   0, 1},
 		{"force-sock-buf", no_argument,   0, 1},
+		{"wait-lock", no_argument,   0, 1},
 		{"random-drop", required_argument,    0, 1},
 		{"fifo", required_argument,    0, 1},
+		{"hb-mode", required_argument,    0, 1},
+		{"hb-len", required_argument,    0, 1},
+		{"mtu-warn", required_argument,    0, 1},
+		{"max-rst-to-show", required_argument,    0, 1},
+		{"max-rst-allowed", required_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -412,15 +442,7 @@ void process_arg(int argc, char *argv[])  //process all options
 			mylog(log_debug,"option_index: %d\n",option_index);
 			if(strcmp(long_options[option_index].name,"clear")==0)
 			{
-				char *output;
-				//int ret =system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
-				int ret =run_command("iptables -S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-A/iptables -D/p'|sh",output);
-
-				int ret2 =run_command("iptables -S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-N/iptables -X/p'|sh",output);
-				//system("iptables-save |grep udp2raw_dWRwMnJhdw|sed 's/^-A/iptables -D/'|sh");
-				//system("iptables-save|grep -v udp2raw_dWRwMnJhdw|iptables-restore");
-				mylog(log_info,"tried to clear all iptables rule created previously,return value %d %d\n",ret,ret2);
-				myexit(-1);
+				clear_iptables=1;
 			}
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
 			{
@@ -532,6 +554,14 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				force_socket_buf=1;
 			}
+			else if(strcmp(long_options[option_index].name,"retry-on-error")==0)
+			{
+				retry_on_error=1;
+			}
+			else if(strcmp(long_options[option_index].name,"wait-lock")==0)
+			{
+				wait_xtables_lock=1;
+			}
 			else if(strcmp(long_options[option_index].name,"disable-bpf")==0)
 			{
 				disable_bpf_filter=1;
@@ -586,7 +616,36 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				mylog(log_info,"configuration loaded from %s\n",optarg);
 			}
-
+			else if(strcmp(long_options[option_index].name,"hb-mode")==0)
+			{
+				sscanf(optarg,"%d",&hb_mode);
+				assert(hb_mode==0||hb_mode==1);
+				mylog(log_info,"hb_mode =%d \n",hb_mode);
+			}
+			else if(strcmp(long_options[option_index].name,"hb-len")==0)
+			{
+				sscanf(optarg,"%d",&hb_len);
+				assert(hb_len>=0&&hb_len<=1500);
+				mylog(log_info,"hb_len =%d \n",hb_len);
+			}
+			else if(strcmp(long_options[option_index].name,"mtu-warn")==0)
+			{
+				sscanf(optarg,"%d",&mtu_warn);
+				assert(mtu_warn>0);
+				mylog(log_info,"mtu_warn=%d \n",mtu_warn);
+			}
+			else if(strcmp(long_options[option_index].name,"max-rst-to-show")==0)
+			{
+				sscanf(optarg,"%d",&max_rst_to_show);
+				assert(max_rst_to_show>=-1);
+				mylog(log_info,"max_rst_to_show=%d \n",max_rst_to_show);
+			}
+			else if(strcmp(long_options[option_index].name,"max-rst-allowed")==0)
+			{
+				sscanf(optarg,"%d",&max_rst_allowed);
+				assert(max_rst_allowed>=-1);
+				mylog(log_info,"max_rst_allowed=%d \n",max_rst_allowed);
+			}
 			else
 			{
 				mylog(log_warn,"ignored unknown long option ,option_index:%d code:<%x>\n",option_index, optopt);
@@ -609,6 +668,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		print_help();
 		myexit(-1);
 	}
+
 	//if(lower_level)
 		//process_lower_level_arg();
 
@@ -737,8 +797,30 @@ void *run_keep(void *none)  //called in a new thread for --keep-rule option
 	return NULL;
 
 }
-void iptables_rule()  // handles -a -g --gen-add  --keep-rule
+void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-lock
 {
+	if(!wait_xtables_lock)
+	{
+		iptables_command=iptables_command0;
+	}
+	else
+	{
+		iptables_command=iptables_command0+"-w ";
+	}
+
+	if(clear_iptables)
+	{
+		char *output;
+		//int ret =system("iptables-save |grep udp2raw_dWRwMnJhdw|sed -n 's/^-A/iptables -D/p'|sh");
+		int ret =run_command(iptables_command+"-S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-A/"+iptables_command+"-D/p'|sh",output);
+
+		int ret2 =run_command(iptables_command+"-S|sed -n '/udp2rawDwrW/p'|sed -n 's/^-N/"+iptables_command+"-X/p'|sh",output);
+		//system("iptables-save |grep udp2raw_dWRwMnJhdw|sed 's/^-A/iptables -D/'|sh");
+		//system("iptables-save|grep -v udp2raw_dWRwMnJhdw|iptables-restore");
+		mylog(log_info,"tried to clear all iptables rule created previously,return value %d %d\n",ret,ret2);
+		myexit(-1);
+	}
+
 	if(auto_add_iptables_rule&&generate_iptables_rule)
 	{
 		mylog(log_warn," -g overrides -a\n");
@@ -841,7 +923,7 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule
 	}
 	if(generate_iptables_rule)
 	{
-		string rule="iptables -I INPUT ";
+		string rule=iptables_command+"-I INPUT ";
 		rule+=pattern;
 		rule+=" -j DROP";
 
@@ -948,7 +1030,7 @@ int set_timer(int epollfd,int &timer_fd)//put a timer_fd into epoll,general func
 }
 
 
-int set_timer_server(int epollfd,int &timer_fd)//only for server
+int set_timer_server(int epollfd,int &timer_fd,fd64_t &fd64)//only for server
 {
 	int ret;
 	epoll_event ev;
@@ -966,9 +1048,11 @@ int set_timer_server(int epollfd,int &timer_fd)//only for server
 	its.it_value.tv_nsec=1; //imidiately
 	timerfd_settime(timer_fd,0,&its,0);
 
+	fd64=fd_manager.create(timer_fd);
+
 
 	ev.events = EPOLLIN;
-	ev.data.u64 = pack_u64(2,timer_fd);////difference
+	ev.data.u64 = fd64;////difference
 
 	ret=epoll_ctl(epollfd, EPOLL_CTL_ADD, timer_fd, &ev);
 	if (ret < 0) {
@@ -1009,31 +1093,6 @@ int handle_lower_level(raw_info_t &raw_info)//fill lower_level info,when --lower
 }
 
 
-
-/*
-int add_iptables_rule(const char * s)
-{
-
-	iptables_pattern=s;
-
-	string rule="iptables -I INPUT ";
-	rule+=iptables_pattern;
-	rule+=" -j DROP";
-
-	char *output;
-	if(run_command(rule.c_str(),output)==0)
-	{
-		mylog(log_warn,"auto added iptables rule by:  %s\n",rule.c_str());
-	}
-	else
-	{
-		mylog(log_fatal,"auto added iptables failed by: %s\n",rule.c_str());
-		//mylog(log_fatal,"reason : %s\n",strerror(errno));
-		myexit(-1);
-	}
-	iptables_rule_added=1;
-	return 0;
-}*/
 string chain[2];
 string rule_keep[2];
 string rule_keep_add[2];
@@ -1048,14 +1107,14 @@ int iptables_gen_add(const char * s,u32_t const_id)
 	iptables_pattern=s;
 	chain[0] =dummy+ "udp2rawDwrW_C";
 	rule_keep[0]=dummy+ iptables_pattern+" -j " +chain[0];
-	rule_keep_add[0]=dummy+"iptables -I INPUT "+rule_keep[0];
+	rule_keep_add[0]=iptables_command+"-I INPUT "+rule_keep[0];
 
 	char *output;
-	run_command(dummy+"iptables -N "+chain[0],output,show_none);
-	run_command(dummy+"iptables -F "+chain[0],output);
-	run_command(dummy+"iptables -I "+chain[0] + " -j DROP",output);
+	run_command(iptables_command+"-N "+chain[0],output,show_none);
+	run_command(iptables_command+"-F "+chain[0],output);
+	run_command(iptables_command+"-I "+chain[0] + " -j DROP",output);
 
-	rule_keep_del[0]=dummy+"iptables -D INPUT "+rule_keep[0];
+	rule_keep_del[0]=iptables_command+"-D INPUT "+rule_keep[0];
 
 	run_command(rule_keep_del[0],output,show_none);
 	run_command(rule_keep_del[0],output,show_none);
@@ -1083,11 +1142,11 @@ int iptables_rule_init(const char * s,u32_t const_id,int keep)
 	rule_keep[0]=dummy+ iptables_pattern+" -j " +chain[0];
 	rule_keep[1]=dummy+ iptables_pattern+" -j " +chain[1];
 
-	rule_keep_add[0]=dummy+"iptables -I INPUT "+rule_keep[0];
-	rule_keep_add[1]=dummy+"iptables -I INPUT "+rule_keep[1];
+	rule_keep_add[0]=iptables_command+"-I INPUT "+rule_keep[0];
+	rule_keep_add[1]=iptables_command+"-I INPUT "+rule_keep[1];
 
-	rule_keep_del[0]=dummy+"iptables -D INPUT "+rule_keep[0];
-	rule_keep_del[1]=dummy+"iptables -D INPUT "+rule_keep[1];
+	rule_keep_del[0]=iptables_command+"-D INPUT "+rule_keep[0];
+	rule_keep_del[1]=iptables_command+"-D INPUT "+rule_keep[1];
 
 	keep_rule_last_time=get_current_time();
 
@@ -1095,9 +1154,9 @@ int iptables_rule_init(const char * s,u32_t const_id,int keep)
 
 	for(int i=0;i<=iptables_rule_keeped;i++)
 	{
-		run_command(dummy+"iptables -N "+chain[i],output);
-		run_command(dummy+"iptables -F "+chain[i],output);
-		run_command(dummy+"iptables -I "+chain[i] + " -j DROP",output);
+		run_command(iptables_command+"-N "+chain[i],output);
+		run_command(iptables_command+"-F "+chain[i],output);
+		run_command(iptables_command+"-I "+chain[i] + " -j DROP",output);
 
 		if(run_command(rule_keep_add[i],output)!=0)
 		{
@@ -1134,12 +1193,12 @@ int keep_iptables_rule()  //magic to work on a machine without grep/iptables --c
 
 	int i=iptables_rule_keep_index;
 
-	run_command(dummy + "iptables -N " + chain[i], output,show_none);
+	run_command(iptables_command + "-N " + chain[i], output,show_none);
 
-	if (run_command(dummy + "iptables -F " + chain[i], output,show_none) != 0)
+	if (run_command(iptables_command + "-F " + chain[i], output,show_none) != 0)
 		mylog(log_warn, "iptables -F failed %d\n",i);
 
-	if (run_command(dummy + "iptables -I " + chain[i] + " -j DROP",output,show_none) != 0)
+	if (run_command(iptables_command + "-I " + chain[i] + " -j DROP",output,show_none) != 0)
 		mylog(log_warn, "iptables -I failed %d\n",i);
 
 	if (run_command(rule_keep_del[i], output,show_none) != 0)
@@ -1163,8 +1222,8 @@ int clear_iptables_rule()
 	for(int i=0;i<=iptables_rule_keeped;i++ )
 	{
 		run_command(rule_keep_del[i],output);
-		run_command(dummy+"iptables -F "+chain[i],output);
-		run_command(dummy+"iptables -X "+chain[i],output);
+		run_command(iptables_command+"-F "+chain[i],output);
+		run_command(iptables_command+"-X "+chain[i],output);
 	}
 	return 0;
 }

@@ -85,7 +85,8 @@ struct conn_info_t     //stores info for a raw connection.for client ,there is o
 	id_t oppsite_id;
 
 
-	int timer_fd;
+	fd64_t timer_fd64;
+
 	id_t oppsite_const_id;
 
 	blob_t *blob;
@@ -93,6 +94,8 @@ struct conn_info_t     //stores info for a raw connection.for client ,there is o
 	uint8_t my_roller;
 	uint8_t oppsite_roller;
 	u64_t last_oppsite_roller_time;
+
+//	ip_port_t ip_port;
 
 /*
 	const uint32_t &ip=raw_info.recv_info.src_ip;
@@ -113,8 +116,8 @@ struct conn_manager_t  //manager for connections. for client,we dont need conn_m
 
  u32_t ready_num;
 
- unordered_map<int,conn_info_t *> udp_fd_mp;  //a bit dirty to used pointer,but can void unordered_map search
- unordered_map<int,conn_info_t *> timer_fd_mp;//we can use pointer here since unordered_map.rehash() uses shallow copy
+ //unordered_map<int,conn_info_t *> udp_fd_mp;  //a bit dirty to used pointer,but can void unordered_map search
+ //unordered_map<int,conn_info_t *> timer_fd_mp;//we can use pointer here since unordered_map.rehash() uses shallow copy
 
  unordered_map<id_t,conn_info_t *> const_id_mp;
 
@@ -151,12 +154,12 @@ void server_clear_function(u64_t u64);
 
 int send_bare(raw_info_t &raw_info,const char* data,int len);//send function with encryption but no anti replay,this is used when client and server verifys each other
 //you have to design the protocol carefully, so that you wont be affect by relay attack
-int reserved_parse_bare(const char *input,int input_len,char* & data,int & len); // a sub function used in recv_bare
+//int reserved_parse_bare(const char *input,int input_len,char* & data,int & len); // a sub function used in recv_bare
 int recv_bare(raw_info_t &raw_info,char* & data,int & len);//recv function with encryption but no anti replay,this is used when client and server verifys each other
 //you have to design the protocol carefully, so that you wont be affect by relay attack
 int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3);// a warp for send_bare for sending handshake(this is not tcp handshake) easily
 int send_safer(conn_info_t &conn_info,char type,const char* data,int len);  //safer transfer function with anti-replay,when mutually verification is done.
 int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_num);//a wrap for  send_safer for transfer data.
-int parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len);//subfunction for recv_safer,allow overlap
+//int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len);//subfunction for recv_safer,allow overlap
 int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len);///safer transfer function with anti-replay,when mutually verification is done.
 #endif /* CONNECTION_H_ */

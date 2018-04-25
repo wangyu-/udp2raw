@@ -71,7 +71,22 @@ typedef u64_t padding_t;
 
 typedef u64_t anti_replay_seq_t;
 
-const int max_data_len=1600;
+
+struct ip_port_t
+{
+	u32_t ip;
+	int port;
+	void from_u64(u64_t u64);
+	u64_t to_u64();
+	char * to_s();
+};
+
+
+
+
+typedef u64_t fd64_t;
+
+const int max_data_len=1800;
 const int buf_len=max_data_len+400;
 
 u64_t get_current_time();
