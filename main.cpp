@@ -50,17 +50,6 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			myexit(-1);
 		}
 
-		struct hostent        *he;
-		if ( (he = gethostbyname(remote_host) ) == NULL ) {
-			mylog(log_warn,"Unable to resolve hostname: %s, server ip wasn't updated.\n",remote_host);
-		} else {
-			struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
-			if ((*addr_list[0]).s_addr!=remote_ip_uint32) {
-				remote_ip_uint32=(*addr_list[0]).s_addr;
-				mylog(log_info,"Updated server ip '%s' as resolved result of '%s'\n",my_ntoa(remote_ip_uint32),remote_host);	
-			}
-		}
-
 		conn_info.blob->anti_replay.re_init();
 		conn_info.my_id = get_true_random_number_nz(); ///todo no need to do this everytime
 
@@ -836,16 +825,6 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 						"[%s]ignored new conv %x connect bc max_conv_num exceed\n",ip_port,
 						tmp_conv_id);
 				return 0;
-			}
-			struct hostent        *he;
-			if ( (he = gethostbyname(remote_host) ) == NULL ) {
-				mylog(log_warn,"Unable to resolve hostname: %s, remote ip wasn't updated.\n",remote_host);
-			} else {
-				struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
-				if ((*addr_list[0]).s_addr!=remote_ip_uint32) {
-					remote_ip_uint32=(*addr_list[0]).s_addr;
-					mylog(log_info,"Updated remote ip '%s' as resolved result of '%s'\n",my_ntoa(remote_ip_uint32),remote_host);	
-				}
 			}
 			
 			struct sockaddr_in remote_addr_in={0};
