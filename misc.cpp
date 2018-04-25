@@ -848,15 +848,15 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 	{
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p tcp -m tcp --sport %d",remote_host,remote_port);
+			sprintf(tmp_pattern,"-s %s/32 -p tcp -m tcp --sport %d",my_ntoa(remote_ip_uint32),remote_port);
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p udp -m udp --sport %d",remote_host,remote_port);
+			sprintf(tmp_pattern,"-s %s/32 -p udp -m udp --sport %d",my_ntoa(remote_ip_uint32),remote_port);
 		}
 		if(raw_mode==mode_icmp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p icmp",remote_host);
+			sprintf(tmp_pattern,"-s %s/32 -p icmp",my_ntoa(remote_ip_uint32));
 		}
 		pattern=tmp_pattern;
 	}
