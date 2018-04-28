@@ -69,9 +69,9 @@ union current_state_t
 	client_current_state_t client_current_state;
 };
 
-extern char local_ip[100], remote_ip[100],source_ip[100];//local_ip is for -l option,remote_ip for -r option,source for --source-ip
+extern char local_ip[100], remote_host[100],source_ip[100];//local_ip is for -l option,remote_host for -r option,source for --source-ip
 extern u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
-extern int local_port , remote_port,source_port;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
+extern int local_port , remote_port,source_port;//similiar to local_ip  remote_host,buf for port.source_port=0 indicates --source-port is not enabled
 
 extern int force_source_ip; //if --source-ip is enabled
 
