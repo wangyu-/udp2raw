@@ -89,6 +89,8 @@ typedef u64_t fd64_t;
 const int max_data_len=1800;
 const int buf_len=max_data_len+400;
 
+const int max_address_len=512;
+
 u64_t get_current_time();
 u64_t pack_u64(u32_t a,u32_t b);
 

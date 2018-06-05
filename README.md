@@ -91,8 +91,8 @@ git version:6e1df4b39f    build date:Oct 24 2017 09:21:15
 repository: https://github.com/wangyu-/udp2raw-tunnel
 
 usage:
-    run as client : ./this_program -c -l local_listen_ip:local_port -r remote_host:server_port  [options]
-    run as server : ./this_program -s -l server_listen_ip:server_port -r remote_host:remote_port  [options]
+    run as client : ./this_program -c -l local_listen_ip:local_port -r remote_address:server_port  [options]
+    run as server : ./this_program -s -l server_listen_ip:server_port -r remote_address:remote_port  [options]
 
 common options,these options must be same on both side:
     --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp

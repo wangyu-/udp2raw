@@ -1073,7 +1073,7 @@ int client_event_loop()
 			{
 				if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
 				{
-					mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_host);
+					mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_ip);
 					myexit(-1);
 				}
 			}
@@ -1084,7 +1084,7 @@ int client_event_loop()
 				{
 					if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
 					{
-						mylog(log_warn,"auto detect lower-level info failed for %s,retry in %d seconds\n",remote_host,retry_on_error_interval);
+						mylog(log_warn,"auto detect lower-level info failed for %s,retry in %d seconds\n",remote_ip,retry_on_error_interval);
 						sleep(retry_on_error_interval);
 					}
 					else
@@ -1758,19 +1758,33 @@ int main(int argc, char *argv[])
 		mylog(log_warn,"you can run udp2raw with non-root account for better security. check README.md in repo for more info.\n");
 	}
 
-
+	local_ip_uint32=inet_addr(local_ip);
+	source_ip_uint32=inet_addr(source_ip);
+	
+//	if(enable_dns_resolve)
+//	{
+#if ENABLE_DNS_RESOLVE
 	struct hostent        *he;
-	if ( (he = gethostbyname(remote_host) ) == NULL ) {
-		mylog(log_error,"Unable to resolve hostname: %s\n",remote_host);
+	if ( (he = gethostbyname(remote_address) ) == NULL ) {
+		mylog(log_error,"Unable to resolve hostname: %s\n",remote_address);
 		exit(1); /* error */
 	}
 	struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
 	remote_ip_uint32=(*addr_list[0]).s_addr;
 	mylog(log_info,"%s ip = %s\n", program_mode==client_mode?"server":"remote", my_ntoa(remote_ip_uint32));
 
-	local_ip_uint32=inet_addr(local_ip);
-	source_ip_uint32=inet_addr(source_ip);
 
+	strcpy(remote_ip,my_ntoa(remote_ip_uint32));
+#else
+
+//	}
+//	else
+	{
+		//strncpy(remote_ip,remote_address,sizeof(remote_ip)-1);
+		strcpy(remote_ip,remote_address);
+		remote_ip_uint32=inet_addr(remote_ip);
+	}
+#endif
 
 	//current_time_rough=get_current_time();
 
