@@ -659,7 +659,7 @@ void process_arg(int argc, char *argv[])  //process all options
 				mylog(log_info,"ttl_value=%d\n",ttl_value);
 			}
 
-			else if(strcmp(long_options[option_index].name,"dns-resolve")==0)
+			else if(strcmp(long_options[option_index].name,"dns-resolve")==0)  // currently not used
 			{
 				enable_dns_resolve=1;
 				mylog(log_info,"dns-resolve enabled\n");
