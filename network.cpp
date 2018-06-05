@@ -591,7 +591,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 
     iph->frag_off = htons(0x4000); //DF set,others are zero
    // iph->frag_off = htons(0x0000); //DF set,others are zero
-    iph->ttl = 64;
+    iph->ttl = (unsigned char)ttl_value;
     iph->protocol = send_info.protocol;
     iph->check = 0; //Set to 0 before calculating checksum
     iph->saddr = send_info.src_ip;    //Spoof the source ip address
@@ -1039,7 +1039,7 @@ int send_raw_tcp_deprecated(const packet_info_t &info,const char * payload,int p
 
     iph->id = htonl (ip_id++); //Id of this packet
     iph->frag_off = htons(0x4000); //DF set,others are zero
-    iph->ttl = 64;
+    iph->ttl = (unsigned char)ttl_value;
     iph->protocol = IPPROTO_TCP;
     iph->check = 0; //Set to 0 before calculating checksum
     iph->saddr = info.src_ip;    //Spoof the source ip address

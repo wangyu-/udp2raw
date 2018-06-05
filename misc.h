@@ -22,6 +22,8 @@ extern int max_rst_to_show;
 
 extern int enable_dns_resolve;
 
+extern int ttl_value;
+
 
 const u32_t max_handshake_conn_num=10000;
 const u32_t max_ready_conn_num=1000;

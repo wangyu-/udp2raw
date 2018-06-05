@@ -24,6 +24,7 @@ int max_rst_allowed=-1;
 
 int enable_dns_resolve=0;
 
+int ttl_value=64;
 
 fd_manager_t fd_manager;
 
@@ -277,6 +278,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"mtu-warn", required_argument,    0, 1},
 		{"max-rst-to-show", required_argument,    0, 1},
 		{"max-rst-allowed", required_argument,    0, 1},
+		{"set-ttl", required_argument,    0, 1},
 		{"dns-resolve", no_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
@@ -650,6 +652,13 @@ void process_arg(int argc, char *argv[])  //process all options
 				assert(max_rst_allowed>=-1);
 				mylog(log_info,"max_rst_allowed=%d \n",max_rst_allowed);
 			}
+			else if(strcmp(long_options[option_index].name,"set-ttl")==0)
+			{
+				sscanf(optarg,"%d",&ttl_value);
+				assert(ttl_value>=0&&ttl_value<=255);
+				mylog(log_info,"ttl_value=%d",ttl_value);
+			}
+
 			else if(strcmp(long_options[option_index].name,"dns-resolve")==0)
 			{
 				enable_dns_resolve=1;
