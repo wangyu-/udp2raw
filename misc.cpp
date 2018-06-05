@@ -656,13 +656,13 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				sscanf(optarg,"%d",&ttl_value);
 				assert(ttl_value>=0&&ttl_value<=255);
-				mylog(log_info,"ttl_value=%d",ttl_value);
+				mylog(log_info,"ttl_value=%d\n",ttl_value);
 			}
 
 			else if(strcmp(long_options[option_index].name,"dns-resolve")==0)
 			{
 				enable_dns_resolve=1;
-				mylog(log_info,"dns-resolve enabled \n",max_rst_allowed);
+				mylog(log_info,"dns-resolve enabled\n");
 			}
 			else
 			{

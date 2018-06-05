@@ -1761,26 +1761,33 @@ int main(int argc, char *argv[])
 	local_ip_uint32=inet_addr(local_ip);
 	source_ip_uint32=inet_addr(source_ip);
 	
-//	if(enable_dns_resolve)
-//	{
 #if ENABLE_DNS_RESOLVE
+
+	//if(enable_dns_resolve)
+	//{
+
 	struct hostent        *he;
 	if ( (he = gethostbyname(remote_address) ) == NULL ) {
-		mylog(log_error,"Unable to resolve hostname: %s\n",remote_address);
-		exit(1); /* error */
+		mylog(log_error,"Unable to resolve hostname: %s, error:%s \n",remote_address,hstrerror(h_errno) );
+		myexit(1); /* error */
 	}
 	struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
+	assert( he->h_addrtype ==AF_INET);
+	assert(addr_list!=NULL);
+
 	remote_ip_uint32=(*addr_list[0]).s_addr;
-	mylog(log_info,"%s ip = %s\n", program_mode==client_mode?"server":"remote", my_ntoa(remote_ip_uint32));
+	mylog(log_info,"remote_address[%s] has been resolved to [%s]\n",remote_address, my_ntoa(remote_ip_uint32));
 
 
 	strcpy(remote_ip,my_ntoa(remote_ip_uint32));
-#else
 
-//	}
-//	else
+	//}
+	//else
+
+#else
 	{
 		//strncpy(remote_ip,remote_address,sizeof(remote_ip)-1);
+		mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address",remote_ip);
 		strcpy(remote_ip,remote_address);
 		remote_ip_uint32=inet_addr(remote_ip);
 	}
