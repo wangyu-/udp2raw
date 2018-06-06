@@ -1787,7 +1787,7 @@ int main(int argc, char *argv[])
 #else
 	{
 		//strncpy(remote_ip,remote_address,sizeof(remote_ip)-1);
-		mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address",remote_ip);
+		mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_ip);
 		strcpy(remote_ip,remote_address);
 		remote_ip_uint32=inet_addr(remote_ip);
 	}
