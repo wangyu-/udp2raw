@@ -14,7 +14,6 @@ int on_epoll_recv_event=0;  //TODO, just a flag to help detect epoll infinite sh
 
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
-	//keep_iptables_rule();
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
@@ -331,17 +330,14 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			mylog(log_debug,"too short to be a handshake\n");
 			return -1;
 		}
-		//id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
 		id_t tmp_oppsite_id;
 		memcpy(&tmp_oppsite_id,&data[0],sizeof(tmp_oppsite_id));
 		tmp_oppsite_id=ntohl(tmp_oppsite_id);
 
-		//id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
 		id_t tmp_my_id;
 		memcpy(&tmp_my_id,&data[sizeof(id_t)],sizeof(tmp_my_id));
 		tmp_my_id=ntohl(tmp_my_id);
 
-		//id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
 		id_t tmp_oppsite_const_id;
 		memcpy(&tmp_oppsite_const_id,&data[sizeof(id_t)*2],sizeof(tmp_oppsite_const_id));
 		tmp_oppsite_const_id=ntohl(tmp_oppsite_const_id);
@@ -370,7 +366,6 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 		mylog(log_info,"changed state from to client_handshake1 to client_handshake2,my_id is %x,oppsite id is %x\n",conn_info.my_id,conn_info.oppsite_id);
 
-		//send_handshake(raw_info,conn_info.my_id,conn_info.oppsite_id,const_id);  //////////////send
 		conn_info.state.client_current_state = client_handshake2;
 		conn_info.last_state_time = get_current_time();
 		conn_info.last_hb_sent_time=0;
@@ -413,7 +408,6 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			if(hb_mode==0)
 				conn_info.last_hb_recv_time=get_current_time();
 
-			//u32_t tmp_conv_id= ntohl(* ((u32_t *)&data[0]));
 			u32_t tmp_conv_id;
 			memcpy(&tmp_conv_id,&data[0],sizeof(tmp_conv_id));
 			tmp_conv_id=ntohl(tmp_conv_id);
@@ -442,7 +436,7 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			if(ret<0)
 			{
 		    	mylog(log_warn,"sento returned %d\n",ret);
-				//perror("ret<0");
+
 			}
 			mylog(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
 			mylog(log_trace,"%d byte sent\n",ret);
@@ -522,23 +516,18 @@ int client_event_loop()
 	int i, j, k;int ret;
 
 
-	//init_filter(source_port);
 	send_info.dst_ip=remote_ip_uint32;
 	send_info.dst_port=remote_port;
 
-	//g_packet_info.src_ip=source_address_uint32;
-	//g_packet_info.src_port=source_port;
 
     udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     set_buf_size(udp_fd,socket_buf_size,force_socket_buf);
 
 	int yes = 1;
-	//setsockopt(udp_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
 	struct sockaddr_in local_me={0};
 
 	socklen_t slen = sizeof(sockaddr_in);
-	//memset(&local_me, 0, sizeof(local_me));
 	local_me.sin_family = AF_INET;
 	local_me.sin_port = htons(local_port);
 	local_me.sin_addr.s_addr = local_ip_uint32;
@@ -546,7 +535,6 @@ int client_event_loop()
 
 	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
 		mylog(log_fatal,"socket bind error\n");
-		//perror("socket bind error");
 		myexit(1);
 	}
 	setnonblocking(udp_fd);
@@ -575,11 +563,6 @@ int client_event_loop()
 		myexit(-1);
 	}
 
-	////add_timer for fake_tcp_keep_connection_client
-
-	//sleep(10);
-
-	//memset(&udp_old_addr_in,0,sizeof(sockaddr_in));
 	int unbind=1;
 
 	set_timer(epollfd,timer_fd);
@@ -610,8 +593,6 @@ int client_event_loop()
 			if(errno==EINTR  )
 			{
 				mylog(log_info,"epoll interrupted by signal,continue\n");
-				//close(fifo_fd);
-				//myexit(0);
 			}
 			else
 			{
@@ -637,7 +618,6 @@ int client_event_loop()
 			else if (events[idx].data.u64 == (u64_t)fifo_fd)
 			{
 				int len=read (fifo_fd, buf, sizeof (buf));
-				//assert(len>=0);
 				if(len<0)
 				{
 					mylog(log_warn,"fifo read failed len=%d,errno=%s\n",len,strerror(errno));
@@ -684,28 +664,6 @@ int client_event_loop()
 				mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
 						ntohs(udp_new_addr_in.sin_port),recv_len);
 
-				/*
-				if(udp_old_addr_in.sin_addr.s_addr==0&&udp_old_addr_in.sin_port==0)
-				{
-					memcpy(&udp_old_addr_in,&udp_new_addr_in,sizeof(udp_new_addr_in));
-				}
-				else if(udp_new_addr_in.sin_addr.s_addr!=udp_old_addr_in.sin_addr.s_addr
-						||udp_new_addr_in.sin_port!=udp_old_addr_in.sin_port)
-				{
-					if(get_current_time()- last_udp_recv_time <udp_timeout)
-					{
-						printf("new <ip,port> connected in,ignored,bc last connection is still active\n");
-						continue;
-					}
-					else
-					{
-						printf("new <ip,port> connected in,accpeted\n");
-						memcpy(&udp_old_addr_in,&udp_new_addr_in,sizeof(udp_new_addr_in));
-						conv_id++;
-					}
-				}*/
-
-				//last_udp_recv_time=get_current_time();
 				u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
 				u32_t conv;
 
@@ -729,14 +687,6 @@ int client_event_loop()
 
 				if(conn_info.state.client_current_state==client_ready)
 				{
-					/*
-					char buf2[6000];
-					int ret1=send_raw(conn_info.raw_info,buf2,40);
-					int ret2=send_raw(conn_info.raw_info,buf2,500);
-					int ret3=send_raw(conn_info.raw_info,buf2,1000);
-					int ret4=send_raw(conn_info.raw_info,buf2,2000);
-					mylog(log_warn,"ret= %d %d %d %d\n",ret1,ret2,ret3,ret4);*/
-
 					send_data_safer(conn_info,buf,recv_len,conv);
 				}
 			}
@@ -750,29 +700,8 @@ int client_event_loop()
 	return 0;
 }
 
-/*
-int test()
-{
-
-	char ip_str[100]="8.8.8.8";
-	u32_t ip=inet_addr(ip_str);
-	u32_t dest_ip;
-	string if_name;
-	string hw;
-	find_lower_level_info(ip,dest_ip,if_name,hw);
-	printf("%s %s %s\n",my_ntoa(dest_ip),if_name.c_str(),hw.c_str());
-	exit(0);
-	return 0;
-}*/
 int main(int argc, char *argv[])
 {
-	//printf("%llu\n",u64_t(-1));
-	//test();
-	//printf("%s\n",my_ntoa(0x00ffffff));
-	//auto a=string_to_vec("a b c d ");
-	//printf("%d\n",(int)a.size());
-	//printf("%d %d %d %d",larger_than_u32(1,2),larger_than_u32(2,1),larger_than_u32(0xeeaaeebb,2),larger_than_u32(2,0xeeaaeebb));
-	//assert(0==1);
 	dup2(1, 2);//redirect stderr to stdout
 	signal(SIGINT, signal_handler);
 	signal(SIGHUP, signal_handler);
@@ -794,13 +723,9 @@ int main(int argc, char *argv[])
 	local_ip_uint32=inet_addr(local_ip);
 	source_ip_uint32=inet_addr(source_ip);
 	
-	//strncpy(remote_ip,remote_address,sizeof(remote_ip)-1);
 	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_ip);
 	strcpy(remote_ip,remote_address);
 	remote_ip_uint32=inet_addr(remote_ip);
-
-
-	//current_time_rough=get_current_time();
 
 	init_random_number_fd();
 	srand(get_true_random_number_nz());
@@ -815,15 +740,6 @@ int main(int argc, char *argv[])
 	strcat(tmp,"key1");
 
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key);
-
-	/*
-	tmp[0]=0;
-
-	strcat(tmp,key_string);
-
-	strcat(tmp,"key2");
-
-	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);*/
 
 	iptables_rule();
 	init_raw_socket();
