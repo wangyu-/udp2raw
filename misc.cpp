@@ -39,8 +39,8 @@ id_t const_id=0;//an id used for connection recovery,its generated randomly,it n
 
 int udp_fd=-1;  //for client only. client use this fd to listen and handle udp connection
 int bind_fd=-1; //bind only,never send or recv.  its just a dummy fd for bind,so that other program wont occupy the same port
-int epollfd=-1; //fd for epoll
-int timer_fd=-1;   //the general timer fd for client and server.for server this is not the only timer find,every connection has a timer fd.
+//int epollfd=-1; //fd for epoll
+//int timer_fd=-1;   //the general timer fd for client and server.for server this is not the only timer find,every connection has a timer fd.
 int fail_time_counter=0;//determine if the max_fail_time is reached
 int epoll_trigger_counter=0;//for debug only
 int debug_flag=0;//for debug only
@@ -1019,6 +1019,7 @@ int unit_test()
 }
 
 
+/*
 int set_timer(int epollfd,int &timer_fd)//put a timer_fd into epoll,general function,used both in client and server
 {
 	int ret;
@@ -1047,7 +1048,7 @@ int set_timer(int epollfd,int &timer_fd)//put a timer_fd into epoll,general func
 		myexit(-1);
 	}
 	return 0;
-}
+}*/
 
 
 int set_timer_server(int epollfd,int &timer_fd,fd64_t &fd64)//only for server

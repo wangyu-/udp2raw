@@ -84,8 +84,8 @@ extern id_t const_id;//an id used for connection recovery,its generated randomly
 
 extern int udp_fd;  //for client only. client use this fd to listen and handle udp connection
 extern int bind_fd; //bind only,never send or recv.  its just a dummy fd for bind,so that other program wont occupy the same port
-extern int epollfd; //fd for epoll
-extern int timer_fd;   //the general timer fd for client and server.for server this is not the only timer find,every connection has a timer fd.
+//extern int epollfd; //fd for epoll
+//extern int timer_fd;   //the general timer fd for client and server.for server this is not the only timer find,every connection has a timer fd.
 extern int fail_time_counter;//determine if the max_fail_time is reached
 extern int epoll_trigger_counter;//for debug only
 extern int debug_flag;//for debug only
