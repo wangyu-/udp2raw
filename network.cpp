@@ -28,6 +28,8 @@ int lower_level_manual=0;
 int ifindex=-1;
 char if_name[100]="";
 
+char dev[100]="";
+
 unsigned short g_ip_id_counter=0;
 
 unsigned char dest_hw_addr[sizeof(sockaddr_ll::sll_addr)]=
@@ -164,7 +166,7 @@ packet_info_t::packet_info_t()
 	else if (raw_mode == mode_icmp)
 	{
 		protocol = IPPROTO_ICMP;
-		icmp_seq=0;
+		my_icmp_seq=0;
 	}
 
 }
@@ -815,7 +817,7 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	icmph->id=htons(send_info.src_port);
 
 
-	icmph->seq=htons(send_info.icmp_seq);   /////////////modify
+	icmph->seq=htons(send_info.my_icmp_seq);   /////////////modify
 
 	memcpy(send_raw_icmp_buf+sizeof(icmphdr),payload,payloadlen);
 
@@ -1205,7 +1207,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	}
 
 	recv_info.src_port=recv_info.dst_port=ntohs(icmph->id);
-	recv_info.icmp_seq=ntohs(icmph->seq);
+	recv_info.my_icmp_seq=ntohs(icmph->seq);
 
 
 	if(program_mode==client_mode)
@@ -1754,7 +1756,7 @@ int after_send_raw0(raw_info_t &raw_info)
 	{
 		if(program_mode==client_mode)
 		{
-			send_info.icmp_seq++;
+			send_info.my_icmp_seq++;
 		}
 	}
 	return 0;
@@ -1789,8 +1791,8 @@ int after_recv_raw0(raw_info_t &raw_info)
 	{
 		if(program_mode==server_mode)
 		{
-			if(larger_than_u16(recv_info.icmp_seq,send_info.icmp_seq))
-				send_info.icmp_seq = recv_info.icmp_seq;  //TODO only update if its larger
+			if(larger_than_u16(recv_info.my_icmp_seq,send_info.my_icmp_seq))
+				send_info.my_icmp_seq = recv_info.my_icmp_seq;  //TODO only update if its larger
 		}
 	}
 	return 0;

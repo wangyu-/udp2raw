@@ -47,6 +47,9 @@
 #include <linux/if_packet.h>
 #include <byteswap.h>
 #include <pthread.h>
+#include <pcap.h>
+#include <libnet.h>
+
 
 #include <my_ev.h>
 

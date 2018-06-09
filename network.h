@@ -21,6 +21,8 @@ extern int lower_level_manual;
 extern char if_name[100];
 extern unsigned char dest_hw_addr[];
 
+extern char dev[100];
+
 extern int random_drop;
 
 extern int ifindex;
@@ -62,7 +64,7 @@ struct packet_info_t  //todo change this to union
 	u32_t ts,ts_ack;
 
 
-	uint16_t icmp_seq;
+	uint16_t my_icmp_seq;
 
 	bool has_ts;
 

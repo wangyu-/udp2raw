@@ -168,7 +168,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 				send_handshake(raw_info,conn_info.my_id,0,const_id);
 				if(raw_mode==mode_icmp)
-					send_info.icmp_seq++;
+					send_info.my_icmp_seq++;
 			}
 
 			conn_info.last_hb_sent_time=get_current_time();
@@ -209,7 +209,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 				send_handshake(raw_info,conn_info.my_id,conn_info.oppsite_id,const_id);
 				if(raw_mode==mode_icmp)
-					send_info.icmp_seq++;
+					send_info.my_icmp_seq++;
 			}
 			conn_info.last_hb_sent_time=get_current_time();
 			mylog(log_info,"(re)sent handshake2\n");
@@ -768,6 +768,11 @@ int client_event_loop()
 
 int main(int argc, char *argv[])
 {
+	libnet_t *l;	/* the libnet context */
+	char errbuf[LIBNET_ERRBUF_SIZE];
+
+	l = libnet_init(LIBNET_RAW4, NULL, errbuf);
+
 	dup2(1, 2);//redirect stderr to stdout
 	signal(SIGINT, signal_handler);
 	signal(SIGHUP, signal_handler);

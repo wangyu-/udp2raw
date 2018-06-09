@@ -279,6 +279,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"max-rst-to-show", required_argument,    0, 1},
 		{"max-rst-allowed", required_argument,    0, 1},
 		{"set-ttl", required_argument,    0, 1},
+		{"dev", required_argument,    0, 1},
 		{"dns-resolve", no_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
@@ -665,6 +666,11 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				enable_dns_resolve=1;
 				mylog(log_info,"dns-resolve enabled\n");
+			}
+			else if(strcmp(long_options[option_index].name,"dev")==0)  // currently not used
+			{
+				sscanf(optarg,"%s",dev);
+				mylog(log_info,"dev=[%s]\n",dev);
 			}
 			else
 			{
