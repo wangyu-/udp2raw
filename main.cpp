@@ -766,19 +766,51 @@ int client_event_loop()
 	return 0;
 }
 
+void sigpipe_cb(struct ev_loop *l, ev_signal *w, int revents)
+{
+	mylog(log_info, "got sigpipe, ignored");
+}
+
+void sigterm_cb(struct ev_loop *l, ev_signal *w, int revents)
+{
+	mylog(log_info, "got sigterm, exit");
+	myexit(0);
+}
+
+void sigint_cb(struct ev_loop *l, ev_signal *w, int revents)
+{
+	mylog(log_info, "got sigint, exit");
+	myexit(0);
+}
+
+
 int main(int argc, char *argv[])
 {
-	libnet_t *l;	/* the libnet context */
-	char errbuf[LIBNET_ERRBUF_SIZE];
+	//libnet_t *l;	/* the libnet context */
+	//char errbuf[LIBNET_ERRBUF_SIZE];
 
-	l = libnet_init(LIBNET_RAW4, NULL, errbuf);
+	//l = libnet_init(LIBNET_RAW4, NULL, errbuf);
 
 	dup2(1, 2);//redirect stderr to stdout
-	signal(SIGINT, signal_handler);
-	signal(SIGHUP, signal_handler);
-	signal(SIGKILL, signal_handler);
-	signal(SIGTERM, signal_handler);
-	signal(SIGQUIT, signal_handler);
+	//signal(SIGINT, signal_handler);
+	//signal(SIGHUP, signal_handler);
+	//signal(SIGKILL, signal_handler);
+	//signal(SIGTERM, signal_handler);
+	//signal(SIGQUIT, signal_handler);
+
+	struct ev_loop* loop=ev_default_loop(0);
+    ev_signal signal_watcher_sigpipe;
+    ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
+    ev_signal_start(loop, &signal_watcher_sigpipe);
+
+    ev_signal signal_watcher_sigterm;
+    ev_signal_init(&signal_watcher_sigterm, sigterm_cb, SIGTERM);
+    ev_signal_start(loop, &signal_watcher_sigterm);
+
+    ev_signal signal_watcher_sigint;
+    ev_signal_init(&signal_watcher_sigint, sigint_cb, SIGINT);
+    ev_signal_start(loop, &signal_watcher_sigint);
+
 
 	pre_process_arg(argc,argv);
 

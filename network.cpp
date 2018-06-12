@@ -40,6 +40,8 @@ const u32_t receive_window_lower_bound=40960;
 const u32_t receive_window_random_range=512;
 const unsigned char wscale=0x05;
 
+libnet_t *libnet_handle;
+
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
 		{ 0x15, 0, 10, 0x00000800 },//1
@@ -174,6 +176,11 @@ packet_info_t::packet_info_t()
 
 int init_raw_socket()
 {
+	char errbuf[LIBNET_ERRBUF_SIZE];
+
+	libnet_handle = libnet_init(LIBNET_RAW4, dev, errbuf);
+
+	assert(libnet_handle!=0);
 
 	g_ip_id_counter=get_true_random_number()%65535;
 	if(lower_level==0)
@@ -612,6 +619,20 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     	iph->check=0;
 
     int ret;
+
+    ret=libnet_build_ipv4(ip_tot_len, iph->tos, ntohs(iph->id), ntohs(iph->frag_off),
+    		iph->ttl , send_info.protocol, iph->check , iph->saddr, iph->daddr,
+			(const unsigned char *)payload, payloadlen, libnet_handle, 0);
+    assert(ret!=-1);
+
+    ret= libnet_write(libnet_handle);
+
+    assert(ret!=-1);
+
+    libnet_clear_packet(libnet_handle);
+
+
+    /*
     if(lower_level==0)
     {
 		struct sockaddr_in sin={0};
@@ -639,7 +660,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     else
     {
     	//mylog(log_info,"sendto succ\n");
-    }
+    }*/
     return 0;
 }
 int peek_raw(packet_info_t &peek_info)
