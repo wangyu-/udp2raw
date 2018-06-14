@@ -725,10 +725,10 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 		return 0;
 	}
 
-	struct iphdr *iph = (struct iphdr *) send_raw_ip_buf;
-    memset(iph,0,sizeof(iphdr));
+	struct my_iphdr *iph = (struct my_iphdr *) send_raw_ip_buf;
+    memset(iph,0,sizeof(my_iphdr));
 
-    iph->ihl = sizeof(iphdr)/4;  //we dont use ip options,so the length is just sizeof(iphdr)
+    iph->ihl = sizeof(my_iphdr)/4;  //we dont use ip options,so the length is just sizeof(iphdr)
     iph->version = 4;
     iph->tos = 0;
 
@@ -749,12 +749,12 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     iph->saddr = send_info.src_ip;    //Spoof the source ip address
     iph->daddr = send_info.dst_ip;
 
-    uint16_t ip_tot_len=sizeof (struct iphdr)+payloadlen;
+    uint16_t ip_tot_len=sizeof (struct my_iphdr)+payloadlen;
    /* if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
     else*/
     	iph->tot_len = 0;
 
-    memcpy(send_raw_ip_buf+sizeof(iphdr) , payload, payloadlen);
+    memcpy(send_raw_ip_buf+sizeof(my_iphdr) , payload, payloadlen);
 
     /*if(lower_level) iph->check =
     		csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4); //this is not necessary ,kernel will always auto fill this
@@ -812,11 +812,11 @@ int peek_raw(packet_info_t &peek_info)
 	struct sockaddr saddr={0};
 	socklen_t saddr_size=sizeof(saddr);
 	int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,max_data_len, MSG_PEEK ,&saddr , &saddr_size);//change max_data_len to something smaller,we only need header here
-	iphdr * iph = (struct iphdr *) (ip_begin);
+	my_iphdr * iph = (struct my_iphdr *) (ip_begin);
 	//mylog(log_info,"recv_len %d\n",recv_len);
-	if(recv_len<int(sizeof(iphdr)))
+	if(recv_len<int(sizeof(my_iphdr)))
 	{
-		mylog(log_trace,"failed here %d %d\n",recv_len,int(sizeof(iphdr)));
+		mylog(log_trace,"failed here %d %d\n",recv_len,int(sizeof(my_iphdr)));
 		mylog(log_trace,"%s\n ",strerror(errno));
 		return -1;
 	}
@@ -834,8 +834,8 @@ int peek_raw(packet_info_t &peek_info)
     			mylog(log_trace,"failed here");
     			return -1;
     		}
-    		struct tcphdr *tcph=(tcphdr *)payload;
-    		if(recv_len<int( iphdrlen+sizeof(tcphdr) ))
+    		struct my_tcphdr *tcph=(my_tcphdr *)payload;
+    		if(recv_len<int( iphdrlen+sizeof(my_tcphdr) ))
     		{
     			mylog(log_trace,"failed here");
     			return -1;
@@ -847,8 +847,8 @@ int peek_raw(packet_info_t &peek_info)
     	case mode_udp:
     	{
     		if(iph->protocol!=IPPROTO_UDP) return -1;
-    		struct udphdr *udph=(udphdr *)payload;
-    		if(recv_len<int(iphdrlen+sizeof(udphdr)))
+    		struct my_udphdr *udph=(my_udphdr *)payload;
+    		if(recv_len<int(iphdrlen+sizeof(my_udphdr)))
     			return -1;
     		peek_info.src_port=ntohs(udph->source);
 			break;
@@ -873,7 +873,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 	//static char recv_raw_ip_buf[buf_len];
 
-	iphdr *  iph;
+	my_iphdr *  iph;
 	/*struct sockaddr_ll saddr={0};
 	socklen_t saddr_size = sizeof(saddr);*/
 	int flag=0;
@@ -910,7 +910,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 	char *ip_begin=recv_raw_ip_buf+link_level_header_len;  //14 is eth net header
 
-	iph = (struct iphdr *) (ip_begin);
+	iph = (struct my_iphdr *) (ip_begin);
 
 	recv_info.src_ip=iph->saddr;
 	recv_info.dst_ip=iph->daddr;
@@ -1014,16 +1014,16 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 
 	char send_raw_udp_buf[buf_len];
 
-	udphdr *udph=(struct udphdr *) (send_raw_udp_buf
+	my_udphdr *udph=(struct my_udphdr *) (send_raw_udp_buf
 			+ sizeof(struct pseudo_header));
 
-	memset(udph,0,sizeof(udphdr));
+	memset(udph,0,sizeof(my_udphdr));
 	struct pseudo_header *psh = (struct pseudo_header *) (send_raw_udp_buf);
 
 	udph->source = htons(send_info.src_port);
 	udph->dest = htons(send_info.dst_port);
 
-	int udp_tot_len=payloadlen+sizeof(udphdr);
+	int udp_tot_len=payloadlen+sizeof(my_udphdr);
 
 	if(udp_tot_len>65535)
 	{
@@ -1033,7 +1033,7 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	mylog(log_trace,"udp_len:%d %d\n",udp_tot_len,udph->len);
 	udph->len=htons(uint16_t(udp_tot_len));
 
-	memcpy(send_raw_udp_buf+sizeof(struct pseudo_header)+sizeof(udphdr),payload,payloadlen);
+	memcpy(send_raw_udp_buf+sizeof(struct pseudo_header)+sizeof(my_udphdr),payload,payloadlen);
 
 	psh->source_address = send_info.src_ip;
 	psh->dest_address = send_info.dst_ip;
@@ -1063,11 +1063,11 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 	char send_raw_tcp_buf[buf_len];
 	//char *send_raw_tcp_buf=send_raw_tcp_buf0;
 
-	struct tcphdr *tcph = (struct tcphdr *) (send_raw_tcp_buf
+	struct my_tcphdr *tcph = (struct my_tcphdr *) (send_raw_tcp_buf
 			+ sizeof(struct pseudo_header));
 
 
-	memset(tcph,0,sizeof(tcphdr));
+	memset(tcph,0,sizeof(my_tcphdr));
 
 	struct pseudo_header *psh = (struct pseudo_header *) (send_raw_tcp_buf);
 
@@ -1086,7 +1086,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 
 	if (tcph->syn == 1) {
 		tcph->doff = 10;  //tcp header size
-		int i = sizeof(pseudo_header)+sizeof(tcphdr);
+		int i = sizeof(pseudo_header)+sizeof(my_tcphdr);
 		send_raw_tcp_buf[i++] = 0x02;  //mss
 		send_raw_tcp_buf[i++] = 0x04;
 		send_raw_tcp_buf[i++] = 0x05;
@@ -1122,7 +1122,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		send_raw_tcp_buf[i++] = wscale;
 	} else {
 		tcph->doff = 8;
-		int i = sizeof(pseudo_header)+sizeof(tcphdr);
+		int i = sizeof(pseudo_header)+sizeof(my_tcphdr);
 
 		send_raw_tcp_buf[i++] = 0x01;
 		send_raw_tcp_buf[i++] = 0x01;
@@ -1436,12 +1436,12 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 		//printf("not udp protocol\n");
 		return -1;
 	}
-	if(ip_payloadlen<int( sizeof(udphdr) ))
+	if(ip_payloadlen<int( sizeof(my_udphdr) ))
 	{
 		mylog(log_debug,"too short to hold udpheader\n");
 		return -1;
 	}
-	udphdr *udph=(struct udphdr*)ip_payload;
+	my_udphdr *udph=(struct my_udphdr*)ip_payload;
 
 	if(int(ntohs(udph->len))!=ip_payloadlen)
 	{
@@ -1482,9 +1482,9 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
     recv_info.src_port=ntohs(udph->source);
     recv_info.dst_port=ntohs(udph->dest);
 
-    payloadlen = ip_payloadlen-sizeof(udphdr);
+    payloadlen = ip_payloadlen-sizeof(my_udphdr);
 
-    payload=udp_begin+sizeof(udphdr);
+    payload=udp_begin+sizeof(my_udphdr);
 
     return 0;
 }
@@ -1513,7 +1513,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	}
 
 
-	tcphdr * tcph=(struct tcphdr*)ip_payload;
+	my_tcphdr * tcph=(struct my_tcphdr*)ip_payload;
 
     unsigned short tcphdrlen = tcph->doff*4;
 
@@ -1552,7 +1552,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     char *tcp_begin=recv_raw_tcp_buf+sizeof(struct pseudo_header);  //ip packet's data part
 
-    char *tcp_option=recv_raw_tcp_buf+sizeof(struct pseudo_header)+sizeof(tcphdr);
+    char *tcp_option=recv_raw_tcp_buf+sizeof(struct pseudo_header)+sizeof(my_tcphdr);
 
     recv_info.has_ts=0;
     recv_info.ts=0;

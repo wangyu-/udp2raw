@@ -25,9 +25,9 @@
 #include <stdlib.h> //for exit(0);
 #include <errno.h> //For errno - the error number
 #include <netdb.h> // for gethostbyname()
-#include <netinet/tcp.h>   //Provides declarations for tcp header
-#include <netinet/udp.h>
-#include <netinet/ip.h>    //Provides declarations for ip header
+//#include <netinet/tcp.h>   //Provides declarations for tcp header
+//#include <netinet/udp.h>
+//#include <netinet/ip.h>    //Provides declarations for ip header
 #include <netinet/if_ether.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -134,6 +134,7 @@ struct queue_t
 		tail++;tail%=queue_len;
 	}
 };
+
 
 u64_t get_current_time();
 u64_t pack_u64(u32_t a,u32_t b);
