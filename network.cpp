@@ -275,24 +275,42 @@ int init_raw_socket()
 	}
 
 
+	 struct bpf_program filter;
+	 char filter_exp[1000];
 
-
-
-	if(pthread_create(&pcap_recv_thread, NULL, pcap_recv_thread_entry, 0)) {
-		mylog(log_fatal, "Error creating thread\n");
-		myexit(-1);
+	if(raw_mode==mode_faketcp)
+	{
+		sprintf(filter_exp,"tcp and src %s and port %d",remote_ip,remote_port);
 	}
-	/*
-	 	 if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-		 fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
-		 return(2);
+	else if(raw_mode==mode_udp)
+	{
+		sprintf(filter_exp,"udp and src %s and port %d",remote_ip,remote_port);
+	}
+	else if(raw_mode==mode_icmp)
+	{
+		sprintf(filter_exp,"icmp and src %s",remote_ip);
+	}
+	else
+	{
+		assert(0==1);
+	}
+
+	mylog(log_info,"filter expression is [%s]\n",filter_exp);
+	 if (pcap_compile(pcap_handle, &filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
+		 printf("Bad filter - %s\n", pcap_geterr(pcap_handle));
+		 assert(0==1);
 	 }
-	 if (pcap_setfilter(handle, &fp) == -1) {
-		 fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
-		 return(2);
+	 if (pcap_setfilter(pcap_handle, &filter) == -1) {
+		 printf("Error setting filter - %s\n", pcap_geterr(pcap_handle));
+		 assert(0==1);
 	 }
 
-	 */
+		if(pthread_create(&pcap_recv_thread, NULL, pcap_recv_thread_entry, 0)) {
+			mylog(log_fatal, "Error creating thread\n");
+			myexit(-1);
+		}
+
+
 
 
 	g_ip_id_counter=get_true_random_number()%65535;
