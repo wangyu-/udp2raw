@@ -24,6 +24,9 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 	mylog(log_trace,"<client_on_timer,send_info.ts_ack= %u>\n",send_info.ts_ack);
 
+
+	//mylog(log_debug,"pcap cnt :%d\n",pcap_cnt);
+
 	if(raw_info.disabled)
 	{
 		conn_info.state.client_current_state=client_idle;
@@ -278,7 +281,10 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 	if(conn_info.state.client_current_state==client_idle )
 	{
-		recv(raw_recv_fd, 0,0, 0  );
+		//recv(raw_recv_fd, 0,0, 0  );
+		pthread_mutex_lock(&queue_mutex);
+		my_queue.pop_front();
+		pthread_mutex_unlock(&queue_mutex);
 	}
 	else if(conn_info.state.client_current_state==client_tcp_handshake)//received syn ack
 	{
@@ -515,10 +521,36 @@ void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 
 void raw_recv_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
+	assert(0==1);
 	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
 	client_on_raw_recv(conn_info);
 }
+void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents)
+{
+	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
 
+	//mylog(log_info,"async_cb called\n");
+	while(1)
+	{
+		int empty=0;char *p;int len;
+		pthread_mutex_lock(&queue_mutex);
+		empty=my_queue.empty();
+		if(!empty)
+		{
+			my_queue.peek_front(p,len);
+			my_queue.pop_front();
+		}
+		pthread_mutex_unlock(&queue_mutex);
+
+		if(empty) break;
+
+		memcpy(g_packet_buf,p,len);
+		g_packet_buf_len=len;
+		assert(g_packet_buf_cnt==0);
+		g_packet_buf_cnt++;
+		client_on_raw_recv(conn_info);
+	}
+}
 void clear_timer_cb(struct ev_loop *loop, struct ev_timer *watcher, int revents)
 {
 	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
@@ -677,11 +709,19 @@ int client_event_loop()
 	//	myexit(-1);
 	//}
 
-	struct ev_io raw_watcher;
+	//struct ev_io raw_watcher;
 
-	raw_watcher.data=&conn_info;
-    ev_io_init(&raw_watcher, raw_recv_cb, raw_recv_fd, EV_READ);
-    ev_io_start(loop, &raw_watcher);
+	//raw_watcher.data=&conn_info;
+   // ev_io_init(&raw_watcher, raw_recv_cb, raw_recv_fd, EV_READ);
+    //ev_io_start(loop, &raw_watcher);
+
+	g_default_loop=loop;
+	async_watcher.data=&conn_info;
+	ev_async_init(&async_watcher,async_cb);
+	ev_async_start(loop,&async_watcher);
+
+	init_raw_socket();
+
 
 
 	int unbind=1;
@@ -825,9 +865,9 @@ int main(int argc, char *argv[])
 
 	local_ip_uint32=inet_addr(local_ip);
 	source_ip_uint32=inet_addr(source_ip);
-	
-	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_ip);
+
 	strcpy(remote_ip,remote_address);
+	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_ip);
 	remote_ip_uint32=inet_addr(remote_ip);
 
 	init_random_number_fd();
@@ -845,7 +885,6 @@ int main(int argc, char *argv[])
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key);
 
 	iptables_rule();
-	init_raw_socket();
 
 	if(program_mode==client_mode)
 	{

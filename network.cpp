@@ -41,6 +41,22 @@ const u32_t receive_window_random_range=512;
 const unsigned char wscale=0x05;
 
 libnet_t *libnet_handle;
+pcap_t *pcap_handle;
+int pcap_link_header_len=-1;
+//int pcap_cnt=0;
+queue_t my_queue;
+
+pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+ev_async async_watcher;
+
+ev_loop* g_default_loop;
+
+pthread_t pcap_recv_thread;
+
+char g_packet_buf[buf_len]; //dirty code, fix it later
+int g_packet_buf_len=1;
+int g_packet_buf_cnt=0;
 
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
@@ -173,14 +189,111 @@ packet_info_t::packet_info_t()
 
 }
 
+void *pcap_recv_thread_entry(void *none)
+{
+	struct pcap_pkthdr *packet_header;
+	const u_char *pkt_data;
+
+	while(1)
+	{
+		//printf("!!!\n");
+		int ret=pcap_next_ex(pcap_handle,&packet_header,&pkt_data);
+
+		switch (ret)
+		{
+			case 0:
+				continue;
+			case 1:
+				assert(packet_header->caplen <= packet_header->len);
+				assert(packet_header->caplen <= max_data_len);
+				if(packet_header->caplen<packet_header->len) continue;
+
+				if((int)packet_header->caplen<pcap_link_header_len) continue;
+
+				pthread_mutex_lock(&queue_mutex);
+				if(!my_queue.full())
+					my_queue.push_back((char *)pkt_data+pcap_link_header_len,(int)(packet_header->caplen)-pcap_link_header_len);
+				pthread_mutex_unlock(&queue_mutex);
+
+				//pcap_cnt++;
+
+				ev_async_send (g_default_loop,&async_watcher);
+				break;
+
+			case -1:
+				mylog(log_fatal,"pcap_next_ex error [%s]\n",pcap_geterr(pcap_handle));
+				myexit(-1);
+				break;
+			case -2:
+				assert(0==1);
+				break;
+			default:
+				assert(0==1);
+		}
+	}
+	myexit(-1);
+}
+
+extern void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents);
 
 int init_raw_socket()
 {
-	char errbuf[LIBNET_ERRBUF_SIZE];
+	char libnet_errbuf[LIBNET_ERRBUF_SIZE];
 
-	libnet_handle = libnet_init(LIBNET_RAW4, dev, errbuf);
+	libnet_handle = libnet_init(LIBNET_RAW4, dev, libnet_errbuf);
 
-	assert(libnet_handle!=0);
+	if(libnet_handle==0)
+	{
+		mylog(log_fatal,"libnet_init failed bc of [%s]\n",libnet_errbuf);
+		myexit(-1);
+	}
+
+	char pcap_errbuf[PCAP_ERRBUF_SIZE];
+
+	pcap_handle=pcap_open_live(dev,max_data_len,0,1000,pcap_errbuf);
+
+	if(pcap_handle==0)
+	{
+		mylog(log_fatal,"pcap_open_live failed bc of [%s]\n",pcap_errbuf);
+		myexit(-1);
+	}
+
+	int ret=pcap_datalink(pcap_handle);
+
+	if(ret==DLT_EN10MB)
+	{
+		pcap_link_header_len=14;
+	}
+	else if(ret==DLT_NULL)
+	{
+		pcap_link_header_len=4;
+	}
+	else
+	{
+		mylog(log_fatal,"unknown pcap link type : %d\n",ret);
+		myexit(-1);
+	}
+
+
+
+
+
+	if(pthread_create(&pcap_recv_thread, NULL, pcap_recv_thread_entry, 0)) {
+		mylog(log_fatal, "Error creating thread\n");
+		myexit(-1);
+	}
+	/*
+	 	 if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
+		 fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
+		 return(2);
+	 }
+	 if (pcap_setfilter(handle, &fp) == -1) {
+		 fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
+		 return(2);
+	 }
+
+	 */
+
 
 	g_ip_id_counter=get_true_random_number()%65535;
 	if(lower_level==0)
@@ -728,13 +841,20 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	const packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
 
-	static char recv_raw_ip_buf[buf_len];
+	//static char recv_raw_ip_buf[buf_len];
 
 	iphdr *  iph;
 	struct sockaddr_ll saddr={0};
 	socklen_t saddr_size = sizeof(saddr);
 	int flag=0;
-	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
+
+	//int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
+
+	assert(g_packet_buf_cnt==1);
+	g_packet_buf_cnt--;
+
+	int recv_len=g_packet_buf_len;
+	char *recv_raw_ip_buf=g_packet_buf;
 
 	if(recv_len==max_data_len+1)
 	{
@@ -757,7 +877,6 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 		mylog(log_trace,"not an ipv4 packet!\n");
 		return -1;
 	}
-
 
 	char *ip_begin=recv_raw_ip_buf+link_level_header_len;  //14 is eth net header
 

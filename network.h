@@ -27,6 +27,18 @@ extern int random_drop;
 
 extern int ifindex;
 
+extern queue_t my_queue;
+
+extern ev_async async_watcher;
+extern ev_loop* g_default_loop;
+
+extern pthread_mutex_t queue_mutex;
+extern int pcap_cnt;
+
+extern char g_packet_buf[buf_len];
+extern int g_packet_buf_len;
+extern int g_packet_buf_cnt;
+
 struct icmphdr
 {
 	uint8_t type;
