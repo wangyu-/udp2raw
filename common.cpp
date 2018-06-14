@@ -93,20 +93,19 @@ inline int is_big_endian()
 }
 u64_t ntoh64(u64_t a)
 {
-	static int big_endian=is_big_endian();
-	if(!big_endian)
-	{
+	#ifdef UDP2RAW_BIG_ENDIAN
 		u32_t h=get_u64_h(a);
 		u32_t l=get_u64_l(a);
 		return pack_u64(ntohl(l),ntohl(h));
 		//return bswap_64( a);
-	}
-	else return a;
+	#else
+	return a;
+	#endif
 
 }
 u64_t hton64(u64_t a)
 {
-	return ntoh64(u64_t a);
+	return ntoh64(a);
 }
 
 void setnonblocking(int sock) {
@@ -131,9 +130,9 @@ void setnonblocking(int sock) {
     Generic checksum calculation function
 */
 unsigned short csum(const unsigned short *ptr,int nbytes) {//works both for big and little endian
-    register long sum;
+    long sum;
     unsigned short oddbyte;
-    register short answer;
+    short answer;
 
     sum=0;
     while(nbytes>1) {
