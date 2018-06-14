@@ -17,7 +17,7 @@
 
 #include<unistd.h>
 #include<errno.h>
-#include <sys/epoll.h>
+//#include <sys/epoll.h>
 #include <sys/wait.h>
 #include <sys/socket.h>    //for socket ofcourse
 #include <sys/types.h>
@@ -31,21 +31,21 @@
 #include <netinet/if_ether.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <byteswap.h>
+//#include <byteswap.h>
 #include <arpa/inet.h>
-#include <linux/if_ether.h>
-#include <linux/filter.h>
+//#include <linux/if_ether.h>
+//#include <linux/filter.h>
 #include <sys/time.h>
 #include <time.h>
-#include <sys/timerfd.h>
+//#include <sys/timerfd.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <stdarg.h>
 #include <assert.h>
-#include <linux/if_packet.h>
-#include <byteswap.h>
+//#include <linux/if_packet.h>
+//#include <byteswap.h>
 #include <pthread.h>
 #include <pcap.h>
 #include <libnet.h>
