@@ -16,8 +16,8 @@ extern int filter_port;
 extern u32_t bind_address_uint32;
 extern int disable_bpf_filter;
 
-extern int lower_level;
-extern int lower_level_manual;
+//extern int lower_level;
+//extern int lower_level_manual;
 extern char if_name[100];
 extern unsigned char dest_hw_addr[];
 
@@ -80,7 +80,7 @@ struct packet_info_t  //todo change this to union
 
 	bool has_ts;
 
-	sockaddr_ll addr_ll;
+	//sockaddr_ll addr_ll;
 
 	i32_t data_len;
 

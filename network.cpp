@@ -23,7 +23,7 @@ int disable_bpf_filter=0;  //for test only,most time no need to disable this
 
 u32_t bind_address_uint32=0;
 
-int lower_level=0;
+//int lower_level=0;
 int lower_level_manual=0;
 int ifindex=-1;
 char if_name[100]="";
@@ -32,8 +32,8 @@ char dev[100]="";
 
 unsigned short g_ip_id_counter=0;
 
-unsigned char dest_hw_addr[sizeof(sockaddr_ll::sll_addr)]=
-    {0xff,0xff,0xff,0xff,0xff,0xff,0,0};
+//unsigned char dest_hw_addr[sizeof(sockaddr_ll::sll_addr)]=
+ //   {0xff,0xff,0xff,0xff,0xff,0xff,0,0};
 //{0x00,0x23,0x45,0x67,0x89,0xb9};
 
 const u32_t receive_window_lower_bound=40960;
@@ -58,6 +58,7 @@ char g_packet_buf[buf_len]; //dirty code, fix it later
 int g_packet_buf_len=1;
 int g_packet_buf_cnt=0;
 
+/*
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
 		{ 0x15, 0, 10, 0x00000800 },//1
@@ -109,7 +110,7 @@ struct sock_filter code_icmp[] = {
 { 0x15, 0, 1, 0x00000001 },
 { 0x6, 0, 0, 0x0000ffff },
 { 0x6, 0, 0, 0x00000000 },
-};
+};*/
 
 /*
 
@@ -314,6 +315,8 @@ int init_raw_socket()
 
 
 	g_ip_id_counter=get_true_random_number()%65535;
+
+	/*
 	if(lower_level==0)
 	{
 		raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);
@@ -398,17 +401,19 @@ int init_raw_socket()
 
 
     setnonblocking(raw_send_fd); //not really necessary
-    setnonblocking(raw_recv_fd);
+    setnonblocking(raw_recv_fd);*/
 
 	return 0;
 }
 void init_filter(int port)
 {
-	sock_fprog bpf;
+	/*
+	sock_fprog bpf;*/
 	if(raw_mode==mode_faketcp||raw_mode==mode_udp)
 	{
 		filter_port=port;
 	}
+	/*
 	if(disable_bpf_filter) return;
 	//if(raw_mode==mode_icmp) return ;
 	//code_tcp[8].k=code_tcp[10].k=port;
@@ -445,7 +450,7 @@ void init_filter(int port)
 		mylog(log_fatal,"error set fiter\n");
 		//perror("filter");
 		myexit(-1);
-	}
+	}*/
 }
 void remove_filter()
 {
@@ -538,6 +543,7 @@ vector<int> find_route_entry(const vector<route_info_t> &route_info_vec,u32_t ip
 	}
 	return res;
 }
+/*
 int find_direct_dest(const vector<route_info_t> &route_info_vec,u32_t ip,u32_t &dest_ip,string &if_name)
 {
 	vector<int> res;
@@ -568,7 +574,7 @@ int find_direct_dest(const vector<route_info_t> &route_info_vec,u32_t ip,u32_t &
 	}
 	mylog(log_error,"dead loop in find_direct_dest\n");
 	return -1;
-}
+}*/
 struct arp_info_t
 {
 	u32_t ip;
@@ -609,6 +615,7 @@ int find_arp(const vector<arp_info_t> &arp_info_vec,u32_t ip,string if_name,stri
 	hw=arp_info_vec[pos].hw;
 	return 0;
 }
+/*
 int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw)
 {
 	ip=htonl(ip);
@@ -697,7 +704,7 @@ int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw)
 
 	dest_ip=ntohl(dest_ip);
 	return 0;
-}
+}*/
 
 
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
@@ -720,12 +727,12 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     iph->version = 4;
     iph->tos = 0;
 
-    if(lower_level)
+  /*  if(lower_level)
     {
     	//iph->id=0;
     	iph->id = htons (g_ip_id_counter++); //Id of this packet
     }
-    else
+    else*/
     	iph->id = htons (g_ip_id_counter++); //Id of this packet
     	//iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero  ,or really?????// todo //seems like there is a problem
 
@@ -738,15 +745,15 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     iph->daddr = send_info.dst_ip;
 
     uint16_t ip_tot_len=sizeof (struct iphdr)+payloadlen;
-    if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
-    else
+   /* if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
+    else*/
     	iph->tot_len = 0;
 
     memcpy(send_raw_ip_buf+sizeof(iphdr) , payload, payloadlen);
 
-    if(lower_level) iph->check =
+    /*if(lower_level) iph->check =
     		csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4); //this is not necessary ,kernel will always auto fill this
-    else
+    else*/
     	iph->check=0;
 
     int ret;
@@ -862,8 +869,8 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	//static char recv_raw_ip_buf[buf_len];
 
 	iphdr *  iph;
-	struct sockaddr_ll saddr={0};
-	socklen_t saddr_size = sizeof(saddr);
+	/*struct sockaddr_ll saddr={0};
+	socklen_t saddr_size = sizeof(saddr);*/
 	int flag=0;
 
 	//int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
@@ -904,10 +911,11 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	recv_info.dst_ip=iph->daddr;
 	recv_info.protocol=iph->protocol;
 
+	/*
 	if(lower_level)
 	{
 		memcpy(&recv_info.addr_ll,&saddr,sizeof(recv_info.addr_ll));
-	}
+	}*/
 
 
 	if(bind_address_uint32!=0 &&recv_info.dst_ip!=bind_address_uint32)

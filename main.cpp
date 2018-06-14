@@ -282,9 +282,9 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 	if(conn_info.state.client_current_state==client_idle )
 	{
 		//recv(raw_recv_fd, 0,0, 0  );
-		pthread_mutex_lock(&queue_mutex);
-		my_queue.pop_front();
-		pthread_mutex_unlock(&queue_mutex);
+		//pthread_mutex_lock(&queue_mutex);
+		//my_queue.pop_front();
+		//pthread_mutex_unlock(&queue_mutex);
 	}
 	else if(conn_info.state.client_current_state==client_tcp_handshake)//received syn ack
 	{

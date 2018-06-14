@@ -86,11 +86,15 @@ u32_t get_true_random_number_nz() //nz for non-zero
 	}
 	return ret;
 }
+
 u64_t ntoh64(u64_t a)
 {
 	if(__BYTE_ORDER == __LITTLE_ENDIAN)
 	{
-		return bswap_64( a);
+		u32_t h=get_u64_h(a);
+		u32_t l=get_u64_l(a);
+		return pack_u64(ntohl(l),ntohl(h));
+		//return bswap_64( a);
 	}
 	else return a;
 
@@ -99,7 +103,10 @@ u64_t hton64(u64_t a)
 {
 	if(__BYTE_ORDER == __LITTLE_ENDIAN)
 	{
-		return bswap_64( a);
+		u32_t h=get_u64_h(a);
+		u32_t l=get_u64_l(a);
+		return pack_u64(ntohl(l),ntohl(h));
+		//return bswap_64( a);
 	}
 	else return a;
 

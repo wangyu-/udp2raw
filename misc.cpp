@@ -85,6 +85,7 @@ int force_socket_buf=0;
 
 
 //char lower_level_arg[1000];
+/*
 int process_lower_level_arg()//handle --lower-level option
 {
 	lower_level=1;
@@ -112,7 +113,7 @@ int process_lower_level_arg()//handle --lower-level option
 		dest_hw_addr[i] = uint8_t(hw[i]);
 	}
 	return 0;
-}
+}*/
 void print_help()
 {
 	char git_version_buf[100]={0};
@@ -1058,7 +1059,7 @@ int set_timer(int epollfd,int &timer_fd)//put a timer_fd into epoll,general func
 	return 0;
 }*/
 
-
+/*
 int set_timer_server(int epollfd,int &timer_fd,fd64_t &fd64)//only for server
 {
 	int ret;
@@ -1120,7 +1121,7 @@ int handle_lower_level(raw_info_t &raw_info)//fill lower_level info,when --lower
 	}
 	return 0;
 }
-
+*/
 
 string chain[2];
 string rule_keep[2];
