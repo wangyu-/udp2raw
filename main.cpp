@@ -666,7 +666,7 @@ int client_event_loop()
 	local_me.sin_addr.s_addr = local_ip_uint32;
 
 
-	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
+	if (::bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
 		mylog(log_fatal,"socket bind error\n");
 		myexit(1);
 	}

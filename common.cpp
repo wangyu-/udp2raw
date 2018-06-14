@@ -86,10 +86,15 @@ u32_t get_true_random_number_nz() //nz for non-zero
 	}
 	return ret;
 }
-
+inline int is_big_endian()
+{
+    int i=1;
+    return ! *((char *)&i);
+}
 u64_t ntoh64(u64_t a)
 {
-	if(__BYTE_ORDER == __LITTLE_ENDIAN)
+	static int big_endian=is_big_endian();
+	if(!big_endian)
 	{
 		u32_t h=get_u64_h(a);
 		u32_t l=get_u64_l(a);
@@ -101,15 +106,7 @@ u64_t ntoh64(u64_t a)
 }
 u64_t hton64(u64_t a)
 {
-	if(__BYTE_ORDER == __LITTLE_ENDIAN)
-	{
-		u32_t h=get_u64_h(a);
-		u32_t l=get_u64_l(a);
-		return pack_u64(ntohl(l),ntohl(h));
-		//return bswap_64( a);
-	}
-	else return a;
-
+	return ntoh64(u64_t a);
 }
 
 void setnonblocking(int sock) {
@@ -158,7 +155,7 @@ unsigned short csum(const unsigned short *ptr,int nbytes) {//works both for big 
 
 int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
 {
-	if(force_socket_buf)
+	/*if(force_socket_buf)
 	{
 		if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
@@ -171,7 +168,7 @@ int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
 			myexit(1);
 		}
 	}
-	else
+	else*/
 	{
 		if(setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{

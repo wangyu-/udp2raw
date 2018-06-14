@@ -455,6 +455,7 @@ void init_filter(int port)
 void remove_filter()
 {
 	filter_port=0;
+/*
 	int dummy;
 	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy));
 	if (ret != 0)
@@ -463,9 +464,12 @@ void remove_filter()
 		//perror("filter");
 		//exit(-1);
 	}
+*/
 }
+
 int init_ifindex(const char * if_name,int &index)
 {
+/*
 	struct ifreq ifr;
 	size_t if_name_len=strlen(if_name);
 	if (if_name_len<sizeof(ifr.ifr_name)) {
@@ -482,6 +486,7 @@ int init_ifindex(const char * if_name,int &index)
 	}
 	index=ifr.ifr_ifindex;
 	mylog(log_info,"ifname:%s  ifindex:%d\n",if_name,index);
+*/
 	return 0;
 }
 bool interface_has_arp(const char * interface) {
