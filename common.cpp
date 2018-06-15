@@ -93,7 +93,7 @@ inline int is_big_endian()
 }
 u64_t ntoh64(u64_t a)
 {
-	#ifdef UDP2RAW_BIG_ENDIAN
+	#ifdef UDP2RAW_LITTLE_ENDIAN
 		u32_t h=get_u64_h(a);
 		u32_t l=get_u64_l(a);
 		return pack_u64(ntohl(l),ntohl(h));
