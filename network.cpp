@@ -47,6 +47,7 @@ int pcap_link_header_len=-1;
 queue_t my_queue;
 
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t filter_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 ev_async async_watcher;
 
@@ -59,6 +60,8 @@ int g_packet_buf_len=1;
 int g_packet_buf_cnt=0;
 
 libnet_ptag_t g_ptag=0;
+
+struct bpf_program g_filter;
 
 /*
 struct sock_filter code_tcp_old[] = {
@@ -200,7 +203,9 @@ void *pcap_recv_thread_entry(void *none)
 	while(1)
 	{
 		//printf("!!!\n");
+		//pthread_mutex_lock(&filter_mutex);
 		int ret=pcap_next_ex(pcap_handle,&packet_header,&pkt_data);
+		//pthread_mutex_unlock(&filter_mutex);
 
 		switch (ret)
 		{
@@ -255,15 +260,30 @@ int init_raw_socket()
 
 	char pcap_errbuf[PCAP_ERRBUF_SIZE];
 
-	pcap_handle=pcap_open_live(dev,max_data_len,0,1000,pcap_errbuf);
+	//pcap_handle=pcap_open_live(dev,max_data_len,0,1000,pcap_errbuf);
+
+	pcap_handle = pcap_create( dev, pcap_errbuf );
 
 	if(pcap_handle==0)
 	{
-		mylog(log_fatal,"pcap_open_live failed bc of [%s]\n",pcap_errbuf);
+		mylog(log_fatal,"pcap_create failed bc of [%s]\n",pcap_errbuf);
 		myexit(-1);
 	}
 
-	int ret=pcap_datalink(pcap_handle);
+	assert( pcap_set_snaplen(pcap_handle, max_data_len) ==0);
+	assert( pcap_set_promisc(pcap_handle, 0) ==0);
+	assert( pcap_set_timeout(pcap_handle, 1) ==0);
+	assert( pcap_set_immediate_mode(pcap_handle,1) ==0);
+
+	int ret = pcap_activate( pcap_handle );
+	if( ret < 0 )
+	{
+		 printf("pcap_activate failed  %s\n", pcap_geterr(pcap_handle));
+		 assert(0==1);
+	}
+
+
+	ret=pcap_datalink(pcap_handle);
 
 	if(ret==DLT_EN10MB)
 	{
@@ -279,36 +299,18 @@ int init_raw_socket()
 		myexit(-1);
 	}
 
-
-	 struct bpf_program filter;
-	 char filter_exp[1000];
-
-	if(raw_mode==mode_faketcp)
-	{
-		sprintf(filter_exp,"tcp and src %s and port %d",remote_ip,remote_port);
-	}
-	else if(raw_mode==mode_udp)
-	{
-		sprintf(filter_exp,"udp and src %s and port %d",remote_ip,remote_port);
-	}
-	else if(raw_mode==mode_icmp)
-	{
-		sprintf(filter_exp,"icmp and src %s",remote_ip);
-	}
-	else
-	{
-		assert(0==1);
-	}
-
-	mylog(log_info,"filter expression is [%s]\n",filter_exp);
-	 if (pcap_compile(pcap_handle, &filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
+	//mylog(log_info,"filter expression is [%s]\n",filter_exp);
+	 if (pcap_compile(pcap_handle, &g_filter, "", 0, PCAP_NETMASK_UNKNOWN ) == -1) {
 		 printf("Bad filter - %s\n", pcap_geterr(pcap_handle));
 		 assert(0==1);
 	 }
-	 if (pcap_setfilter(pcap_handle, &filter) == -1) {
+
+	 /*
+	 if (pcap_setfilter(pcap_handle, &g_filter) == -1) {
 		 printf("Error setting filter - %s\n", pcap_geterr(pcap_handle));
 		 assert(0==1);
-	 }
+	 }*/
+
 
 		if(pthread_create(&pcap_recv_thread, NULL, pcap_recv_thread_entry, 0)) {
 			mylog(log_fatal, "Error creating thread\n");
@@ -417,6 +419,46 @@ void init_filter(int port)
 	{
 		filter_port=port;
 	}
+
+
+
+	 char filter_exp[1000];
+
+	if(raw_mode==mode_faketcp)
+	{
+		sprintf(filter_exp,"tcp and src %s and src port %d and dst port %d",remote_ip,remote_port,port);
+	}
+	else if(raw_mode==mode_udp)
+	{
+		sprintf(filter_exp,"udp and src %s and src port %d abd dst port %d",remote_ip,remote_port,port);
+	}
+	else if(raw_mode==mode_icmp)
+	{
+		sprintf(filter_exp,"icmp and src %s",remote_ip);
+	}
+	else
+	{
+		assert(0==1);
+	}
+
+	mylog(log_info,"filter expression is [%s]\n",filter_exp);
+
+	 pthread_mutex_lock(&filter_mutex);//not sure if mutex is needed here
+
+	 pcap_freecode(&g_filter);
+
+	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
+		 mylog(log_fatal,"Bad filter - %s\n", pcap_geterr(pcap_handle));
+		 assert(0==1);
+	 }
+
+	 if (pcap_setfilter(pcap_handle, &g_filter) == -1)
+	 {
+		 mylog(log_fatal,"Error setting filter - %s\n", pcap_geterr(pcap_handle));
+		 assert(0==1);
+	 }
+
+	 pthread_mutex_unlock(&filter_mutex);
 	/*
 	if(disable_bpf_filter) return;
 	//if(raw_mode==mode_icmp) return ;
