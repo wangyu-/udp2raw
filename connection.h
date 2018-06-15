@@ -81,13 +81,13 @@ struct conn_info_t     //stores info for a raw connection.for client ,there is o
 	u64_t last_hb_recv_time;
 	//long long last_resent_time;
 
-	id_t my_id;
-	id_t oppsite_id;
+	my_id_t my_id;
+	my_id_t oppsite_id;
 
 
 	fd64_t timer_fd64;
 
-	id_t oppsite_const_id;
+	my_id_t oppsite_const_id;
 
 	blob_t *blob;
 
@@ -119,7 +119,7 @@ struct conn_manager_t  //manager for connections. for client,we dont need conn_m
  //unordered_map<int,conn_info_t *> udp_fd_mp;  //a bit dirty to used pointer,but can void unordered_map search
  //unordered_map<int,conn_info_t *> timer_fd_mp;//we can use pointer here since unordered_map.rehash() uses shallow copy
 
- unordered_map<id_t,conn_info_t *> const_id_mp;
+ unordered_map<my_id_t,conn_info_t *> const_id_mp;
 
  unordered_map<u64_t,conn_info_t*> mp; //put it at end so that it de-consturcts first
 
@@ -157,7 +157,7 @@ int send_bare(raw_info_t &raw_info,const char* data,int len);//send function wit
 //int reserved_parse_bare(const char *input,int input_len,char* & data,int & len); // a sub function used in recv_bare
 int recv_bare(raw_info_t &raw_info,char* & data,int & len);//recv function with encryption but no anti replay,this is used when client and server verifys each other
 //you have to design the protocol carefully, so that you wont be affect by relay attack
-int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3);// a warp for send_bare for sending handshake(this is not tcp handshake) easily
+int send_handshake(raw_info_t &raw_info,my_id_t id1,my_id_t id2,my_id_t id3);// a warp for send_bare for sending handshake(this is not tcp handshake) easily
 int send_safer(conn_info_t &conn_info,char type,const char* data,int len);  //safer transfer function with anti-replay,when mutually verification is done.
 int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_num);//a wrap for  send_safer for transfer data.
 //int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len);//subfunction for recv_safer,allow overlap

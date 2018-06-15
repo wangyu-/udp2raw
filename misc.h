@@ -80,7 +80,7 @@ extern int local_port , remote_port,source_port;//similiar to local_ip  remote_i
 
 extern int force_source_ip; //if --source-ip is enabled
 
-extern id_t const_id;//an id used for connection recovery,its generated randomly,it never change since its generated
+extern my_id_t const_id;//an id used for connection recovery,its generated randomly,it never change since its generated
 
 extern int udp_fd;  //for client only. client use this fd to listen and handle udp connection
 extern int bind_fd; //bind only,never send or recv.  its just a dummy fd for bind,so that other program wont occupy the same port

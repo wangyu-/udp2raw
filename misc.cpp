@@ -35,7 +35,7 @@ int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote
 
 int force_source_ip=0; //if --source-ip is enabled
 
-id_t const_id=0;//an id used for connection recovery,its generated randomly,it never change since its generated
+my_id_t const_id=0;//an id used for connection recovery,its generated randomly,it never change since its generated
 
 int udp_fd=-1;  //for client only. client use this fd to listen and handle udp connection
 int bind_fd=-1; //bind only,never send or recv.  its just a dummy fd for bind,so that other program wont occupy the same port

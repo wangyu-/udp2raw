@@ -332,21 +332,21 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			mylog(log_debug,"unexpected adress %x %x %d %d\n",recv_info.src_ip,send_info.dst_ip,recv_info.src_port,send_info.dst_port);
 			return -1;
 		}
-		if(data_len<int( 3*sizeof(id_t)))
+		if(data_len<int( 3*sizeof(my_id_t)))
 		{
 			mylog(log_debug,"too short to be a handshake\n");
 			return -1;
 		}
-		id_t tmp_oppsite_id;
+		my_id_t tmp_oppsite_id;
 		memcpy(&tmp_oppsite_id,&data[0],sizeof(tmp_oppsite_id));
 		tmp_oppsite_id=ntohl(tmp_oppsite_id);
 
-		id_t tmp_my_id;
-		memcpy(&tmp_my_id,&data[sizeof(id_t)],sizeof(tmp_my_id));
+		my_id_t tmp_my_id;
+		memcpy(&tmp_my_id,&data[sizeof(my_id_t)],sizeof(tmp_my_id));
 		tmp_my_id=ntohl(tmp_my_id);
 
-		id_t tmp_oppsite_const_id;
-		memcpy(&tmp_oppsite_const_id,&data[sizeof(id_t)*2],sizeof(tmp_oppsite_const_id));
+		my_id_t tmp_oppsite_const_id;
+		memcpy(&tmp_oppsite_const_id,&data[sizeof(my_id_t)*2],sizeof(tmp_oppsite_const_id));
 		tmp_oppsite_const_id=ntohl(tmp_oppsite_const_id);
 
 		if(tmp_my_id!=conn_info.my_id)

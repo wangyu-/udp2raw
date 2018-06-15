@@ -183,11 +183,11 @@ int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
 	return 0;
 }
 
-int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len)
+int numbers_to_char(my_id_t id1,my_id_t id2,my_id_t id3,char * &data,int &len)
 {
 	static char buf[buf_len];
 	data=buf;
-	id_t tmp=htonl(id1);
+	my_id_t tmp=htonl(id1);
 	memcpy(buf,&tmp,sizeof(tmp));
 
 	tmp=htonl(id2);
@@ -196,21 +196,21 @@ int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len)
 	tmp=htonl(id3);
 	memcpy(buf+sizeof(tmp)*2,&tmp,sizeof(tmp));
 
-	len=sizeof(id_t)*3;
+	len=sizeof(my_id_t)*3;
 	return 0;
 }
 
-int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3)
+int char_to_numbers(const char * data,int len,my_id_t &id1,my_id_t &id2,my_id_t &id3)
 {
-	if(len<int(sizeof(id_t)*3)) return -1;
+	if(len<int(sizeof(my_id_t)*3)) return -1;
 	//id1=ntohl(  *((id_t*)(data+0)) );
 	memcpy(&id1,data+0,sizeof(id1));
 	id1=ntohl(id1);
 	//id2=ntohl(  *((id_t*)(data+sizeof(id_t))) );
-	memcpy(&id2,data+sizeof(id_t),sizeof(id2));
+	memcpy(&id2,data+sizeof(my_id_t),sizeof(id2));
 	id2=ntohl(id2);
 	//id3=ntohl(  *((id_t*)(data+sizeof(id_t)*2)) );
-	memcpy(&id3,data+sizeof(id_t)*2,sizeof(id3));
+	memcpy(&id3,data+sizeof(my_id_t)*2,sizeof(id3));
 	id3=ntohl(id3);
 	return 0;
 }
