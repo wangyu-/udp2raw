@@ -195,11 +195,39 @@ packet_info_t::packet_info_t()
 
 }
 
+void my_packet_handler(
+    u_char *args,
+    const struct pcap_pkthdr *packet_header,
+    const u_char *pkt_data
+)
+{
+	assert(packet_header->caplen <= packet_header->len);
+	assert(packet_header->caplen <= max_data_len);
+	if(packet_header->caplen<packet_header->len) return;
+
+	if((int)packet_header->caplen<pcap_link_header_len) return;
+
+	pthread_mutex_lock(&queue_mutex);
+	if(!my_queue.full())
+		my_queue.push_back((char *)pkt_data+pcap_link_header_len,(int)(packet_header->caplen)-pcap_link_header_len);
+	pthread_mutex_unlock(&queue_mutex);
+
+	//pcap_cnt++;
+
+	ev_async_send (g_default_loop,&async_watcher);
+    return;
+}
+
 void *pcap_recv_thread_entry(void *none)
 {
 	struct pcap_pkthdr *packet_header;
 	const u_char *pkt_data;
 
+	int ret=pcap_loop(pcap_handle, 0, my_packet_handler, NULL);
+
+	mylog(log_fatal,"pcap_loop returned with value %d\n",ret);
+	myexit(-1);
+	/*
 	while(1)
 	{
 		//printf("!!!\n");
@@ -212,20 +240,7 @@ void *pcap_recv_thread_entry(void *none)
 			case 0:
 				continue;
 			case 1:
-				assert(packet_header->caplen <= packet_header->len);
-				assert(packet_header->caplen <= max_data_len);
-				if(packet_header->caplen<packet_header->len) continue;
 
-				if((int)packet_header->caplen<pcap_link_header_len) continue;
-
-				pthread_mutex_lock(&queue_mutex);
-				if(!my_queue.full())
-					my_queue.push_back((char *)pkt_data+pcap_link_header_len,(int)(packet_header->caplen)-pcap_link_header_len);
-				pthread_mutex_unlock(&queue_mutex);
-
-				//pcap_cnt++;
-
-				ev_async_send (g_default_loop,&async_watcher);
 				break;
 
 			case -1:
@@ -239,7 +254,8 @@ void *pcap_recv_thread_entry(void *none)
 				assert(0==1);
 		}
 	}
-	myexit(-1);
+	myexit(-1);*/
+	return 0;
 }
 
 extern void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents);
