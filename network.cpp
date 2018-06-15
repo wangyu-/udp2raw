@@ -58,6 +58,8 @@ char g_packet_buf[buf_len]; //dirty code, fix it later
 int g_packet_buf_len=1;
 int g_packet_buf_cnt=0;
 
+libnet_ptag_t g_ptag=0;
+
 /*
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
@@ -248,6 +250,8 @@ int init_raw_socket()
 		mylog(log_fatal,"libnet_init failed bc of [%s]\n",libnet_errbuf);
 		myexit(-1);
 	}
+	g_ptag=0;
+    libnet_clear_packet(libnet_handle);
 
 	char pcap_errbuf[PCAP_ERRBUF_SIZE];
 
@@ -761,18 +765,20 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     else*/
     	iph->check=0;
 
+
+
+	g_ptag=libnet_build_ipv4(ip_tot_len, iph->tos, ntohs(iph->id), ntohs(iph->frag_off),
+		iph->ttl , send_info.protocol, iph->check , iph->saddr, iph->daddr,
+		(const unsigned char *)payload, payloadlen, libnet_handle, g_ptag);
+
+    assert(g_ptag!=-1 &&g_ptag!=0);
+
     int ret;
-
-    ret=libnet_build_ipv4(ip_tot_len, iph->tos, ntohs(iph->id), ntohs(iph->frag_off),
-    		iph->ttl , send_info.protocol, iph->check , iph->saddr, iph->daddr,
-			(const unsigned char *)payload, payloadlen, libnet_handle, 0);
-    assert(ret!=-1);
-
     ret= libnet_write(libnet_handle);
 
     assert(ret!=-1);
 
-    libnet_clear_packet(libnet_handle);
+
 
 
     /*
