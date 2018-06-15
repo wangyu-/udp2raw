@@ -1452,6 +1452,7 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 
     if(udph->dest!=ntohs(uint16_t(filter_port)))
     {
+    	mylog(log_debug,"dropped packet for other ports\n");
     	//printf("%x %x",tcph->dest,);
     	return -1;
     }
@@ -1525,6 +1526,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     if(tcph->dest!=ntohs(uint16_t(filter_port)))
     {
+    	mylog(log_debug,"dropped packet for other ports\n");
     	//printf("%x %x",tcph->dest,);
     	return -1;
     }
