@@ -12,6 +12,10 @@ char hb_buf[buf_len];
 
 int on_epoll_recv_event=0;  //TODO, just a flag to help detect epoll infinite shoot
 
+
+u32_t detect_interval=1500;
+u64_t laste_detect_time=0;
+
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
@@ -26,6 +30,47 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 
 	//mylog(log_debug,"pcap cnt :%d\n",pcap_cnt);
+	if(send_with_pcap&&!pcap_header_captured)
+	{
+
+		if(get_current_time()-laste_detect_time>detect_interval)
+		{
+			laste_detect_time=get_current_time();
+		}
+		else
+		{
+			return 0;
+		}
+
+		struct sockaddr_in remote_addr_in={0};
+
+		socklen_t slen = sizeof(sockaddr_in);
+		//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
+		remote_addr_in.sin_family = AF_INET;
+		remote_addr_in.sin_port = htons(remote_port);
+		remote_addr_in.sin_addr.s_addr = remote_ip_uint32;
+
+		int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		if(new_udp_fd<0)
+		{
+			mylog(log_warn,"create udp_fd error\n");
+			return -1;
+		}
+		setnonblocking(new_udp_fd);
+		u64_t tmp=get_true_random_number();
+
+		int ret=sendto(new_udp_fd,(char*)(&tmp),sizeof(tmp),0,(struct sockaddr *)&remote_addr_in,sizeof(remote_addr_in));
+		if(ret==-1)
+		{
+			mylog(log_warn,"sendto() failed\n");
+		}
+
+		close(new_udp_fd);
+
+		mylog(log_info,"waiting for a use-able packet to be captured\n");
+
+		return 0;
+	}
 
 	if(raw_info.disabled)
 	{
@@ -530,6 +575,30 @@ void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents)
 {
 	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
 
+	if(send_with_pcap&&!pcap_header_captured)
+	{
+		int empty=0;char *p;int len;
+		pthread_mutex_lock(&queue_mutex);
+		empty=my_queue.empty();
+		if(!empty)
+		{
+			my_queue.peek_front(p,len);
+			my_queue.pop_front();
+		}
+		pthread_mutex_unlock(&queue_mutex);
+		if(empty) return;
+
+		pcap_header_captured=1;
+		assert(pcap_link_header_len!=-1);
+		memcpy(pcap_header_buf,p,pcap_link_header_len);
+
+		log_bare(log_info,"link level header captured:\n");
+		for(int i=0;i<pcap_link_header_len;i++)
+		log_bare(log_info,"<%x>",(u32_t)(unsigned char)pcap_header_buf[i]);
+		log_bare(log_info,"\n");
+		return ;
+	}
+
 	//mylog(log_info,"async_cb called\n");
 	while(1)
 	{
@@ -545,8 +614,9 @@ void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents)
 
 		if(empty) break;
 
-		memcpy(g_packet_buf,p,len);
-		g_packet_buf_len=len;
+		int new_len=len-pcap_link_header_len;
+		memcpy(g_packet_buf,p+pcap_link_header_len,new_len);
+		g_packet_buf_len=new_len;
 		assert(g_packet_buf_cnt==0);
 		g_packet_buf_cnt++;
 		client_on_raw_recv(conn_info);

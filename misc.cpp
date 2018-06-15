@@ -284,6 +284,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"set-ttl", required_argument,    0, 1},
 		{"dev", required_argument,    0, 1},
 		{"dns-resolve", no_argument,    0, 1},
+		{"pcap-send", no_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -670,10 +671,15 @@ void process_arg(int argc, char *argv[])  //process all options
 				enable_dns_resolve=1;
 				mylog(log_info,"dns-resolve enabled\n");
 			}
-			else if(strcmp(long_options[option_index].name,"dev")==0)  // currently not used
+			else if(strcmp(long_options[option_index].name,"dev")==0)
 			{
 				sscanf(optarg,"%s",dev);
 				mylog(log_info,"dev=[%s]\n",dev);
+			}
+			else if(strcmp(long_options[option_index].name,"pcap-send")==0)
+			{
+				send_with_pcap=1;
+				mylog(log_info,"--pcap-send enabled, now pcap will be used for sending packet instead of libnet\n");
 			}
 			else
 			{

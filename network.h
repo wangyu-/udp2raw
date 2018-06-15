@@ -39,6 +39,12 @@ extern char g_packet_buf[buf_len];
 extern int g_packet_buf_len;
 extern int g_packet_buf_cnt;
 
+extern int pcap_link_header_len;
+
+extern int send_with_pcap;
+extern int pcap_header_captured;
+extern int pcap_header_buf[buf_len];
+
 struct icmphdr
 {
 	uint8_t type;
@@ -208,6 +214,7 @@ struct raw_info_t
 	bool disabled=0;
 
 };//g_raw_info;
+
 
 
 int init_raw_socket();

@@ -63,6 +63,10 @@ libnet_ptag_t g_ptag=0;
 
 struct bpf_program g_filter;
 
+int send_with_pcap=0;
+int pcap_header_captured=0;
+int pcap_header_buf[buf_len];
+
 /*
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
@@ -209,7 +213,7 @@ void my_packet_handler(
 
 	pthread_mutex_lock(&queue_mutex);
 	if(!my_queue.full())
-		my_queue.push_back((char *)pkt_data+pcap_link_header_len,(int)(packet_header->caplen)-pcap_link_header_len);
+		my_queue.push_back((char *)pkt_data,(int)(packet_header->caplen));
 	pthread_mutex_unlock(&queue_mutex);
 
 	//pcap_cnt++;
@@ -280,6 +284,7 @@ int init_raw_socket()
 
 	pcap_handle = pcap_create( dev, pcap_errbuf );
 
+
 	if(pcap_handle==0)
 	{
 		mylog(log_fatal,"pcap_create failed bc of [%s]\n",pcap_errbuf);
@@ -290,6 +295,11 @@ int init_raw_socket()
 	assert( pcap_set_promisc(pcap_handle, 0) ==0);
 	assert( pcap_set_timeout(pcap_handle, 1) ==0);
 	assert( pcap_set_immediate_mode(pcap_handle,1) ==0);
+
+	if(send_with_pcap)
+	{
+		pcap_setdirection(pcap_handle,PCAP_D_INOUT);
+	}
 
 	int ret = pcap_activate( pcap_handle );
 	if( ret < 0 )
@@ -315,17 +325,22 @@ int init_raw_socket()
 		myexit(-1);
 	}
 
-	//mylog(log_info,"filter expression is [%s]\n",filter_exp);
-	 if (pcap_compile(pcap_handle, &g_filter, "", 0, PCAP_NETMASK_UNKNOWN ) == -1) {
+	char filter_exp[1000];
+
+	assert(source_ip_uint32!=0);
+
+	sprintf(filter_exp,"src %s and dst %s and (tcp or udp or icmp)",my_ntoa(source_ip_uint32),remote_ip);
+
+	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
 		 printf("Bad filter - %s\n", pcap_geterr(pcap_handle));
 		 assert(0==1);
 	 }
 
-	 /*
+
 	 if (pcap_setfilter(pcap_handle, &g_filter) == -1) {
 		 printf("Error setting filter - %s\n", pcap_geterr(pcap_handle));
 		 assert(0==1);
-	 }*/
+	 }
 
 
 		if(pthread_create(&pcap_recv_thread, NULL, pcap_recv_thread_entry, 0)) {
@@ -459,7 +474,7 @@ void init_filter(int port)
 
 	mylog(log_info,"filter expression is [%s]\n",filter_exp);
 
-	 pthread_mutex_lock(&filter_mutex);//not sure if mutex is needed here
+	 //pthread_mutex_lock(&filter_mutex);//not sure if mutex is needed here
 
 	 pcap_freecode(&g_filter);
 
@@ -474,7 +489,7 @@ void init_filter(int port)
 		 assert(0==1);
 	 }
 
-	 pthread_mutex_unlock(&filter_mutex);
+	 //pthread_mutex_unlock(&filter_mutex);
 	/*
 	if(disable_bpf_filter) return;
 	//if(raw_mode==mode_icmp) return ;
@@ -778,7 +793,8 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
 	const packet_info_t &send_info=raw_info.send_info;
 	const packet_info_t &recv_info=raw_info.recv_info;
-	char send_raw_ip_buf[buf_len];
+	char send_raw_ip_buf0[buf_len+pcap_link_header_len];
+	char * send_raw_ip_buf=send_raw_ip_buf0+pcap_link_header_len;
 
 	if(raw_info.disabled)
 	{
@@ -820,21 +836,35 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 
     /*if(lower_level) iph->check =
     		csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4); //this is not necessary ,kernel will always auto fill this
-    else*/
+    else
     	iph->check=0;
+    */
 
 
+    if(! send_with_pcap)
+    {
+		g_ptag=libnet_build_ipv4(ip_tot_len, iph->tos, ntohs(iph->id), ntohs(iph->frag_off),
+			iph->ttl , iph->protocol , iph->check , iph->saddr, iph->daddr,
+			(const unsigned char *)payload, payloadlen, libnet_handle, g_ptag);
 
-	g_ptag=libnet_build_ipv4(ip_tot_len, iph->tos, ntohs(iph->id), ntohs(iph->frag_off),
-		iph->ttl , send_info.protocol, iph->check , iph->saddr, iph->daddr,
-		(const unsigned char *)payload, payloadlen, libnet_handle, g_ptag);
+		assert(g_ptag!=-1 &&g_ptag!=0);
 
-    assert(g_ptag!=-1 &&g_ptag!=0);
+		int ret;
+		ret= libnet_write(libnet_handle);
 
-    int ret;
-    ret= libnet_write(libnet_handle);
+		assert(ret!=-1);
+    }
+    else
+    {
+    	iph->tot_len=htons(ip_tot_len);
+    	iph->check =csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4);
 
-    assert(ret!=-1);
+
+    	assert(pcap_header_captured==1);
+    	assert(pcap_link_header_len!=-1);
+    	memcpy(send_raw_ip_buf0,pcap_header_buf,pcap_link_header_len);
+    	assert(pcap_sendpacket(pcap_handle,(const unsigned char *)send_raw_ip_buf0,ip_tot_len+pcap_link_header_len)==0);
+    }
 
 
 
