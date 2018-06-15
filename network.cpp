@@ -67,6 +67,7 @@ int send_with_pcap=0;
 int pcap_header_captured=0;
 int pcap_header_buf[buf_len];
 
+int use_tcp_dummy_socket=0;
 /*
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
@@ -2138,7 +2139,7 @@ int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind 
 
 	 if(raw_mode==mode_faketcp)
 	 {
-		 fd=socket(AF_INET,SOCK_STREAM,0);
+		 fd=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 	 }
 	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)
 	 {
@@ -2161,9 +2162,8 @@ int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind 
     	 mylog(log_debug,"bind fail\n");
     	 return -1;
      }
-	 if(raw_mode==mode_faketcp)
+	 if(raw_mode==mode_faketcp &&!use_tcp_dummy_socket)
 	 {
-
 		if (listen(fd, SOMAXCONN) != 0) {
 			mylog(log_warn,"listen fail\n");
 			return -1;

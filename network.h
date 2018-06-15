@@ -45,6 +45,7 @@ extern int send_with_pcap;
 extern int pcap_header_captured;
 extern int pcap_header_buf[buf_len];
 
+extern int use_tcp_dummy_socket;
 struct icmphdr
 {
 	uint8_t type;

@@ -285,6 +285,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"dev", required_argument,    0, 1},
 		{"dns-resolve", no_argument,    0, 1},
 		{"pcap-send", no_argument,    0, 1},
+		{"easy-tcp", no_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -680,6 +681,11 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				send_with_pcap=1;
 				mylog(log_info,"--pcap-send enabled, now pcap will be used for sending packet instead of libnet\n");
+			}
+			else if(strcmp(long_options[option_index].name,"easy-tcp")==0)
+			{
+				use_tcp_dummy_socket=1;
+				mylog(log_info,"--easy-tcp enabled, now a dummy tcp socket will be created for handshake and block rst\n");
 			}
 			else
 			{
