@@ -16,6 +16,10 @@ int on_epoll_recv_event=0;  //TODO, just a flag to help detect epoll infinite sh
 u32_t detect_interval=1500;
 u64_t laste_detect_time=0;
 
+int use_udp_for_detection=0;
+int use_tcp_for_detection=1;
+
+
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
@@ -46,26 +50,49 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 		socklen_t slen = sizeof(sockaddr_in);
 		//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
+		int port=get_true_random_number()%65534+1;
 		remote_addr_in.sin_family = AF_INET;
-		remote_addr_in.sin_port = htons(remote_port);
+		remote_addr_in.sin_port = htons(port);
 		remote_addr_in.sin_addr.s_addr = remote_ip_uint32;
 
-		int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if(new_udp_fd<0)
+		if(use_udp_for_detection)
 		{
-			mylog(log_warn,"create udp_fd error\n");
-			return -1;
-		}
-		setnonblocking(new_udp_fd);
-		u64_t tmp=get_true_random_number();
+			int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+			if(new_udp_fd<0)
+			{
+				mylog(log_warn,"create new_udp_fd error\n");
+				return -1;
+			}
+			setnonblocking(new_udp_fd);
+			u64_t tmp=get_true_random_number();
 
-		int ret=sendto(new_udp_fd,(char*)(&tmp),sizeof(tmp),0,(struct sockaddr *)&remote_addr_in,sizeof(remote_addr_in));
-		if(ret==-1)
+			int ret=sendto(new_udp_fd,(char*)(&tmp),sizeof(tmp),0,(struct sockaddr *)&remote_addr_in,sizeof(remote_addr_in));
+			if(ret==-1)
+			{
+				mylog(log_warn,"sendto() failed\n");
+			}
+			close(new_udp_fd);
+		}
+
+		if(use_tcp_for_detection)
 		{
-			mylog(log_warn,"sendto() failed\n");
+			static int last_tcp_fd=-1;
+
+			int new_tcp_fd=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if(new_tcp_fd<0)
+			{
+				mylog(log_warn,"create new_tcp_fd error\n");
+				return -1;
+			}
+			setnonblocking(new_tcp_fd);
+			connect(new_tcp_fd,(struct sockaddr *)&remote_addr_in,sizeof(remote_addr_in));
+			if(last_tcp_fd!=-1)
+				close(last_tcp_fd);
+			last_tcp_fd=new_tcp_fd;
+			//close(new_tcp_fd);
 		}
 
-		close(new_udp_fd);
+
 
 		mylog(log_info,"waiting for a use-able packet to be captured\n");
 
