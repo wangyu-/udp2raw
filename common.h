@@ -68,18 +68,26 @@ using  namespace std;
     defined(__AARCH64EB__) || \
     defined(_MIBSEB) || defined(__MIBSEB) || defined(__MIBSEB__)
 #define UDP2RAW_BIG_ENDIAN 1
-#elif defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN || \
+#endif
+
+
+#if defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN || \
     defined(__LITTLE_ENDIAN__) || \
     defined(__ARMEL__) || \
     defined(__THUMBEL__) || \
     defined(__AARCH64EL__) || \
     defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__)
 #define UDP2RAW_LITTLE_ENDIAN 1
-// It's a little-endian target architecture
-#else
-#error "I don't know what architecture this is!"
 #endif
 
+#if defined(UDP2RAW_BIG_ENDIAN) &&defined(UDP2RAW_LITTLE_ENDIAN)
+#error "endian detection conflicts"
+#endif
+
+
+#if !defined(UDP2RAW_BIG_ENDIAN) && !defined(UDP2RAW_LITTLE_ENDIAN)
+#error "endian detection failed"
+#endif
 
 typedef unsigned long long u64_t;   //this works on most platform,avoid using the PRId64
 typedef long long i64_t;
