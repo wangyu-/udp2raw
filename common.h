@@ -28,7 +28,7 @@
 //#include <netinet/tcp.h>   //Provides declarations for tcp header
 //#include <netinet/udp.h>
 //#include <netinet/ip.h>    //Provides declarations for ip header
-#include <netinet/if_ether.h>
+//#include <netinet/if_ether.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 //#include <byteswap.h>
@@ -62,6 +62,7 @@
 using  namespace std;
 
 #if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN || \
+    defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ || \
     defined(__BIG_ENDIAN__) || \
     defined(__ARMEB__) || \
     defined(__THUMBEB__) || \
@@ -72,6 +73,7 @@ using  namespace std;
 
 
 #if defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN || \
+    defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ || \
     defined(__LITTLE_ENDIAN__) || \
     defined(__ARMEL__) || \
     defined(__THUMBEL__) || \
@@ -88,6 +90,7 @@ using  namespace std;
 #if !defined(UDP2RAW_BIG_ENDIAN) && !defined(UDP2RAW_LITTLE_ENDIAN)
 #error "endian detection failed"
 #endif
+
 
 typedef unsigned long long u64_t;   //this works on most platform,avoid using the PRId64
 typedef long long i64_t;
