@@ -40,7 +40,17 @@ const u32_t receive_window_lower_bound=40960;
 const u32_t receive_window_random_range=512;
 const unsigned char wscale=0x05;
 
+#ifndef NO_LIBNET
 libnet_t *libnet_handle;
+libnet_ptag_t g_ptag=0;
+int send_with_pcap=0;
+#else
+int send_with_pcap=1;
+#endif
+
+int pcap_header_captured=0;
+int pcap_header_buf[buf_len];
+
 pcap_t *pcap_handle;
 int pcap_link_header_len=-1;
 //int pcap_cnt=0;
@@ -59,13 +69,11 @@ char g_packet_buf[buf_len]; //dirty code, fix it later
 int g_packet_buf_len=1;
 int g_packet_buf_cnt=0;
 
-libnet_ptag_t g_ptag=0;
+
 
 struct bpf_program g_filter;
 
-int send_with_pcap=0;
-int pcap_header_captured=0;
-int pcap_header_buf[buf_len];
+
 
 int use_tcp_dummy_socket=0;
 /*
@@ -267,6 +275,8 @@ extern void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents
 
 int init_raw_socket()
 {
+
+#ifndef NO_LIBNET
 	char libnet_errbuf[LIBNET_ERRBUF_SIZE];
 
 	libnet_handle = libnet_init(LIBNET_RAW4, dev, libnet_errbuf);
@@ -278,6 +288,7 @@ int init_raw_socket()
 	}
 	g_ptag=0;
     libnet_clear_packet(libnet_handle);
+#endif
 
 	char pcap_errbuf[PCAP_ERRBUF_SIZE];
 
@@ -844,6 +855,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 
     if(! send_with_pcap)
     {
+#ifndef NO_LIBNET
 		g_ptag=libnet_build_ipv4(ip_tot_len, iph->tos, ntohs(iph->id), ntohs(iph->frag_off),
 			iph->ttl , iph->protocol , iph->check , iph->saddr, iph->daddr,
 			(const unsigned char *)payload, payloadlen, libnet_handle, g_ptag);
@@ -854,6 +866,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 		ret= libnet_write(libnet_handle);
 
 		assert(ret!=-1);
+#endif
     }
     else
     {

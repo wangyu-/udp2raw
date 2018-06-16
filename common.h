@@ -48,8 +48,10 @@
 //#include <byteswap.h>
 #include <pthread.h>
 #include <pcap.h>
-#include <libnet.h>
 
+#ifndef NO_LIBNET
+#include <libnet.h>
+#endif
 
 #include <my_ev.h>
 
