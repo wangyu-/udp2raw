@@ -972,7 +972,6 @@ void sigint_cb(struct ev_loop *l, ev_signal *w, int revents)
 
 int main(int argc, char *argv[])
 {
-	init_pcap();
 	int i=0;
 	char errbuf[PCAP_ERRBUF_SIZE];
 

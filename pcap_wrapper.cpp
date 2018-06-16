@@ -31,6 +31,15 @@ char* (*pcap_lookupdev)(char *);
 
 int	(*pcap_findalldevs)(pcap_if_t **, char *);
 
+struct init_pcap_t
+{
+	init_pcap_t()
+	{
+		init_pcap();
+	}
+	
+}do_it;
+
 int init_pcap()
 {
 	HMODULE wpcap=LoadLibrary("wpcap.dll");
