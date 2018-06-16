@@ -40,6 +40,15 @@ linux_nolibnet:git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 -DNO_LIBNET
 
+freebsd:git_version
+	rm -f ${NAME}
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${LIBNET} ${FLAGS} -lrt -ggdb -static -O2
+
+freebsd_nolibnet:git_version
+	rm -f ${NAME}
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 -DNO_LIBNET
+
+
 mac:git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${LIBNET} ${FLAGS} -ggdb -O2
