@@ -47,7 +47,13 @@
 //#include <linux/if_packet.h>
 //#include <byteswap.h>
 #include <pthread.h>
+
+#ifndef __CYGWIN__
 #include <pcap.h>
+#else
+#include <pcap_wrapper.h>
+#define NO_LIBNET
+#endif
 
 #ifndef NO_LIBNET
 #include <libnet.h>

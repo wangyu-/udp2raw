@@ -214,8 +214,16 @@ void my_packet_handler(
     const u_char *pkt_data
 )
 {
+	/*printf("<%d %d>\n",(int)packet_header->caplen,(int)packet_header->len );
+	for(int i=0;i<sizeof(pcap_pkthdr);i++)
+	{
+		char *p=(char *) packet_header;
+		printf("<%x>",int( p[i] ));
+	}
+	printf("\n");*/
 	assert(packet_header->caplen <= packet_header->len);
 	assert(packet_header->caplen <= max_data_len);
+	//if(packet_header->caplen > max_data_len) return ;
 	if(packet_header->caplen<packet_header->len) return;
 
 	if((int)packet_header->caplen<pcap_link_header_len) return;
@@ -828,7 +836,8 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     	iph->id = htons (g_ip_id_counter++); //Id of this packet
     }
     else*/
-    	iph->id = htons (g_ip_id_counter++); //Id of this packet
+    	iph->id = htons (g_ip_id_counter); //Id of this packet
+    g_ip_id_counter++;
     	//iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero  ,or really?????// todo //seems like there is a problem
 
     iph->frag_off = htons(0x4000); //DF set,others are zero

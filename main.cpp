@@ -972,6 +972,26 @@ void sigint_cb(struct ev_loop *l, ev_signal *w, int revents)
 
 int main(int argc, char *argv[])
 {
+	init_pcap();
+	int i=0;
+	char errbuf[PCAP_ERRBUF_SIZE];
+
+	pcap_if_t *interfaces,*d;
+	if(pcap_findalldevs(&interfaces,errbuf)==-1)
+	{
+		printf("\nerror in pcap findall devs");
+		return -1;
+	}
+
+	for(pcap_if_t *d=interfaces; d!=NULL; d=d->next) {
+		printf("%s:", d->name);
+		for(pcap_addr_t *a=d->addresses; a!=NULL; a=a->next) {
+			if(a->addr->sa_family == AF_INET)
+				printf(" %s", inet_ntoa(((struct sockaddr_in*)a->addr)->sin_addr));
+		}
+		printf("\n");
+	}
+
 	//libnet_t *l;	/* the libnet context */
 	//char errbuf[LIBNET_ERRBUF_SIZE];
 
