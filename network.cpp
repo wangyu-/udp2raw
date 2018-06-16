@@ -856,6 +856,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     if(! send_with_pcap)
     {
 #ifndef NO_LIBNET
+	    
 		g_ptag=libnet_build_ipv4(ip_tot_len, iph->tos, ntohs(iph->id), ntohs(iph->frag_off),
 			iph->ttl , iph->protocol , iph->check , iph->saddr, iph->daddr,
 			(const unsigned char *)payload, payloadlen, libnet_handle, g_ptag);
@@ -866,6 +867,13 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 		ret= libnet_write(libnet_handle);
 
 		assert(ret!=-1);
+
+
+	    /*
+		iph->tot_len=htons(ip_tot_len);
+		iph->check =csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4);
+		libnet_write_raw_ipv4(libnet_handle,(const unsigned char *)send_raw_ip_buf,ip_tot_len);  //this api is marked as internal, so avoid using it.
+		*/ 
 #endif
     }
     else
