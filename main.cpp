@@ -668,8 +668,10 @@ void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents)
 		memcpy(pcap_header_buf,p,pcap_link_header_len);
 
 		log_bare(log_info,"link level header captured:\n");
+		unsigned char *tmp=(unsigned char*)pcap_header_buf;
 		for(int i=0;i<pcap_link_header_len;i++)
-		log_bare(log_info,"<%x>",(u32_t)(unsigned char)pcap_header_buf[i]);
+		log_bare(log_info,"<%x>",(u32_t)tmp[i]);
+
 		log_bare(log_info,"\n");
 		return ;
 	}
@@ -787,7 +789,7 @@ int client_event_loop()
 	{
 		mylog(log_info,"--dev have not been set, trying to detect automatically, avaliable deives:\n");
 
-		mylog(log_info,"avaliable deives(and ip address):\n");
+		mylog(log_info,"avaliable deives(device name: ip address ; description):\n");
 
 		char errbuf[PCAP_ERRBUF_SIZE];
 
@@ -816,7 +818,12 @@ int client_event_loop()
 					}
 				}
 			}
-			if(cnt==0) log_bare(log_info," (no ip found)");
+			if(cnt==0) log_bare(log_info," [no ip found]");
+			if(d->description==0)
+			{
+				log_bare(log_info,"; (null)");
+			}
+			log_bare(log_info,"; %s", d->description);
 			log_bare(log_info,"\n");
 		}
 

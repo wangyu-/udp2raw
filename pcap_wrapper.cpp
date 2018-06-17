@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <pcap_wrapper.h>
 #include <assert.h>
-
+#include <stdio.h>
 int	(*pcap_loop )(pcap_t *, int, pcap_handler, u_char *);
 
 pcap_t* (*pcap_create)(const char *, char *);
@@ -43,6 +43,11 @@ struct init_pcap_t
 int init_pcap()
 {
 	HMODULE wpcap=LoadLibrary("wpcap.dll");
+	if(wpcap==0)
+	{
+		printf("cant not open wpcap.dll, make sure winpcap/npcap is installed\n");
+		exit(-1);
+	}
 	assert(wpcap!=0);
 
 	pcap_loop = (__typeof__(pcap_loop))GetProcAddress(wpcap, "pcap_loop");
