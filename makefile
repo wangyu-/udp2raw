@@ -62,7 +62,7 @@ fast: git_version
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -ggdb
 debug: git_version
 	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -D MY_DEBUG 
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${LIBNET} ${FLAGS} -lrt -ggdb -static -O2 -Wformat-nonliteral -D MY_DEBUG 
 debug2: git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -ggdb

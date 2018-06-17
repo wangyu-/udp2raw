@@ -785,7 +785,7 @@ int client_event_loop()
 
 	if(strcmp(dev,"")==0)
 	{
-		mylog(log_info,"--dev have not been set, trying to detect automatically, avaliable deives:\n",dev);
+		mylog(log_info,"--dev have not been set, trying to detect automatically, avaliable deives:\n");
 
 		mylog(log_info,"avaliable deives(and ip address):\n");
 
