@@ -18,30 +18,30 @@
 #include<unistd.h>
 #include<errno.h>
 //#include <sys/epoll.h>
-#include <sys/wait.h>
+//#include <sys/wait.h>
 #include <sys/socket.h>    //for socket ofcourse
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdlib.h> //for exit(0);
 #include <errno.h> //For errno - the error number
-#include <netdb.h> // for gethostbyname()
+//#include <netdb.h> // for gethostbyname()
 //#include <netinet/tcp.h>   //Provides declarations for tcp header
 //#include <netinet/udp.h>
 //#include <netinet/ip.h>    //Provides declarations for ip header
 //#include <netinet/if_ether.h>
-#include <arpa/inet.h>
+//#include <arpa/inet.h>
 #include <fcntl.h>
 //#include <byteswap.h>
-#include <arpa/inet.h>
+//#include <arpa/inet.h>
 //#include <linux/if_ether.h>
 //#include <linux/filter.h>
 #include <sys/time.h>
 #include <time.h>
 //#include <sys/timerfd.h>
 #include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
-#include <arpa/inet.h>
+//#include <netinet/in.h>
+//#include <net/if.h>
+//#include <arpa/inet.h>
 #include <stdarg.h>
 #include <assert.h>
 //#include <linux/if_packet.h>
