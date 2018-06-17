@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-#include <sys/time.h>
+//#include <sys/time.h>
 //#include <stdint.h>
 
 struct bpf_program
@@ -58,7 +58,7 @@ typedef struct pcap_addr pcap_addr_t;
 
 
 
-//typedef unsigned char u_char;
+typedef unsigned char u_char;
 
 
 #define PCAP_ERRBUF_SIZE 256
