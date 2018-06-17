@@ -26,7 +26,7 @@ TARGETS=amd64 arm amd64_hw_aes arm_asm_aes mips24kc_be mips24kc_be_asm_aes x86 x
 TAR=${NAME}_binaries.tar.gz `echo ${TARGETS}|sed -r 's/([^ ]+)/udp2raw_\1/g'` version.txt
 
 all:git_version
-	echo "do not use 'make all', instead, use 'make linux' 'make mac' 'make freebsd' 'make cygwin' "
+	echo "\ndo not use 'make all', instead, use 'make linux' 'make mac' 'make freebsd' 'make cygwin' \nyou can also try 'make linux_nolibnet' 'make mac_nolibnet'  'make freebsd_nolibnet'  "
 
 cygwin:git_version
 	rm -f ${NAME}
@@ -40,9 +40,23 @@ linux_nolibnet:git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 -DNO_LIBNET
 
+freebsd:git_version
+	rm -f ${NAME}
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${LIBNET} ${FLAGS} -lrt -ggdb -static -O2
+
+freebsd_nolibnet:git_version
+	rm -f ${NAME}
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 -DNO_LIBNET
+
+
 mac:git_version
 	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -ggdb -O2
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${LIBNET} ${FLAGS} -ggdb -O2
+
+mac_nolibnet:git_version
+	rm -f ${NAME}
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${FLAGS} -ggdb -O2 -DNO_LIBNET
+
 fast: git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -ggdb
