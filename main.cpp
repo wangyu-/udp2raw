@@ -778,10 +778,67 @@ int client_event_loop()
 		}
 
 	}
-	in_addr tmp;
-	tmp.s_addr=source_ip_uint32;
-	mylog(log_info,"source ip = %s\n",inet_ntoa(tmp));
+	//in_addr tmp;
+	//tmp.s_addr=source_ip_uint32;
+	mylog(log_info,"source ip = %s\n",my_ntoa(source_ip_uint32));
 	//printf("done\n");
+
+	if(strcmp(dev,"")==0)
+	{
+		mylog(log_info,"--dev have not been set, trying to detect automatically, avaliable deives:\n",dev);
+
+		mylog(log_info,"avaliable deives(and ip address):\n");
+
+		char errbuf[PCAP_ERRBUF_SIZE];
+
+		int found=0;
+
+		pcap_if_t *interfaces,*d;
+		if(pcap_findalldevs(&interfaces,errbuf)==-1)
+		{
+			mylog(log_fatal,"error in pcap_findalldevs(),%s\n",errbuf);
+			myexit(-1);
+		}
+
+		for(pcap_if_t *d=interfaces; d!=NULL; d=d->next) {
+			log_bare(log_info,"%s:", d->name);
+			int cnt=0;
+			for(pcap_addr_t *a=d->addresses; a!=NULL; a=a->next) {
+				if(a->addr->sa_family == AF_INET)
+				{
+					cnt++;
+					log_bare(log_info," [%s]", inet_ntoa(((struct sockaddr_in*)a->addr)->sin_addr));
+
+					if(((struct sockaddr_in*)a->addr)->sin_addr.s_addr ==source_ip_uint32)
+					{
+						found++;
+						strcpy(dev,d->name);
+					}
+				}
+			}
+			if(cnt==0) log_bare(log_info," (no ip found)");
+			log_bare(log_info,"\n");
+		}
+
+		if(found==0)
+		{
+			mylog(log_fatal,"no matched device found for ip: [%s]\n",my_ntoa(source_ip_uint32));
+			myexit(-1);
+		}
+		else if(found==1)
+		{
+			mylog(log_info,"using device:[%s], ip: [%s]\n",dev,my_ntoa(source_ip_uint32));
+		}
+		else
+		{
+			mylog(log_fatal,"more than one devices found for ip: [%s] , you need to use --dev manually\n",my_ntoa(source_ip_uint32));
+			myexit(-1);
+		}
+	}
+	else
+	{
+		mylog(log_info,"--dev has been manually set, using device:[%s]\n",dev);
+	}
 
 
 	if(try_to_list_and_bind(bind_fd,local_ip_uint32,source_port)!=0)
@@ -973,23 +1030,6 @@ void sigint_cb(struct ev_loop *l, ev_signal *w, int revents)
 int main(int argc, char *argv[])
 {
 	int i=0;
-	char errbuf[PCAP_ERRBUF_SIZE];
-
-	pcap_if_t *interfaces,*d;
-	if(pcap_findalldevs(&interfaces,errbuf)==-1)
-	{
-		printf("\nerror in pcap findall devs");
-		return -1;
-	}
-
-	for(pcap_if_t *d=interfaces; d!=NULL; d=d->next) {
-		printf("%s:", d->name);
-		for(pcap_addr_t *a=d->addresses; a!=NULL; a=a->next) {
-			if(a->addr->sa_family == AF_INET)
-				printf(" %s", inet_ntoa(((struct sockaddr_in*)a->addr)->sin_addr));
-		}
-		printf("\n");
-	}
 
 	//libnet_t *l;	/* the libnet context */
 	//char errbuf[LIBNET_ERRBUF_SIZE];
