@@ -221,7 +221,7 @@ u32_t get_true_random_number()
 	}
 	return ret;
 #else
-	return my_random.gen64();  //fake random number
+	return my_random.gen32();  //fake random number
 #endif
 }
 u32_t get_true_random_number_nz() //nz for non-zero

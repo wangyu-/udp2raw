@@ -221,12 +221,14 @@ void my_packet_handler(
 		printf("<%x>",int( p[i] ));
 	}
 	printf("\n");*/
+	mylog(log_debug,"received a packet!\n");
 	assert(packet_header->caplen <= packet_header->len);
 	assert(packet_header->caplen <= max_data_len);
 	//if(packet_header->caplen > max_data_len) return ;
 	if(packet_header->caplen<packet_header->len) return;
 
 	if((int)packet_header->caplen<pcap_link_header_len) return;
+	mylog(log_debug,"and its vaild!\n");
 
 	pthread_mutex_lock(&queue_mutex);
 	if(!my_queue.full())
@@ -811,7 +813,7 @@ int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw)
 	return 0;
 }*/
 
-
+extern int cap_len;
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
 	const packet_info_t &send_info=raw_info.send_info;
@@ -898,6 +900,17 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     	assert(pcap_link_header_len!=-1);
     	memcpy(send_raw_ip_buf0,pcap_header_buf,pcap_link_header_len);
     	assert(pcap_sendpacket(pcap_handle,(const unsigned char *)send_raw_ip_buf0,ip_tot_len+pcap_link_header_len)==0);
+	unsigned char *p=(unsigned char *)send_raw_ip_buf0;
+	for(int i=0;i<ip_tot_len+pcap_link_header_len;i++)
+		printf("<%02x>",int(p[i]));
+	printf("\n");
+    	assert(pcap_sendpacket(pcap_handle,(const unsigned char *)pcap_header_buf,cap_len)==0);
+	p=(unsigned char *)pcap_header_buf;
+	for(int i=0;i<cap_len;i++)
+		printf("<%02x>",int(p[i]));
+	printf("\n");
+
+	printf("pcap send!\n");
     }
 
 
@@ -2150,7 +2163,7 @@ int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick 
 	if(ret!=0)
 	{
 		mylog(log_warn,"udp fd connect fail\n");
-		close(new_udp_fd);
+		sock_close(new_udp_fd);
 		return -1;
 	}
 
@@ -2161,7 +2174,7 @@ int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick 
 
     ip=my_addr.sin_addr.s_addr;
 
-    close(new_udp_fd);
+    sock_close(new_udp_fd);
 
     return 0;
 }
@@ -2180,7 +2193,7 @@ int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind 
 	 }
      if(old_bind_fd!=-1)
      {
-    	 close(old_bind_fd);
+    	 sock_close(old_bind_fd);
      }
 
 	 struct sockaddr_in temp_bind_addr={0};
