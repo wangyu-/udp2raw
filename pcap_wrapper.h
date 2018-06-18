@@ -1,8 +1,8 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+//#ifdef __cplusplus
+//extern "C" {
+//#endif
 
 //#include <sys/time.h>
 //#include <stdint.h>
@@ -116,9 +116,9 @@ inline int pcap_set_immediate_mode(pcap_t *,int)
 
 
 
-#ifdef __cplusplus
-}
-#endif
+//#ifdef __cplusplus
+//}
+//#endif
 
 int init_pcap();
 
