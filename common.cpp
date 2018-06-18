@@ -312,9 +312,8 @@ int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
 {
 	if(force_socket_buf)
 	{
-#if defined(__MINGW32__)
-	assert(0==1);
-#else
+		assert(0==1);
+#if 0
 		if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
 			mylog(log_fatal,"SO_SNDBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));

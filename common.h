@@ -37,7 +37,6 @@
 #include <sys/time.h>
 #include <time.h>
 //#include <sys/timerfd.h>
-//#include <netinet/in.h>
 //#include <net/if.h>
 //#include <arpa/inet.h>
 #include <stdarg.h>
@@ -69,6 +68,8 @@ typedef int socklen_t;
 #include <sys/socket.h>    //for socket ofcourse
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #endif
 
 

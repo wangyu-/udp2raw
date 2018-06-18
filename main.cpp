@@ -1033,7 +1033,6 @@ void sigint_cb(struct ev_loop *l, ev_signal *w, int revents)
 	myexit(0);
 }
 
-#include <winsock2.h>
 int main(int argc, char *argv[])
 {
 
