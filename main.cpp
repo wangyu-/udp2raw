@@ -820,6 +820,10 @@ int client_event_loop()
 						strcpy(dev,d->name);
 					}
 				}
+				else
+				{
+					log_bare(log_debug," [unknow:%d]",int(a->addr->sa_family));
+				}
 			}
 			if(cnt==0) log_bare(log_info," [no ip found]");
 			if(d->description==0)

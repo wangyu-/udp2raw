@@ -484,7 +484,7 @@ void init_filter(int port)
 	}
 	else if(raw_mode==mode_udp)
 	{
-		sprintf(filter_exp,"udp and src %s and src port %d abd dst port %d",remote_ip,remote_port,port);
+		sprintf(filter_exp,"udp and src %s and src port %d and dst port %d",remote_ip,remote_port,port);
 	}
 	else if(raw_mode==mode_icmp)
 	{
