@@ -158,7 +158,11 @@ struct my_random_t
 
     my_random_t()
 	{
-    	std::mt19937 gen_tmp(rd());
+    	//std::mt19937 gen_tmp(rd());  //random device is broken on mingw
+	timespec tmp_time;
+	clock_gettime(CLOCK_MONOTONIC, &tmp_time);
+	long  long  a=((u64_t)tmp_time.tv_sec)*1000000000llu+((u64_t)tmp_time.tv_nsec);
+    	std::mt19937 gen_tmp(a);
     	gen=gen_tmp;
     	gen.discard(700000);  //magic
 	}
