@@ -22,7 +22,7 @@ int use_tcp_for_detection=1;
 
 extern pcap_t *pcap_handle;
 
-int cap_len;
+extern int pcap_captured_full_len;
 
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
@@ -671,7 +671,7 @@ void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents)
 
 		log_bare(log_info,"link level header captured:\n");
 		unsigned char *tmp=(unsigned char*)pcap_header_buf;
-		cap_len=len;
+		pcap_captured_full_len=len;
 		for(int i=0;i<pcap_link_header_len;i++)
 		log_bare(log_info,"<%x>",(u32_t)tmp[i]);
 
@@ -1038,13 +1038,9 @@ void sigint_cb(struct ev_loop *l, ev_signal *w, int revents)
 
 int main(int argc, char *argv[])
 {
-int xxxx; int aaaa;
-#define xxxx xxxx + 1;
-#define aaaa bbbb
-#define bbbb aaaa
-xxxx ; aaaa ;
 	assert(sizeof(unsigned short)==2);
 	assert(sizeof(unsigned int)==4);
+	assert(sizeof(unsigned long long)==8);
 
 	init_ws();
 

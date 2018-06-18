@@ -58,11 +58,11 @@ struct icmphdr
 struct my_iphdr
   {
 #ifdef UDP2RAW_LITTLE_ENDIAN
-    unsigned int ihl:4;
-    unsigned int version:4;
+    unsigned char ihl:4;
+    unsigned char version:4;
 #else
-    unsigned int version:4;
-    unsigned int ihl:4;
+    unsigned char version:4;
+    unsigned char ihl:4;
 #endif
     u_int8_t tos;
     u_int16_t tot_len;

@@ -50,6 +50,7 @@ int send_with_pcap=1;
 
 int pcap_header_captured=0;
 int pcap_header_buf[buf_len];
+int pcap_captured_full_len=-1;
 
 pcap_t *pcap_handle;
 int pcap_link_header_len=-1;
@@ -221,14 +222,14 @@ void my_packet_handler(
 		printf("<%x>",int( p[i] ));
 	}
 	printf("\n");*/
-	mylog(log_debug,"received a packet!\n");
+	//mylog(log_debug,"received a packet!\n");
 	assert(packet_header->caplen <= packet_header->len);
 	assert(packet_header->caplen <= max_data_len);
 	//if(packet_header->caplen > max_data_len) return ;
 	if(packet_header->caplen<packet_header->len) return;
 
 	if((int)packet_header->caplen<pcap_link_header_len) return;
-	mylog(log_debug,"and its vaild!\n");
+	//mylog(log_debug,"and its vaild!\n");
 
 	pthread_mutex_lock(&queue_mutex);
 	if(!my_queue.full())
@@ -813,7 +814,6 @@ int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw)
 	return 0;
 }*/
 
-extern int cap_len;
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
 	const packet_info_t &send_info=raw_info.send_info;
@@ -900,6 +900,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     	assert(pcap_link_header_len!=-1);
     	memcpy(send_raw_ip_buf0,pcap_header_buf,pcap_link_header_len);
     	assert(pcap_sendpacket(pcap_handle,(const unsigned char *)send_raw_ip_buf0,ip_tot_len+pcap_link_header_len)==0);
+	/*
 	unsigned char *p=(unsigned char *)send_raw_ip_buf0;
 	for(int i=0;i<ip_tot_len+pcap_link_header_len;i++)
 		printf("<%02x>",int(p[i]));
@@ -910,7 +911,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 		printf("<%02x>",int(p[i]));
 	printf("\n");
 
-	printf("pcap send!\n");
+	printf("pcap send!\n");*/
     }
 
 
