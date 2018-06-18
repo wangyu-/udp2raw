@@ -9,8 +9,92 @@
 #include "log.h"
 #include "misc.h"
 
+#include <random>
+#include <cmath>
 
 static int random_number_fd=-1;
+
+int init_ws()
+{
+#if defined(__MINGW32__)
+	WORD wVersionRequested;
+	WSADATA wsaData;
+	int err;
+
+	/* Use the MAKEWORD(lowbyte, highbyte) macro declared in Windef.h */
+	wVersionRequested = MAKEWORD(2, 2);
+
+	err = WSAStartup(wVersionRequested, &wsaData);
+	if (err != 0) {
+		/* Tell the user that we could not find a usable */
+		/* Winsock DLL.                                  */
+		printf("WSAStartup failed with error: %d\n", err);
+		exit(-1);
+	}
+
+	/* Confirm that the WinSock DLL supports 2.2.*/
+	/* Note that if the DLL supports versions greater    */
+	/* than 2.2 in addition to 2.2, it will still return */
+	/* 2.2 in wVersion since that is the version we      */
+	/* requested.                                        */
+
+	if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+		/* Tell the user that we could not find a usable */
+		/* WinSock DLL.                                  */
+		printf("Could not find a usable version of Winsock.dll\n");
+		WSACleanup();
+		exit(-1);
+	}
+	else
+	{
+		printf("The Winsock 2.2 dll was found okay");
+	}
+
+	int tmp[]={0,100,200,300,500,800,1000,2000,3000,4000,-1};
+	int succ=0;
+	for(int i=1;tmp[i]!=-1;i++)
+	{
+		if(_setmaxstdio(100)==-1) break;
+		else succ=i;
+	}
+	printf(", _setmaxstdio() was set to %d\n",tmp[succ]);
+#endif
+return 0;
+}
+
+#if defined(__MINGW32__)
+char *get_sock_error()
+{
+	static char buf[1000];
+	int e=WSAGetLastError();
+	wchar_t *s = NULL;
+	FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, e,
+			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+			(LPWSTR)&s, 0, NULL);
+	sprintf(buf, "%d:%S", e,s);
+	int len=strlen(buf);
+	if(len>0&&buf[len-1]=='\n') buf[len-1]=0;
+	LocalFree(s);
+	return buf;
+}
+int get_sock_errno()
+{
+	return WSAGetLastError();
+}
+#else
+char *get_sock_error()
+{
+	static char buf[1000];
+	sprintf(buf, "%d:%s", errno,strerror(errno));
+	return buf;
+}
+int get_sock_errno()
+{
+	return errno;
+}
+#endif
+
 
 u64_t get_current_time()
 {
@@ -42,40 +126,103 @@ char * my_ntoa(u32_t ip)
 	return inet_ntoa(a);
 }
 
-void init_random_number_fd()
+#if !defined(__MINGW32__)
+struct random_fd_t
 {
-
-	random_number_fd=open("/dev/urandom",O_RDONLY);
-
-	if(random_number_fd==-1)
+	int random_number_fd;
+	random_fd_t()
 	{
-		mylog(log_fatal,"error open /dev/urandom\n");
-		myexit(-1);
+			random_number_fd=open("/dev/urandom",O_RDONLY);
+
+			if(random_number_fd==-1)
+			{
+				mylog(log_fatal,"error open /dev/urandom\n");
+				myexit(-1);
+			}
+			setnonblocking(random_number_fd);
 	}
-	setnonblocking(random_number_fd);
-}
+	int get_fd()
+	{
+		return random_number_fd;
+	}
+}random_fd;
+#else
+struct my_random_t
+{
+    std::random_device rd;
+    std::mt19937 gen;
+    std::uniform_int_distribution<u64_t> dis64;
+    std::uniform_int_distribution<u32_t> dis32;
+
+    std::uniform_int_distribution<unsigned char> dis8;
+
+    my_random_t()
+	{
+    	std::mt19937 gen_tmp(rd());
+    	gen=gen_tmp;
+    	gen.discard(700000);  //magic
+	}
+    u64_t gen64()
+    {
+    	return dis64(gen);
+    }
+    u32_t gen32()
+    {
+    	return dis32(gen);
+    }
+
+    unsigned char gen8()
+    {
+    	return dis8(gen);
+    }
+	/*int random_number_fd;
+	random_fd_t()
+	{
+			random_number_fd=open("/dev/urandom",O_RDONLY);
+			if(random_number_fd==-1)
+			{
+				mylog(log_fatal,"error open /dev/urandom\n");
+				myexit(-1);
+			}
+			setnonblocking(random_number_fd);
+	}
+	int get_fd()
+	{
+		return random_number_fd;
+	}*/
+}my_random;
+#endif
+
 u64_t get_true_random_number_64()
 {
+#if !defined(__MINGW32__)
 	u64_t ret;
-	int size=read(random_number_fd,&ret,sizeof(ret));
+	int size=read(random_fd.get_fd(),&ret,sizeof(ret));
 	if(size!=sizeof(ret))
 	{
 		mylog(log_fatal,"get random number failed %d\n",size);
+
 		myexit(-1);
 	}
-
 	return ret;
+#else
+	return my_random.gen64();  //fake random number
+#endif
 }
 u32_t get_true_random_number()
 {
+#if !defined(__MINGW32__)
 	u32_t ret;
-	int size=read(random_number_fd,&ret,sizeof(ret));
+	int size=read(random_fd.get_fd(),&ret,sizeof(ret));
 	if(size!=sizeof(ret))
 	{
 		mylog(log_fatal,"get random number failed %d\n",size);
 		myexit(-1);
 	}
 	return ret;
+#else
+	return my_random.gen64();  //fake random number
+#endif
 }
 u32_t get_true_random_number_nz() //nz for non-zero
 {
@@ -86,6 +233,7 @@ u32_t get_true_random_number_nz() //nz for non-zero
 	}
 	return ret;
 }
+
 inline int is_big_endian()
 {
     int i=1;
@@ -109,6 +257,7 @@ u64_t hton64(u64_t a)
 }
 
 void setnonblocking(int sock) {
+#if !defined(__MINGW32__)
 	int opts;
 	opts = fcntl(sock, F_GETFL);
 
@@ -123,7 +272,14 @@ void setnonblocking(int sock) {
 		//perror("fcntl(sock,SETFL,opts)");
 		myexit(1);
 	}
+#else
+	int iResult;
+	u_long iMode = 1;
+	iResult = ioctlsocket(sock, FIONBIO, &iMode);
+	if (iResult != NO_ERROR)
+		printf("ioctlsocket failed with error: %d\n", iResult);
 
+#endif
 }
 
 /*
@@ -154,8 +310,11 @@ unsigned short csum(const unsigned short *ptr,int nbytes) {//works both for big 
 
 int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
 {
-	/*if(force_socket_buf)
+	if(force_socket_buf)
 	{
+#if defined(__MINGW32__)
+	assert(0==1);
+#else
 		if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
 			mylog(log_fatal,"SO_SNDBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
@@ -166,8 +325,10 @@ int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
 			mylog(log_fatal,"SO_RCVBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
 			myexit(1);
 		}
+#endif
+
 	}
-	else*/
+	else
 	{
 		if(setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
@@ -180,6 +341,7 @@ int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
 			myexit(1);
 		}
 	}
+
 	return 0;
 }
 
@@ -387,7 +549,10 @@ int read_file(const char * file,string &output)
 	}
 	return 0;
 }
+
 int run_command(string command0,char * &output,int flag) {
+    assert(0==1 && "not implemented\n");
+#if 0
     FILE *in;
 
 
@@ -441,6 +606,7 @@ int run_command(string command0,char * &output,int flag) {
     	return -4;
     }
 
+#endif
     return 0;
 
 }
@@ -561,6 +727,7 @@ vector<string> parse_conf_line(const string& s0)
 
 int create_fifo(char * file)
 {
+#if !defined(__MINGW32__)
 	if(mkfifo (file, 0666)!=0)
 	{
 		if(errno==EEXIST)
@@ -594,6 +761,10 @@ int create_fifo(char * file)
 
 	setnonblocking(fifo_fd);
 	return fifo_fd;
+#else
+	assert(0==1&&"not implemented");
+	return 0;
+#endif
 }
 
 void ip_port_t::from_u64(u64_t u64)

@@ -19,8 +19,7 @@
 #include<errno.h>
 //#include <sys/epoll.h>
 //#include <sys/wait.h>
-#include <sys/socket.h>    //for socket ofcourse
-#include <sys/types.h>
+
 #include <sys/stat.h>
 #include <stdlib.h> //for exit(0);
 #include <errno.h> //For errno - the error number
@@ -38,7 +37,6 @@
 #include <sys/time.h>
 #include <time.h>
 //#include <sys/timerfd.h>
-#include <sys/ioctl.h>
 //#include <netinet/in.h>
 //#include <net/if.h>
 //#include <arpa/inet.h>
@@ -48,7 +46,7 @@
 //#include <byteswap.h>
 #include <pthread.h>
 
-#ifndef __CYGWIN__
+#if !defined(__CYGWIN__) && !defined(__MINGW32__)
 #include <pcap.h>
 #else
 #include <pcap_wrapper.h>
@@ -60,6 +58,19 @@
 #endif
 
 #include <my_ev.h>
+
+#if defined(__MINGW32__)
+#include <winsock2.h>
+typedef unsigned char u_int8_t;
+typedef unsigned short u_int16_t;
+typedef unsigned int u_int32_t;
+typedef int socklen_t;
+#else
+#include <sys/socket.h>    //for socket ofcourse
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#endif
+
 
 #include<unordered_map>
 #include <fstream>
@@ -97,6 +108,29 @@ using  namespace std;
 
 #if !defined(UDP2RAW_BIG_ENDIAN) && !defined(UDP2RAW_LITTLE_ENDIAN)
 #error "endian detection failed"
+#endif
+
+
+#if defined(__MINGW32__)
+#define setsockopt(a,b,c,d,e) setsockopt(a,b,c,(const char *)(d),e)
+#endif
+
+char *get_sock_error();
+int get_sock_errno();
+
+#if defined(__MINGW32__)
+typedef SOCKET my_fd_t;
+inline int sock_close(my_fd_t fd)
+{
+	return closesocket(fd);
+}
+#else
+typedef int my_fd_t;
+inline int sock_close(my_fd_t fd)
+{
+	return close(fd);
+}
+
 #endif
 
 
@@ -173,6 +207,7 @@ struct queue_t
 	}
 };
 
+int init_ws();
 
 u64_t get_current_time();
 u64_t pack_u64(u32_t a,u32_t b);

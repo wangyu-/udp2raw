@@ -533,7 +533,7 @@ void process_arg(int argc, char *argv[])  //process all options
 			else if(strcmp(long_options[option_index].name,"lower-level")==0)
 			{
 				assert(0==1);
-				process_lower_level_arg();
+				//process_lower_level_arg();
 				//lower_level=1;
 				//strcpy(lower_level_arg,optarg);
 			}

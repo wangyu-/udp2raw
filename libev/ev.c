@@ -2473,7 +2473,8 @@ evpipe_write (EV_P_ EV_ATOMIC_T *flag)
 #ifdef _WIN32
           WSABUF buf;
           DWORD sent;
-          buf.buf = &buf;
+//	  buf.buf=&buf;
+          buf.buf = (char *)&buf;
           buf.len = 1;
           WSASend (EV_FD_TO_WIN32_HANDLE (evpipe [1]), &buf, 1, &sent, 0, 0, 0);
 #else

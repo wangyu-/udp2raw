@@ -1033,9 +1033,12 @@ void sigint_cb(struct ev_loop *l, ev_signal *w, int revents)
 	myexit(0);
 }
 
-
+#include <winsock2.h>
 int main(int argc, char *argv[])
 {
+
+	init_ws();
+
 	int i=0;
 
 	//libnet_t *l;	/* the libnet context */
@@ -1051,9 +1054,13 @@ int main(int argc, char *argv[])
 	//signal(SIGQUIT, signal_handler);
 
 	struct ev_loop* loop=ev_default_loop(0);
+        printf("%x %x\n",ev_supported_backends(),ev_backend(loop));
+
+#if !defined(__MINGW32__)
     ev_signal signal_watcher_sigpipe;
     ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
     ev_signal_start(loop, &signal_watcher_sigpipe);
+#endif
 
     ev_signal signal_watcher_sigterm;
     ev_signal_init(&signal_watcher_sigterm, sigterm_cb, SIGTERM);
@@ -1065,7 +1072,7 @@ int main(int argc, char *argv[])
 
 
 	pre_process_arg(argc,argv);
-
+#if !defined(__MINGW32__)
 	if(geteuid() != 0)
 	{
 		mylog(log_warn,"root check failed, it seems like you are using a non-root account. we can try to continue, but it may fail. If you want to run udp2raw as non-root, you have to add iptables rule manually, and grant udp2raw CAP_NET_RAW capability, check README.md in repo for more info.\n");
@@ -1074,7 +1081,7 @@ int main(int argc, char *argv[])
 	{
 		mylog(log_warn,"you can run udp2raw with non-root account for better security. check README.md in repo for more info.\n");
 	}
-
+#endif
 	local_ip_uint32=inet_addr(local_ip);
 	source_ip_uint32=inet_addr(source_ip);
 
@@ -1082,7 +1089,7 @@ int main(int argc, char *argv[])
 	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_ip);
 	remote_ip_uint32=inet_addr(remote_ip);
 
-	init_random_number_fd();
+	//init_random_number_fd();
 	srand(get_true_random_number_nz());
 	const_id=get_true_random_number_nz();
 
