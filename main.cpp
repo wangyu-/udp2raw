@@ -806,13 +806,13 @@ int client_event_loop()
 		}
 
 		for(pcap_if_t *d=interfaces; d!=NULL; d=d->next) {
-			log_bare(log_info,"%s:", d->name);
+			log_bare(log_warn,"%s:", d->name);
 			int cnt=0;
 			for(pcap_addr_t *a=d->addresses; a!=NULL; a=a->next) {
 				if(a->addr->sa_family == AF_INET)
 				{
 					cnt++;
-					log_bare(log_info," [%s]", inet_ntoa(((struct sockaddr_in*)a->addr)->sin_addr));
+					log_bare(log_warn," [%s]", inet_ntoa(((struct sockaddr_in*)a->addr)->sin_addr));
 
 					if(((struct sockaddr_in*)a->addr)->sin_addr.s_addr ==source_ip_uint32)
 					{
@@ -825,13 +825,13 @@ int client_event_loop()
 					log_bare(log_debug," [unknow:%d]",int(a->addr->sa_family));
 				}
 			}
-			if(cnt==0) log_bare(log_info," [no ip found]");
+			if(cnt==0) log_bare(log_warn," [no ip found]");
 			if(d->description==0)
 			{
-				log_bare(log_info,"; (null)");
+				log_bare(log_warn,"; (null)");
 			}
-			log_bare(log_info,"; %s", d->description);
-			log_bare(log_info,"\n");
+			log_bare(log_warn,"; %s", d->description);
+			log_bare(log_warn,"\n");
 		}
 
 		if(found==0)
@@ -1063,7 +1063,7 @@ int main(int argc, char *argv[])
 	//signal(SIGQUIT, signal_handler);
 
 	struct ev_loop* loop=ev_default_loop(0);
-        printf("%x %x\n",ev_supported_backends(),ev_backend(loop));
+        //printf("%x %x\n",ev_supported_backends(),ev_backend(loop));
 
 #if !defined(__MINGW32__)
     ev_signal signal_watcher_sigpipe;
