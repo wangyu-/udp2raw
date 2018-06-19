@@ -231,6 +231,10 @@ int process_log_level(int argc,char *argv[])//process  --log-level and --disable
 				}
 			}
 		}
+		if(strcmp(argv[i],"--enable-color")==0)
+		{
+			enable_log_color=1;
+		}
 		if(strcmp(argv[i],"--disable-color")==0)
 		{
 			enable_log_color=0;
@@ -260,6 +264,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"cipher-mode", required_argument,    0, 1},
 		{"raw-mode", required_argument,    0, 1},
 		{"disable-color", no_argument,    0, 1},
+		{"enable-color", no_argument,    0, 1},
 		{"log-position", no_argument,    0, 1},
 		{"disable-bpf", no_argument,    0, 1},
 		{"disable-anti-replay", no_argument,    0, 1},
@@ -562,6 +567,10 @@ void process_arg(int argc, char *argv[])  //process all options
 				generate_iptables_rule_add=1;
 			}
 			else if(strcmp(long_options[option_index].name,"disable-color")==0)
+			{
+				//enable_log_color=0;
+			}
+			else if(strcmp(long_options[option_index].name,"enable-color")==0)
 			{
 				//enable_log_color=0;
 			}

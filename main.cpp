@@ -597,7 +597,8 @@ void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 	socklen_t udp_new_addr_len = sizeof(sockaddr_in);
 	if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 			(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
-		mylog(log_warn,"recv_from error,this shouldnt happen at client,but lets try to continue\n");
+		mylog(log_debug,"recv_from error,this shouldnt happen at client,but lets try to continue\n");
+		return ;
 		//myexit(1);
 	};
 
@@ -1069,6 +1070,8 @@ int main(int argc, char *argv[])
     ev_signal signal_watcher_sigpipe;
     ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
     ev_signal_start(loop, &signal_watcher_sigpipe);
+#else
+     enable_log_color=0;
 #endif
 
     ev_signal signal_watcher_sigterm;
