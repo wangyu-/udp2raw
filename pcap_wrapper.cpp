@@ -6,30 +6,30 @@ int	(*pcap_loop )(pcap_t *, int, pcap_handler, u_char *);
 
 pcap_t* (*pcap_create)(const char *, char *);
 
-int	(*pcap_set_snaplen) (pcap_t *, int);
-int	(*pcap_set_promisc) (pcap_t *, int);
-int	(*pcap_can_set_rfmon) (pcap_t *);
-int	(*pcap_set_rfmon )(pcap_t *, int);
-int	(*pcap_set_timeout)(pcap_t *, int);
-int	(*pcap_set_buffer_size)(pcap_t *, int);
-int	(*pcap_activate)(pcap_t *);
+int	(*pcap_set_snaplen) (pcap_t *, int)=0;
+int	(*pcap_set_promisc) (pcap_t *, int)=0;
+int	(*pcap_can_set_rfmon) (pcap_t *)=0;
+int	(*pcap_set_rfmon )(pcap_t *, int)=0;
+int	(*pcap_set_timeout)(pcap_t *, int)=0;
+int	(*pcap_set_buffer_size)(pcap_t *, int)=0;
+int	(*pcap_activate)(pcap_t *)=0;
 
-int	(*pcap_setfilter)(pcap_t *, struct bpf_program *);
-int 	(*pcap_setdirection)(pcap_t *, pcap_direction_t);
+int	(*pcap_setfilter)(pcap_t *, struct bpf_program *)=0;
+int 	(*pcap_setdirection)(pcap_t *, pcap_direction_t)=0;
 
-int	(*pcap_datalink)(pcap_t *);
+int	(*pcap_datalink)(pcap_t *)=0;
 
-void	(*pcap_freecode)(struct bpf_program *);
+void	(*pcap_freecode)(struct bpf_program *)=0;
 
 int	(*pcap_compile)(pcap_t *, struct bpf_program *, const char *, int,
-     bpf_u_int32);
+     bpf_u_int32)=0;
 
-char*   (*pcap_geterr)(pcap_t *);
-int	(*pcap_sendpacket)(pcap_t *, const u_char *, int);
+char*   (*pcap_geterr)(pcap_t *)=0;
+int	(*pcap_sendpacket)(pcap_t *, const u_char *, int)=0;
 
-char* (*pcap_lookupdev)(char *);
+char* (*pcap_lookupdev)(char *)=0;
 
-int	(*pcap_findalldevs)(pcap_if_t **, char *);
+int	(*pcap_findalldevs)(pcap_if_t **, char *)=0;
 
 struct init_pcap_t
 {
@@ -40,6 +40,7 @@ struct init_pcap_t
 	
 }do_it;
 
+#define EXPORT_FUN(XXX) do{ XXX= (__typeof__(XXX)) GetProcAddress(wpcap, #XXX); }while(0)
 int init_pcap()
 {
 	HMODULE wpcap=LoadLibrary("wpcap.dll");
@@ -50,6 +51,22 @@ int init_pcap()
 	}
 	assert(wpcap!=0);
 
+	EXPORT_FUN(pcap_loop);
+	EXPORT_FUN(pcap_create);
+	EXPORT_FUN(pcap_set_snaplen);
+	EXPORT_FUN(pcap_set_promisc);
+	EXPORT_FUN(pcap_set_timeout);
+	EXPORT_FUN(pcap_activate);
+	EXPORT_FUN(pcap_setfilter);
+	EXPORT_FUN(pcap_setdirection);
+	EXPORT_FUN(pcap_datalink);
+	EXPORT_FUN(pcap_freecode);
+	EXPORT_FUN(pcap_compile);
+	EXPORT_FUN(pcap_geterr);
+	EXPORT_FUN(pcap_sendpacket);
+	EXPORT_FUN(pcap_lookupdev);
+	EXPORT_FUN(pcap_findalldevs);
+	/*
 	pcap_loop = (__typeof__(pcap_loop))GetProcAddress(wpcap, "pcap_loop");
 	pcap_create = (__typeof__(pcap_create))GetProcAddress(wpcap, "pcap_create");
 	pcap_set_snaplen = (__typeof__(pcap_set_snaplen))GetProcAddress(wpcap, "pcap_set_snaplen");
@@ -68,7 +85,7 @@ int init_pcap()
 	//pcap_loop = (__typeof__(pcap_loop))GetProcAddress(wpcap, "pcap_loop");
 	//pcap_loop = (__typeof__(pcap_loop))GetProcAddress(wpcap, "pcap_loop");
 	//pcap_loop = (__typeof__(pcap_loop))GetProcAddress(wpcap, "pcap_loop");
-
+	*/
 	return 0;
 
 }
