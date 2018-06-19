@@ -181,7 +181,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 				setnonblocking(bind_fd);
 				int ret=connect(bind_fd,(struct sockaddr *)&remote_addr_in,sizeof(remote_addr_in));
-				mylog(log_info,"ret=%d,errno=%s,%d %d\n",ret,strerror(errno),bind_fd,remote_port);
+				mylog(log_info,"ret=%d,errno=%s,%d %d\n",ret,get_sock_error(),bind_fd,remote_port);
 				conn_info.state.client_current_state=client_tcp_handshake_dummy;
 				mylog(log_info,"state changed from client_idle to client_tcp_handshake_dummy\n");
 			}
@@ -597,8 +597,8 @@ void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 	socklen_t udp_new_addr_len = sizeof(sockaddr_in);
 	if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 			(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
-		mylog(log_error,"recv_from error,this shouldnt happen at client\n");
-		myexit(1);
+		mylog(log_warn,"recv_from error,this shouldnt happen at client,but lets try to continue\n");
+		//myexit(1);
 	};
 
 	if(recv_len==max_data_len+1)
@@ -722,7 +722,7 @@ void fifo_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 	int len=read (fifo_fd, buf, sizeof (buf));
 	if(len<0)
 	{
-		mylog(log_warn,"fifo read failed len=%d,errno=%s\n",len,strerror(errno));
+		mylog(log_warn,"fifo read failed len=%d,errno=%s\n",len,get_sock_error());
 		return;
 	}
 	buf[len]=0;

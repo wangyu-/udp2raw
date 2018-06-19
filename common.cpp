@@ -98,9 +98,10 @@ int get_sock_errno()
 
 u64_t get_current_time()
 {
-	timespec tmp_time;
-	clock_gettime(CLOCK_MONOTONIC, &tmp_time);
-	return ((u64_t)tmp_time.tv_sec)*1000llu+((u64_t)tmp_time.tv_nsec)/(1000*1000llu);
+	//timespec tmp_time;
+	//clock_gettime(CLOCK_MONOTONIC, &tmp_time);
+	//return ((u64_t)tmp_time.tv_sec)*1000llu+((u64_t)tmp_time.tv_nsec)/(1000*1000llu);
+	return (u64_t)(ev_time()*1000);
 }
 
 u64_t pack_u64(u32_t a,u32_t b)
@@ -335,12 +336,12 @@ int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
 	{
 		if(setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
-			mylog(log_fatal,"SO_SNDBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			mylog(log_fatal,"SO_SNDBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,get_sock_error());
 			myexit(1);
 		}
 		if(setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
-			mylog(log_fatal,"SO_RCVBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			mylog(log_fatal,"SO_RCVBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,get_sock_error());
 			myexit(1);
 		}
 	}

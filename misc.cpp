@@ -193,7 +193,7 @@ int load_config(char *file_name, int &argc, vector<string> &argv) //load conf fi
 	std::string line;
 	if(conf_file.fail())
 	{
-		mylog(log_fatal,"conf_file %s open failed,reason :%s\n",file_name,strerror(errno));
+		mylog(log_fatal,"conf_file %s open failed,reason :%s\n",file_name,get_sock_error());
 		myexit(-1);
 	}
 	while(std::getline(conf_file,line))
@@ -475,20 +475,28 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"raw-mode")==0)
 			{
-				for(i=0;i<mode_end;i++)
+				if(strcmp(optarg,"easyfaketcp")==0||strcmp(optarg,"easy_faketcp")==0||strcmp(optarg,"easy-faketcp")==0)
 				{
-					if(strcmp(optarg,raw_mode_tostring[i])==0)
-					{
-						//printf("%d i\n",i);
-						//printf("%s",raw_mode_tostring[i]);
-						raw_mode=(raw_mode_t)i;
-						break;
-					}
+					raw_mode=mode_faketcp;
+					use_tcp_dummy_socket=1;
 				}
-				if(i==mode_end)
+				else
 				{
-					mylog(log_fatal,"no such raw_mode %s\n",optarg);
-					myexit(-1);
+					for(i=0;i<mode_end;i++)
+					{
+						if(strcmp(optarg,raw_mode_tostring[i])==0)
+						{
+							//printf("%d i\n",i);
+							//printf("%s",raw_mode_tostring[i]);
+							raw_mode=(raw_mode_t)i;
+							break;
+						}
+					}
+					if(i==mode_end)
+					{
+						mylog(log_fatal,"no such raw_mode %s\n",optarg);
+						myexit(-1);
+					}
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"auth-mode")==0)

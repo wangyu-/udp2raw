@@ -247,10 +247,14 @@ void *pcap_recv_thread_entry(void *none)
 	struct pcap_pkthdr *packet_header;
 	const u_char *pkt_data;
 
-	int ret=pcap_loop(pcap_handle, 0, my_packet_handler, NULL);
+	while(1)
+	{
+		int ret=pcap_loop(pcap_handle, 0, my_packet_handler, NULL);
 
-	mylog(log_fatal,"pcap_loop returned with value %d\n",ret);
-	myexit(-1);
+		mylog(log_warn,"pcap_loop exited with value %d\n",ret);
+		sleep(5);
+		//myexit(-1);
+	}
 	/*
 	while(1)
 	{
@@ -959,7 +963,7 @@ int peek_raw(packet_info_t &peek_info)
 	if(recv_len<int(sizeof(my_iphdr)))
 	{
 		mylog(log_trace,"failed here %d %d\n",recv_len,int(sizeof(my_iphdr)));
-		mylog(log_trace,"%s\n ",strerror(errno));
+		mylog(log_trace,"%s\n ",get_sock_error());
 		return -1;
 	}
 	peek_info.src_ip=iph->saddr;
