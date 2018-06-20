@@ -903,7 +903,13 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     	assert(pcap_header_captured==1);
     	assert(pcap_link_header_len!=-1);
     	memcpy(send_raw_ip_buf0,pcap_header_buf,pcap_link_header_len);
-    	assert(pcap_sendpacket(pcap_handle,(const unsigned char *)send_raw_ip_buf0,ip_tot_len+pcap_link_header_len)==0);
+    	int ret=pcap_sendpacket(pcap_handle,(const unsigned char *)send_raw_ip_buf0,ip_tot_len+pcap_link_header_len);
+
+	if(ret!=0)
+	{
+		mylog(log_fatal,"pcap_sendpcaket failed with vaule %d,%s\n",ret,pcap_geterr(pcap_handle));
+		myexit(-1);
+	}
 	/*
 	unsigned char *p=(unsigned char *)send_raw_ip_buf0;
 	for(int i=0;i<ip_tot_len+pcap_link_header_len;i++)
