@@ -26,11 +26,9 @@ Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译bi
 
 ##### 对于windows和mac用户：
 
-可以把udp2raw运行在虚拟机上(网络必须是桥接模式)。
+用[这个repo](https://github.com/wangyu-/udp2raw-multiplatform)里的udp2raw，可以原生运行。
 
-另外可以参考：
-
-https://github.com/wangyu-/udp2raw-tunnel/wiki/在windows-mac上运行udp2raw客户端，带图形界面
+<del>可以把udp2raw运行在虚拟机上(网络必须是桥接模式)。可以参考： https://github.com/wangyu-/udp2raw-tunnel/wiki/在windows-mac上运行udp2raw客户端，带图形界面 </del>
 
 ##### 对于ios和游戏主机用户：
 
