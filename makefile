@@ -61,6 +61,10 @@ mac_nolibnet:git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${FLAGS} -ggdb -O2 -DNO_LIBNET
 
+mac_nolibnet_static:git_version  #it doesnt work
+	rm -f ${NAME}
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} -static-libstdc++  /usr/local/Cellar/libpcap/1.8.1/lib/libpcap.a  ${FLAGS} -ggdb -O2 -DNO_LIBNET
+
 fast: git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -ggdb

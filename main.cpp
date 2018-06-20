@@ -829,9 +829,12 @@ int client_event_loop()
 			if(cnt==0) log_bare(log_warn," [no ip found]");
 			if(d->description==0)
 			{
-				log_bare(log_warn,"; (null)");
+				log_bare(log_warn,"; (no description avaliable)");
 			}
-			log_bare(log_warn,"; %s", d->description);
+			else 
+			{
+				log_bare(log_warn,"; %s", d->description);
+			}
 			log_bare(log_warn,"\n");
 		}
 
