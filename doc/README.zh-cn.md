@@ -49,7 +49,7 @@ Client能用单倍的超时时间检测到单向链路的失效，不管是上�
 对于有大量client的情况，对于不同client,server发送的心跳是错开时间发送的，不会因为短时间发送大量的心跳而造成拥塞和延迟抖动。
 
 ### 加密 防重放攻击
-用aes128cbc加密，md5/crc32做数据完整校验。用类似ipsec/openvpn的 replay window机制来防止重放攻击。
+用aes128cbc加密，hmac-sha1/md5/crc32做数据完整校验。用类似ipsec/openvpn的replay window机制来防止重放攻击。
 
 设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。
 
@@ -124,7 +124,7 @@ common options,these options must be same on both side:
     --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp
     -k,--key              <string>        password to gen symetric key,default:"secret key"
     --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none
-    --auth-mode           <string>        avaliable values:md5(default),crc32,simple,none
+    --auth-mode           <string>        avaliable values:hmac_sha1,md5(default),crc32,simple,none
     -a,--auto-rule                        auto add (and delete) iptables rule
     -g,--gen-rule                         generate iptables rule then exit,so that you can copy and
                                           add it manually.overrides -a
@@ -168,7 +168,7 @@ other options:
 
 用raw收发udp包也类似，只是内核回复的是icmp unreachable。而用raw 收发icmp，内核会自动回复icmp echo。都需要相应的iptables规则。
 ### `--cipher-mode` 和 `--auth-mode` 
-如果要最大的安全性建议用aes128cbc+md5。如果要运行在路由器上，建议用xor+simple，可以节省CPU。但是注意xor+simple只能骗过防火墙的包检测，不能防止真正的攻击者。
+如果要最大的安全性建议用aes128cbc+hmac_sha1。如果要运行在路由器上，建议用xor+simple，可以节省CPU。但是注意xor+simple只能骗过防火墙的包检测，不能防止真正的攻击者。
 
 ### `--seq-mode`
 facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和真正的tcp流量区分开来（虽然大部分ISP不太可能做这种程度的包检测）。seq-mode可以改变一些seq ack的行为。如果遇到了连接问题，可以尝试更改。在我这边的移动线路用3种模式都没问题。

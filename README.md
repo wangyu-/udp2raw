@@ -33,7 +33,7 @@ In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a co
 
 ### Encrpytion, Anti-Replay
 * Encrypt your traffic with AES-128-CBC.
-* Protect data integrity by MD5 or CRC32.
+* Protect data integrity by HMAC-SHA1 (or weaker MD5/CRC32).
 * Defense replay attack with an anti-replay window, smiliar to IPSec and OpenVPN. 
 
 ### Failure Dectection & Stablization (Connection Recovery)
@@ -100,7 +100,7 @@ common options,these options must be same on both side:
     --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp
     -k,--key              <string>        password to gen symetric key,default:"secret key"
     --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none
-    --auth-mode           <string>        avaliable values:md5(default),crc32,simple,none
+    --auth-mode           <string>        avaliable values:hmac_sha1,md5(default),crc32,simple,none
     -a,--auto-rule                        auto add (and delete) iptables rule
     -g,--gen-rule                         generate iptables rule then exit,so that you can copy and
                                           add it manually.overrides -a
@@ -143,7 +143,7 @@ other options:
 This program sends packets via raw socket. In FakeTCP mode, Linux kernel TCP packet processing has to be blocked by a iptables rule on both sides, otherwise the kernel will automatically send RST for an unrecongized TCP packet and you will sustain from stability / peformance problems. You can use `-a` option to let the program automatically add / delete iptables rule on start / exit. You can also use the `-g` option to generate iptables rule and add it manually.
 
 ### `--cipher-mode` and `--auth-mode` 
-It is suggested to use `aes128cbc` + `md5` to obtain maximum security. If you want to run the program on a router, you can try `xor` + `simple`, which can fool packet inspection by firewalls the most of time, but it cannot protect you from serious attacks. Mode none is only for debugging purpose. It is not recommended to set the cipher-mode or auth-mode to none.
+It is suggested to use `aes128cbc` + `hmac_sha1` to obtain maximum security. If you want to run the program on a router, you can try `xor` + `simple`, which can fool packet inspection by firewalls the most of time, but it cannot protect you from serious attacks. Mode none is only for debugging purpose. It is not recommended to set the cipher-mode or auth-mode to none.
 
 ### `--seq-mode`
 The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value. 
