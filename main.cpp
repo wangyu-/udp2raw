@@ -1801,22 +1801,7 @@ int main(int argc, char *argv[])
 
 	mylog(log_info,"const_id:%x\n",const_id);
 
-	char tmp[1000]="";
-
-	strcat(tmp,key_string);
-
-	strcat(tmp,"key1");
-
-	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key);
-
-	/*
-	tmp[0]=0;
-
-	strcat(tmp,key_string);
-
-	strcat(tmp,"key2");
-
-	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)key2);*/
+	my_init_keys(key_string);
 
 	iptables_rule();
 	init_raw_socket();

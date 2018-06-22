@@ -9,19 +9,20 @@
 
 
 //using namespace std;
-
+//extern char key[16];
 
 const int aes_key_optimize=1; //if enabled,once you used a key for aes,you cant change it anymore
-extern char key[16];
 
-int my_encrypt(const char *data,char *output,int &len,char * key);
-int my_decrypt(const char *data,char *output,int &len,char * key);
+int my_init_keys(const char *);
+
+int my_encrypt(const char *data,char *output,int &len);
+int my_decrypt(const char *data,char *output,int &len);
 
 
 unsigned short csum(const unsigned short *ptr,int nbytes) ;
 
 
-enum auth_mode_t {auth_none=0,auth_md5,auth_crc32,auth_simple,auth_end};
+enum auth_mode_t {auth_none=0,auth_md5,auth_crc32,auth_simple,auth_hmac_sha1,auth_end};
 
 
 enum cipher_mode_t {cipher_none=0,cipher_aes128cbc,cipher_xor,cipher_end};

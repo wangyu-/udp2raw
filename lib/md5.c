@@ -38,6 +38,9 @@ typedef struct
     uint32_t total[2];          /*!< number of bytes processed  */
     uint32_t state[4];          /*!< intermediate digest state  */
     unsigned char buffer[64];   /*!< data block being processed */
+
+    unsigned char ipad[64];     /*!< HMAC: inner padding        */
+    unsigned char opad[64];     /*!< HMAC: outer padding        */
 }
 md5_context;
 
@@ -302,15 +305,99 @@ void md5_finish( md5_context *ctx, unsigned char output[16] )
  */
 void md5( const unsigned char *input, size_t ilen, unsigned char output[16] )
 {
-    static md5_context ctx;
+    /*static md5_context ctx;
     static int done=0;
     if(done==0)
     {
         md5_init( &ctx );
     	done=1;
-    }
+    }*/
+    md5_context ctx;
+    md5_init( &ctx );
     md5_starts( &ctx );
     md5_update( &ctx, input, ilen );
     md5_finish( &ctx, output );
-    //md5_free( &ctx );
+    md5_free( &ctx );
+}
+
+
+/*
+ * MD5 HMAC context setup
+ */
+void md5_hmac_starts( md5_context *ctx, const unsigned char *key,
+                      size_t keylen )
+{
+    size_t i;
+    unsigned char sum[16];
+
+    if( keylen > 64 )
+    {
+        md5( key, keylen, sum );
+        keylen = 16;
+        key = sum;
+    }
+
+    memset( ctx->ipad, 0x36, 64 );
+    memset( ctx->opad, 0x5C, 64 );
+
+    for( i = 0; i < keylen; i++ )
+    {
+        ctx->ipad[i] = (unsigned char)( ctx->ipad[i] ^ key[i] );
+        ctx->opad[i] = (unsigned char)( ctx->opad[i] ^ key[i] );
+    }
+
+    md5_starts( ctx );
+    md5_update( ctx, ctx->ipad, 64 );
+
+    polarssl_zeroize( sum, sizeof( sum ) );
+}
+
+/*
+ * MD5 HMAC process buffer
+ */
+void md5_hmac_update( md5_context *ctx, const unsigned char *input,
+                      size_t ilen )
+{
+    md5_update( ctx, input, ilen );
+}
+
+/*
+ * MD5 HMAC final digest
+ */
+void md5_hmac_finish( md5_context *ctx, unsigned char output[16] )
+{
+    unsigned char tmpbuf[16];
+
+    md5_finish( ctx, tmpbuf );
+    md5_starts( ctx );
+    md5_update( ctx, ctx->opad, 64 );
+    md5_update( ctx, tmpbuf, 16 );
+    md5_finish( ctx, output );
+
+    polarssl_zeroize( tmpbuf, sizeof( tmpbuf ) );
+}
+
+/*
+ * MD5 HMAC context reset
+ */
+void md5_hmac_reset( md5_context *ctx )
+{
+    md5_starts( ctx );
+    md5_update( ctx, ctx->ipad, 64 );
+}
+
+/*
+ * output = HMAC-MD5( hmac key, input buffer )
+ */
+void md5_hmac( const unsigned char *key, size_t keylen,
+               const unsigned char *input, size_t ilen,
+               unsigned char output[16] )
+{
+    md5_context ctx;
+
+    md5_init( &ctx );
+    md5_hmac_starts( &ctx, key, keylen );
+    md5_hmac_update( &ctx, input, ilen );
+    md5_hmac_finish( &ctx, output );
+    md5_free( &ctx );
 }

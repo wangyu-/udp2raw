@@ -504,7 +504,7 @@ int send_bare(raw_info_t &raw_info,const char* data,int len)//send function with
 	memcpy(send_data_buf+sizeof(iv)+sizeof(padding)+1,data,len);
 	int new_len=len+sizeof(iv)+sizeof(padding)+1;
 
-	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
+	if(my_encrypt(send_data_buf,send_data_buf2,new_len)!=0)
 	{
 		return -1;
 	}
@@ -520,7 +520,7 @@ int reserved_parse_bare(const char *input,int input_len,char* & data,int & len) 
 		mylog(log_debug,"input_len <0\n");
 		return -1;
 	}
-	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
+	if(my_decrypt(input,recv_data_buf,input_len)!=0)
 	{
 		mylog(log_debug,"decrypt_fail in recv bare\n");
 		return -1;
@@ -620,7 +620,7 @@ int send_safer(conn_info_t &conn_info,char type,const char* data,int len)  //saf
 
 	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2+2;
 
-	if(my_encrypt(send_data_buf,send_data_buf2,new_len,key)!=0)
+	if(my_encrypt(send_data_buf,send_data_buf2,new_len)!=0)
 	{
 		return -1;
 	}
@@ -652,7 +652,7 @@ int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len
 	 static char recv_data_buf[buf_len];
 
 	// char *recv_data_buf=recv_data_buf0; //fix strict alias warning
-	if(my_decrypt(input,recv_data_buf,input_len,key)!=0)
+	if(my_decrypt(input,recv_data_buf,input_len)!=0)
 	{
 		//printf("decrypt fail\n");
 		return -1;
