@@ -261,4 +261,6 @@ int hex_to_u32(const string & a,u32_t &output);
 
 int create_fifo(char * file);
 
+void print_binary_chars(const char * a,int len);
+
 #endif /* COMMON_H_ */

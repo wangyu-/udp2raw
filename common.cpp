@@ -793,8 +793,13 @@ char * ip_port_t::to_s()
 
 
 
-
-
-
-
+void print_binary_chars(const char * a,int len)
+{
+	for(int i=0;i<len;i++)
+	{
+		unsigned char b=a[i];
+		log_bare(log_debug,"<%02x>",(int)b);
+	}
+	log_bare(log_debug,"\n");
+}
 

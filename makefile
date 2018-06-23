@@ -17,7 +17,7 @@ PCAP="-lpcap"
 LIBNET=-D_DEFAULT_SOURCE `libnet-config --defines` `libnet-config --libs`
 
 
-SOURCES= $(COMMON) lib/aes_faster_c/aes.cpp lib/aes_faster_c/wrapper.cpp
+SOURCES= $(COMMON) lib/aes_faster_c/aes.cpp lib/aes_faster_c/wrapper.cpp lib/pbkdf2-sha1.cpp lib/pbkdf2-sha256.cpp
 SOURCES_TINY_AES= $(COMMON) lib/aes.cpp
 SOURCES_AES_ACC=$(COMMON) $(wildcard lib/aes_acc/aes*.c)
 
