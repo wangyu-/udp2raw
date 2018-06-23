@@ -1,6 +1,7 @@
 #include "lib/aes.h"
 #include "lib/md5.h"
 #include "lib/pbkdf2-sha1.h"
+#include "lib/pbkdf2-sha256.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -45,16 +46,20 @@ int my_init_keys(const char * user_passwd)
 
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)normal_key);
 
-	PKCS5_PBKDF2_HMAC((uint8_t*)user_passwd,len,(uint8_t*)"hmac_key",strlen("hmac_key"),1000, hmac_key_len,hmac_key);
-
-	PKCS5_PBKDF2_HMAC((uint8_t*)user_passwd,len,(uint8_t*)"cipher_key",strlen("cipher_key"),1000,cipher_key_len,cipher_key);
-
 	if(auth_mode==auth_hmac_sha1)
+	{
 		is_hmac_used=1;
+		unsigned char salt[1000]="";
+		md5((uint8_t*)("udp2raw_salt1"),strlen("udp2raw_salt1"),salt);  //TODO different salt per session
+		unsigned char pbkdf2_output[1000]="";
+		PKCS5_PBKDF2_HMAC_SHA256((uint8_t*)user_passwd,len,salt,16,10000, hmac_key_len+cipher_key_len,pbkdf2_output);  //TODO HKDF, argon2 ?
+		memcpy(hmac_key,pbkdf2_output,hmac_key_len);
+		memcpy(cipher_key,pbkdf2_output+hmac_key_len,cipher_key_len);
+	}
 	
-	//print_binary_chars(normal_key,16);
-	//print_binary_chars((char *)hmac_key,16);
-	//print_binary_chars((char *)cipher_key,16);
+	print_binary_chars(normal_key,16);
+	print_binary_chars((char *)hmac_key,16);
+	print_binary_chars((char *)cipher_key,16);
 
 	return 0;
 }
