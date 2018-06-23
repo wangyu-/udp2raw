@@ -449,7 +449,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		case 'h':
 			break;
 		case 'a':
-			mylog(log_fatal,"-a not supported in this version, check -g or --mode easyfaketcp\n");
+			mylog(log_fatal,"-a not supported in this version, check -g or --raw-mode easyfaketcp\n");
 			myexit(-1);
 			auto_add_iptables_rule=1;
 			break;

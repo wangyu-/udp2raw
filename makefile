@@ -21,7 +21,9 @@ SOURCES= $(COMMON) lib/aes_faster_c/aes.cpp lib/aes_faster_c/wrapper.cpp
 SOURCES_TINY_AES= $(COMMON) lib/aes.cpp
 SOURCES_AES_ACC=$(COMMON) $(wildcard lib/aes_acc/aes*.c)
 
-NAME=udp2raw
+NAME=udp2raw_mp
+OUTPUTS=${NAME} ${NAME}_nolibnet ${NAME}.exe ${NAME}_nolibnet.exe
+
 TARGETS=amd64 arm amd64_hw_aes arm_asm_aes mips24kc_be mips24kc_be_asm_aes x86 x86_asm_aes mips24kc_le mips24kc_le_asm_aes
 TAR=${NAME}_binaries.tar.gz `echo ${TARGETS}|sed -r 's/([^ ]+)/udp2raw_\1/g'` version.txt
 
@@ -29,40 +31,39 @@ all:git_version
 	echo "\ndo not use 'make all', instead, use 'make linux' 'make mac' 'make freebsd' 'make cygwin' \nyou can also try 'make linux_nolibnet' 'make mac_nolibnet'  'make freebsd_nolibnet'  "
 
 cygwin:git_version
-	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -lrt -ggdb -static -O2 -D_GNU_SOURCE
+	rm -f ${OUTPUTS}
+	${cc_local}   -o ${NAME}_nolibnet          -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -lrt -ggdb -static -O2 -D_GNU_SOURCE
 
 mingw:git_version
-	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -ggdb -static -O2 -lws2_32
+	rm -f ${OUTPUTS}
+	${cc_local}   -o ${NAME}_nolibnet          -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -ggdb -static -O2 -lws2_32
 
 linux:git_version
-	rm -f ${NAME}
+	rm -f ${OUTPUTS}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${LIBNET} ${FLAGS} -lrt -ggdb -static -O2
 
 linux_nolibnet:git_version
-	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 -DNO_LIBNET
+	rm -f ${OUTPUTS}
+	${cc_local}   -o ${NAME}_nolibnet          -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 -DNO_LIBNET
 
 freebsd:git_version
-	rm -f ${NAME}
+	rm -f ${OUTPUTS}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${LIBNET} ${FLAGS} -lrt -ggdb -static -O2
 
 freebsd_nolibnet:git_version
-	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 -DNO_LIBNET
-
+	rm -f ${OUTPUTS}
+	${cc_local}   -o ${NAME}_nolibnet         -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 -DNO_LIBNET
 
 mac:git_version
-	rm -f ${NAME}
+	rm -f ${OUTPUTS}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${LIBNET} ${FLAGS} -ggdb -O2
 
 mac_nolibnet:git_version
-	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${PCAP} ${FLAGS} -ggdb -O2 -DNO_LIBNET
+	rm -f ${OUTPUTS}
+	${cc_local}   -o ${NAME}_nolibnet          -I. ${SOURCES} ${PCAP} ${FLAGS} -ggdb -O2 -DNO_LIBNET
 
 mac_nolibnet_static:git_version  #it doesnt work
-	rm -f ${NAME}
+	rm -f ${OUTPUTS}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} -static-libstdc++  /usr/local/Cellar/libpcap/1.8.1/lib/libpcap.a  ${FLAGS} -ggdb -O2 -DNO_LIBNET
 
 fast: git_version
