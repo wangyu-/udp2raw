@@ -21,8 +21,10 @@ static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog
 char normal_key[16];//generated from key_string by md5. reserved for compatiblity
 const int hmac_key_len=16;
 const int cipher_key_len=16;
-unsigned char hmac_key[hmac_key_len + 100];  //key for hmac
-unsigned char cipher_key[cipher_key_len + 100];  //key for aes etc.
+unsigned char hmac_key_encrypt[hmac_key_len + 100];  //key for hmac
+unsigned char hmac_key_decrypt[hmac_key_len + 100];  //key for hmac
+unsigned char cipher_key_encrypt[cipher_key_len + 100];  //key for aes etc.
+unsigned char cipher_key_decrypt[cipher_key_len + 100];  //key for aes etc.
 
 unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_simple,"simple"},{auth_hmac_sha1,"hmac_sha1"},};
 //TODO HMAC-md5 ,HMAC-sha1
@@ -35,7 +37,7 @@ cipher_mode_t cipher_mode=cipher_aes128cbc;
 
 int is_hmac_used=0;
 
-int my_init_keys(const char * user_passwd)
+int my_init_keys(const char * user_passwd,int is_client)
 {
 	char tmp[1000]="";
 	int len=strlen(user_passwd);
@@ -50,16 +52,38 @@ int my_init_keys(const char * user_passwd)
 	{
 		is_hmac_used=1;
 		unsigned char salt[1000]="";
-		md5((uint8_t*)("udp2raw_salt1"),strlen("udp2raw_salt1"),salt);  //TODO different salt per session
-		unsigned char pbkdf2_output[1000]="";
-		PKCS5_PBKDF2_HMAC_SHA256((uint8_t*)user_passwd,len,salt,16,10000, hmac_key_len+cipher_key_len,pbkdf2_output);  //TODO HKDF, argon2 ?
-		memcpy(hmac_key,pbkdf2_output,hmac_key_len);
-		memcpy(cipher_key,pbkdf2_output+hmac_key_len,cipher_key_len);
+		char salt_text[1000]="udp2raw_salt1";
+		md5((uint8_t*)(salt_text),strlen(salt_text),salt);  //TODO different salt per session
+		unsigned char pbkdf2_output1[1000]="";
+		PKCS5_PBKDF2_HMAC_SHA256((uint8_t*)user_passwd,len,salt,16,10000, 32,pbkdf2_output1);  //TODO HKDF, argon2 ?
+
+		unsigned char pbkdf2_output2[1000]="";
+		PKCS5_PBKDF2_HMAC_SHA256(pbkdf2_output1,32,0,0,1, hmac_key_len*2+cipher_key_len*2,pbkdf2_output2);  //stretch it
+
+		if(is_client)
+		{
+			memcpy(cipher_key_encrypt,pbkdf2_output2,cipher_key_len);
+			memcpy(cipher_key_decrypt,pbkdf2_output2+cipher_key_len,cipher_key_len);
+		
+			memcpy(hmac_key_encrypt,pbkdf2_output2+cipher_key_len*2,hmac_key_len);
+			memcpy(hmac_key_decrypt,pbkdf2_output2+cipher_key_len*2+hmac_key_len,hmac_key_len);
+		}
+		else
+		{
+			memcpy(cipher_key_decrypt,pbkdf2_output2,cipher_key_len);
+			memcpy(cipher_key_encrypt,pbkdf2_output2+cipher_key_len,cipher_key_len);
+		
+			memcpy(hmac_key_decrypt,pbkdf2_output2+cipher_key_len*2,hmac_key_len);
+			memcpy(hmac_key_encrypt,pbkdf2_output2+cipher_key_len*2+hmac_key_len,hmac_key_len);
+		}
+
 	}
 	
 	print_binary_chars(normal_key,16);
-	print_binary_chars((char *)hmac_key,16);
-	print_binary_chars((char *)cipher_key,16);
+	print_binary_chars((char *)hmac_key_encrypt,16);
+	print_binary_chars((char *)hmac_key_decrypt,16);
+	print_binary_chars((char *)cipher_key_encrypt,16);
+	print_binary_chars((char *)cipher_key_decrypt,16);
 
 	return 0;
 }
@@ -130,7 +154,7 @@ int auth_md5_cal(const char *data,char * output,int &len)
 int auth_hmac_sha1_cal(const char *data,char * output,int &len)
 {
 	memcpy(output,data,len);//TODO inefficient code
-	sha1_hmac(hmac_key, hmac_key_len, (const unsigned char *)data, len,(unsigned char *)(output+len));
+	sha1_hmac(hmac_key_encrypt, hmac_key_len, (const unsigned char *)data, len,(unsigned char *)(output+len));
 	//md5((unsigned char *)output,len,(unsigned char *)(output+len));
 	len+=20;
 	return 0;
@@ -145,7 +169,7 @@ int auth_hmac_sha1_verify(const char *data,int &len)
 	}
 	char res[20];
 
-	sha1_hmac(hmac_key, hmac_key_len, (const unsigned char *)data, len-20,(unsigned char *)(res));
+	sha1_hmac(hmac_key_decrypt, hmac_key_len, (const unsigned char *)data, len-20,(unsigned char *)(res));
 
 	if(memcmp(res,data+len-20,20)!=0)
 	{
@@ -392,7 +416,7 @@ int encrypt_AE(const char *data,char *output,int &len /*,char * key*/)
 	char buf[buf_len];
 	char buf2[buf_len];
 	memcpy(buf,data,len);
-	if(cipher_encrypt(buf,buf2,len,(char *)cipher_key) !=0) {mylog(log_debug,"cipher_encrypt failed ");return -1;}
+	if(cipher_encrypt(buf,buf2,len,(char *)cipher_key_encrypt) !=0) {mylog(log_debug,"cipher_encrypt failed ");return -1;}
 	if(auth_cal(buf2,output,len)!=0) {mylog(log_debug,"auth_cal failed ");return -1;}
 
 	//printf("%d %x %x\n",len,(int)(output[0]),(int)(output[1]));
@@ -408,7 +432,7 @@ int decrypt_AE(const char *data,char *output,int &len /*,char * key*/)
 	//print_binary_chars(data,len);
 
 	if(auth_verify(data,len)!=0) {mylog(log_debug,"auth_verify failed\n");return -1;}
-	if(cipher_decrypt(data,output,len,(char *)cipher_key) !=0) {mylog(log_debug,"cipher_decrypt failed \n"); return -1;}
+	if(cipher_decrypt(data,output,len,(char *)cipher_key_decrypt) !=0) {mylog(log_debug,"cipher_decrypt failed \n"); return -1;}
 	return 0;
 }
 

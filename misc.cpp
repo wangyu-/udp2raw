@@ -514,6 +514,7 @@ void process_arg(int argc, char *argv[])  //process all options
 				if(i==cipher_end)
 				{
 
+					mylog(log_fatal,"no such cipher_mode %s\n",optarg);
 					myexit(-1);
 				}
 			}
