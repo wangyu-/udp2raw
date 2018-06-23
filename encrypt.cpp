@@ -374,6 +374,7 @@ int auth_cal(const char *data,char * output,int &len)
 	//default:	return auth_md5_cal(data,output,len);//default;
 	default: assert(0==1);
 	}
+	return -1;
 
 }
 int auth_verify(const char *data,int &len)
@@ -389,6 +390,7 @@ int auth_verify(const char *data,int &len)
 	//default:	return auth_md5_verify(data,len);//default
 	default: assert(0==1);
 	}
+	return -1;
 
 }
 int cipher_encrypt(const char *data,char *output,int &len,char * key)
@@ -399,9 +401,10 @@ int cipher_encrypt(const char *data,char *output,int &len,char * key)
 	case cipher_aes128cbc:return cipher_aes128cbc_encrypt(data,output,len, key);
 	case cipher_xor:return cipher_xor_encrypt(data,output,len, key);
 	case cipher_none:return cipher_none_encrypt(data,output,len, key);
-	default:return cipher_aes128cbc_encrypt(data,output,len, key);
+	//default:return cipher_aes128cbc_encrypt(data,output,len, key);
+	default: assert(0==1);
 	}
-
+	return -1;
 }
 int cipher_decrypt(const char *data,char *output,int &len,char * key)
 {
@@ -411,9 +414,10 @@ int cipher_decrypt(const char *data,char *output,int &len,char * key)
 		case cipher_aes128cbc:return cipher_aes128cbc_decrypt(data,output,len, key);
 		case cipher_xor:return cipher_xor_decrypt(data,output,len, key);
 		case cipher_none:return cipher_none_decrypt(data,output,len, key);
-		default:	return cipher_aes128cbc_decrypt(data,output,len,key);
+	//	default:	return cipher_aes128cbc_decrypt(data,output,len,key);
+	default: assert(0==1);
 	}
-
+	return -1;
 }
 
 int encrypt_AE(const char *data,char *output,int &len /*,char * key*/)
