@@ -725,7 +725,8 @@ int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len
 	}
 	else
 	{
-		assert(0==1);
+		mylog(log_fatal,"unknow hb_mode\n");
+		myexit(-1);
 	}
 
 

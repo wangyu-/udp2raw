@@ -276,10 +276,10 @@ void *pcap_recv_thread_entry(void *none)
 				myexit(-1);
 				break;
 			case -2:
-				assert(0==1);
+				assert(0==1);//
 				break;
 			default:
-				assert(0==1);
+				assert(0==1);//
 		}
 	}
 	myexit(-1);*/
@@ -332,7 +332,7 @@ int init_raw_socket()
 	if( ret < 0 )
 	{
 		 printf("pcap_activate failed  %s\n", pcap_geterr(pcap_handle));
-		 assert(0==1);
+		 myexit(-1);
 	}
 
 
@@ -360,13 +360,13 @@ int init_raw_socket()
 
 	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
 		 printf("Bad filter - %s\n", pcap_geterr(pcap_handle));
-		 assert(0==1);
+		 myexit(-1);
 	 }
 
 
 	 if (pcap_setfilter(pcap_handle, &g_filter) == -1) {
 		 printf("Error setting filter - %s\n", pcap_geterr(pcap_handle));
-		 assert(0==1);
+		 myexit(-1);
 	 }
 
 
@@ -496,7 +496,8 @@ void init_filter(int port)
 	}
 	else
 	{
-		assert(0==1);
+		mylog(log_fatal,"unknow raw mode\n");
+		myexit(-1);
 	}
 
 	mylog(log_info,"filter expression is [%s]\n",filter_exp);
@@ -507,13 +508,13 @@ void init_filter(int port)
 
 	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
 		 mylog(log_fatal,"Bad filter - %s\n", pcap_geterr(pcap_handle));
-		 assert(0==1);
+		 myexit(-1);
 	 }
 
 	 if (pcap_setfilter(pcap_handle, &g_filter) == -1)
 	 {
 		 mylog(log_fatal,"Error setting filter - %s\n", pcap_geterr(pcap_handle));
-		 assert(0==1);
+		 myexit(-1);
 	 }
 
 	 //pthread_mutex_unlock(&filter_mutex);

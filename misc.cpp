@@ -449,7 +449,8 @@ void process_arg(int argc, char *argv[])  //process all options
 		case 'h':
 			break;
 		case 'a':
-			assert(0==1&&"-a not implemented");
+			mylog(log_fatal,"-a not supported in this version, check -g or --mode easyfaketcp\n")
+			myexit(-1);
 			auto_add_iptables_rule=1;
 			break;
 		case 'g':
@@ -463,7 +464,9 @@ void process_arg(int argc, char *argv[])  //process all options
 			mylog(log_debug,"option_index: %d\n",option_index);
 			if(strcmp(long_options[option_index].name,"clear")==0)
 			{
-				assert(0==1&&"--clear not implemented");
+				mylog(log_fatal,"--clear not supported in this version\n")
+				myexit(-1);
+
 				clear_iptables=1;
 			}
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
@@ -546,24 +549,29 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"lower-level")==0)
 			{
-				assert(0==1);
+				mylog(log_fatal,"--lower-level not supported in this version\n")
+				myexit(-1);
 				//process_lower_level_arg();
 				//lower_level=1;
 				//strcpy(lower_level_arg,optarg);
 			}
 			else if(strcmp(long_options[option_index].name,"simple-rule")==0)
 			{
-				assert(0==1&&"--simple-rule not implemented");
+				mylog(log_fatal,"--simple-rule not supported in this version\n")
+				myexit(-1);
+
 				simple_rule=1;
 			}
 			else if(strcmp(long_options[option_index].name,"keep-rule")==0)
 			{
-				assert(0==1&&"--keep-rule not implemented");
+				mylog(log_fatal,"--keep-rule not supported in this version\n")
+				myexit(-1);
 				keep_rule=1;
 			}
 			else if(strcmp(long_options[option_index].name,"gen-add")==0)
 			{
-				assert(0==1&&"--gen-add not implemented");
+				mylog(log_fatal,"--gen-add not supported in this version\n")
+				myexit(-1);
 				generate_iptables_rule_add=1;
 			}
 			else if(strcmp(long_options[option_index].name,"disable-color")==0)
@@ -590,7 +598,8 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"force-sock-buf")==0)
 			{
-				assert(0==1&&"--force-sock-buf not implemented");
+				mylog(log_fatal,"--force-sock-buf not supported in this version\n")
+				myexit(-1);
 				force_socket_buf=1;
 			}
 			else if(strcmp(long_options[option_index].name,"retry-on-error")==0)
@@ -647,7 +656,8 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"fifo")==0)
 			{	
-				assert(0==1&&"--fifo not implemented");
+				mylog(log_fatal,"--fifo not supported in this version\n")
+				myexit(-1);
 				sscanf(optarg,"%s",fifo_file);
 
 				mylog(log_info,"fifo_file =%s \n",fifo_file);

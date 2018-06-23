@@ -317,7 +317,9 @@ int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
 {
 	if(force_socket_buf)
 	{
-		assert(0==1);
+		mylog(log_fatal,"force_socket_buf not supported in this verion\n");
+		myexit(-1);
+		//assert(0==1);
 #if 0
 		if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
@@ -555,7 +557,8 @@ int read_file(const char * file,string &output)
 }
 
 int run_command(string command0,char * &output,int flag) {
-    assert(0==1 && "not implemented\n");
+    mylog(log_fatal,"run_command not supported in this version\n");
+    myexit(-1);
 #if 0
     FILE *in;
 
@@ -766,7 +769,8 @@ int create_fifo(char * file)
 	setnonblocking(fifo_fd);
 	return fifo_fd;
 #else
-	assert(0==1&&"not implemented");
+        mylog(log_fatal,"--fifo not supported in this version\n");
+        myexit(-1);
 	return 0;
 #endif
 }

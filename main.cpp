@@ -1126,7 +1126,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		mylog(log_fatal,"server mode not supported in portable version\n");
+		mylog(log_fatal,"server mode not supported in multi-platform version\n");
 		myexit(-1);
 		//server_event_loop();
 	}
