@@ -80,6 +80,7 @@ debug2: git_version
 #	${cc_local}   -o ${NAME}_$@          -I. ${SOURCES} ${FLAGS} -lrt -O3
 
 clean:	
+	rm -f udp2raw.exe ${OUTPUTS}
 	rm -f udp2raw udp2raw_cross udp2raw_cmake udp2raw_dynamic
 	rm -f git_version.h
 
