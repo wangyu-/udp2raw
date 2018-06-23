@@ -142,13 +142,7 @@ int hex_to_u32(const string & a,u32_t &output);
 
 int create_fifo(char * file);
 
-inline void print_binary_chars(const char * a,int len)
-{
-	for(int i=0;i<len;i++)
-	{
-		unsigned char b=a[i];
-		printf("<%x>",(int)b);
-	}
-	printf("\n");
-}
+void print_binary_chars(const char * a,int len);
+
+
 #endif /* COMMON_H_ */
