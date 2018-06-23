@@ -18,9 +18,9 @@ static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog
  * https://crypto.stackexchange.com/questions/5421/using-cbc-with-a-fixed-iv-and-a-random-first-plaintext-block
 ****/
 
-char normal_key[16];//generated from key_string by md5. reserved for compatiblity
-const int hmac_key_len=16;
-const int cipher_key_len=16;
+char normal_key[16 + 100];//generated from key_string by md5. reserved for compatiblity
+const int hmac_key_len=32;
+const int cipher_key_len=32;
 unsigned char hmac_key_encrypt[hmac_key_len + 100];  //key for hmac
 unsigned char hmac_key_decrypt[hmac_key_len + 100];  //key for hmac
 unsigned char cipher_key_encrypt[cipher_key_len + 100];  //key for aes etc.
@@ -49,15 +49,17 @@ int my_init_keys(const char * user_passwd,int is_client)
 	md5((uint8_t*)tmp,strlen(tmp),(uint8_t*)normal_key);
 
 	if(auth_mode==auth_hmac_sha1)
-	{
 		is_hmac_used=1;
-		unsigned char salt[1000]="";
-		char salt_text[1000]="udp2raw_salt1";
+	if(is_hmac_used)
+	{
+		unsigned char salt[400]="";
+		char salt_text[400]="udp2raw_salt1";
 		md5((uint8_t*)(salt_text),strlen(salt_text),salt);  //TODO different salt per session
-		unsigned char pbkdf2_output1[1000]="";
+
+		unsigned char pbkdf2_output1[400]="";
 		PKCS5_PBKDF2_HMAC_SHA256((uint8_t*)user_passwd,len,salt,16,10000, 32,pbkdf2_output1);  //TODO HKDF, argon2 ?
 
-		unsigned char pbkdf2_output2[1000]="";
+		unsigned char pbkdf2_output2[400]="";
 		PKCS5_PBKDF2_HMAC_SHA256(pbkdf2_output1,32,0,0,1, hmac_key_len*2+cipher_key_len*2,pbkdf2_output2);  //stretch it
 
 		if(is_client)
@@ -80,10 +82,10 @@ int my_init_keys(const char * user_passwd,int is_client)
 	}
 	
 	print_binary_chars(normal_key,16);
-	print_binary_chars((char *)hmac_key_encrypt,16);
-	print_binary_chars((char *)hmac_key_decrypt,16);
-	print_binary_chars((char *)cipher_key_encrypt,16);
-	print_binary_chars((char *)cipher_key_decrypt,16);
+	print_binary_chars((char *)hmac_key_encrypt,32);
+	print_binary_chars((char *)hmac_key_decrypt,32);
+	print_binary_chars((char *)cipher_key_encrypt,32);
+	print_binary_chars((char *)cipher_key_decrypt,32);
 
 	return 0;
 }
@@ -153,6 +155,7 @@ int auth_md5_cal(const char *data,char * output,int &len)
 
 int auth_hmac_sha1_cal(const char *data,char * output,int &len)
 {
+	mylog(log_trace,"auth_hmac_sha1_cal() is called\n");
 	memcpy(output,data,len);//TODO inefficient code
 	sha1_hmac(hmac_key_encrypt, hmac_key_len, (const unsigned char *)data, len,(unsigned char *)(output+len));
 	//md5((unsigned char *)output,len,(unsigned char *)(output+len));
@@ -162,6 +165,7 @@ int auth_hmac_sha1_cal(const char *data,char * output,int &len)
 
 int auth_hmac_sha1_verify(const char *data,int &len)
 {
+	mylog(log_trace,"auth_hmac_sha1_verify() is called\n");
 	if(len<20)
 	{
 		mylog(log_trace,"auth_hmac_sha1_verify len<20\n");
@@ -269,7 +273,8 @@ int padding(char *data ,int &data_len,int padding_num)
 	{
 		data_len= (data_len/padding_num)*padding_num+padding_num;
 	}
-	data[data_len-1]= (data_len-old_len);
+	unsigned char * p= (unsigned char *)&data[data_len-1];
+	*p= (data_len-old_len);
 	return 0;
 }
 
@@ -413,6 +418,7 @@ int cipher_decrypt(const char *data,char *output,int &len,char * key)
 
 int encrypt_AE(const char *data,char *output,int &len /*,char * key*/)
 {
+	mylog(log_trace,"encrypt_AE is called\n");
 	char buf[buf_len];
 	char buf2[buf_len];
 	memcpy(buf,data,len);
@@ -428,6 +434,7 @@ int encrypt_AE(const char *data,char *output,int &len /*,char * key*/)
 
 int decrypt_AE(const char *data,char *output,int &len /*,char * key*/)
 {
+	mylog(log_trace,"decrypt_AE is called\n");
 	//printf("%d %x %x\n",len,(int)(data[0]),(int)(data[1]));
 	//print_binary_chars(data,len);
 
