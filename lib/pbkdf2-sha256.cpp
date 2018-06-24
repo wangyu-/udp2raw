@@ -1,5 +1,5 @@
 /*
-   this file is from https://github.com/kholia/PKCS5_PBKDF2
+   this file is from https://github.com/kholia/PKCS5_PBKDF2, with additional code of hkdf_sha256
 
  *  FIPS-180-2 compliant SHA-256 implementation
  *
@@ -34,11 +34,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 #if defined(TEST) ||defined(DEBUG)
 #undef TEST 
 #undef DEBUG
 #warning "undefined TEST/DEBUG"
 #endif
+
 
 typedef struct {
 	unsigned long total[2];	/*!< number of bytes processed  */
@@ -49,6 +51,7 @@ typedef struct {
 	unsigned char opad[64];	/*!< HMAC: outer padding        */
 	int is224;		/*!< 0 => SHA-256, else SHA-224 */
 } sha2_context;
+
 
 /*
  * 32-bit integer manipulation macros (big endian)
@@ -869,3 +872,253 @@ int main()
 }
 
 #endif
+
+
+
+const int sha256_len=32;
+
+#define MBEDTLS_MD_MAX_SIZE  64 
+#define MBEDTLS_ERR_HKDF_BAD_INPUT_DATA   -0x5F80
+
+static void * (* const volatile memset_func)( void *, int, size_t ) = memset;
+
+void mbedtls_platform_zeroize( void *buf, size_t len )
+{
+	    memset_func( buf, 0, len );
+}
+
+int hkdf_sha256_extract(
+                          const unsigned char *salt, size_t salt_len,
+                          const unsigned char *ikm, size_t ikm_len,
+                          unsigned char *prk )
+{
+    unsigned char null_salt[MBEDTLS_MD_MAX_SIZE] = { '\0' };
+
+    if( salt == NULL )
+    {
+        size_t hash_len;
+
+        hash_len = sha256_len;
+
+        if( hash_len == 0 )
+        {
+            return MBEDTLS_ERR_HKDF_BAD_INPUT_DATA;
+        }
+
+        salt = null_salt;
+        salt_len = hash_len;
+    }
+
+    sha2_hmac (salt, salt_len, ikm, ikm_len, prk ,0);
+    return 0;
+}
+
+int hkdf_sha256_expand( const unsigned char *prk,
+                         size_t prk_len, const unsigned char *info,
+                         size_t info_len, unsigned char *okm, size_t okm_len )
+{
+    size_t hash_len;
+    size_t where = 0;
+    size_t n;
+    size_t t_len = 0;
+    size_t i;
+    int ret = 0;
+    sha2_context ctx;
+    unsigned char t[MBEDTLS_MD_MAX_SIZE];
+
+    if( okm == NULL )
+    {
+        return( MBEDTLS_ERR_HKDF_BAD_INPUT_DATA );
+    }
+
+    hash_len = sha256_len;
+
+    if( prk_len < hash_len || hash_len == 0 )
+    {
+        return( MBEDTLS_ERR_HKDF_BAD_INPUT_DATA );
+    }
+
+    if( info == NULL )
+    {
+        info = (const unsigned char *) "";
+        info_len = 0;
+    }
+
+    n = okm_len / hash_len;
+
+    if( (okm_len % hash_len) != 0 )
+    {
+        n++;
+    }
+
+    if( n > 255 )
+    {
+        return( MBEDTLS_ERR_HKDF_BAD_INPUT_DATA );
+    }
+
+    //mbedtls_md_init( &ctx );   //old code
+    memset( &ctx, 0, sizeof( ctx) );  //its not necessary
+
+    /*
+    if( (ret = mbedtls_md_setup( &ctx, md, 1) ) != 0 )
+    {
+        goto exit;
+    }*/
+
+
+    /* RFC 5869 Section 2.3. */
+    for( i = 1; i <= n; i++ )
+    {
+        size_t num_to_copy;
+        unsigned char c = i & 0xff;
+
+        sha2_hmac_starts( &ctx, prk, prk_len,0 );
+
+        sha2_hmac_update( &ctx, t, t_len );
+
+        sha2_hmac_update( &ctx, info, info_len );
+
+        /* The constant concatenated to the end of each t(n) is a single octet.
+         * */
+        sha2_hmac_update( &ctx, &c, 1 );
+
+        sha2_hmac_finish( &ctx, t );
+        num_to_copy = i != n ? hash_len : okm_len - where;
+        memcpy( okm + where, t, num_to_copy );
+        where += hash_len;
+        t_len = hash_len;
+    }
+
+//exit:
+    //mbedtls_md_free( &ctx );  //old code
+    mbedtls_platform_zeroize( &ctx, sizeof( ctx ) ); //not necessary too
+
+    mbedtls_platform_zeroize( t, sizeof( t ) );
+
+    return( ret );
+}
+
+int hkdf_sha256( const unsigned char *salt,
+                  size_t salt_len, const unsigned char *ikm, size_t ikm_len,
+                  const unsigned char *info, size_t info_len,
+                  unsigned char *okm, size_t okm_len )
+{
+    int ret;
+    unsigned char prk[MBEDTLS_MD_MAX_SIZE];
+
+    ret = hkdf_sha256_extract( salt, salt_len, ikm, ikm_len, prk );
+
+    if( ret == 0 )
+    {
+        ret = hkdf_sha256_expand( prk, sha256_len,
+                                   info, info_len, okm, okm_len );
+    }
+
+    mbedtls_platform_zeroize( prk, sizeof( prk ) );
+
+    return( ret );
+}
+
+#ifdef HKDF_SHA256_TEST
+
+#include <assert.h>
+int hex_to_number(char a)
+{
+	if(a>='0' &&a<='9')
+		return a-'0';
+	if(a>='a'&& a<='f') return a- 'a' +10;
+
+	assert(0==1);
+	return -1;
+}
+int base16_decode(const char *a,unsigned char *buf)
+{
+	int len=strlen(a);
+	assert(len%2==0);
+
+	for(int i=0,j=0;i<len;i+=2,j++)
+	{
+		unsigned char c= hex_to_number(a[i])*16+hex_to_number(a[i+1]);
+		buf[j]=c;
+	}
+	return len/2;
+}
+int main()
+{
+    const struct {
+    const char *ikm16, *salt16, *info16;
+    int L;
+    const char *okm16;
+  } vecs[] = {
+    { /* from A.1 */
+      "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "000102030405060708090a0b0c",
+      "f0f1f2f3f4f5f6f7f8f9",
+      42,
+      "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf"
+        "34007208d5b887185865"
+    },
+    { /* from A.2 */
+      "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+        "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+        "404142434445464748494a4b4c4d4e4f",
+      "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f"
+        "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f"
+        "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf",
+      "b0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecf"
+        "d0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeef"
+        "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+      82,
+      "b11e398dc80327a1c8e7f78c596a49344f012eda2d4efad8a050cc4c19afa97c"
+      "59045a99cac7827271cb41c65e590e09da3275600c2f09b8367793a9aca3db71"
+      "cc30c58179ec3e87c14c01d5c1f3434f1d87"
+    },
+    { /* from A.3 */
+      "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "",
+      "",
+      42,
+      "8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d"
+        "9d201395faa4b61a96c8",
+    },
+    { NULL, NULL, NULL, -1, NULL }
+  };
+
+    for(int i=0;i<3;i++)
+    {
+	    unsigned char ikm[200]; int ikm_len;
+	    unsigned char salt[200];int salt_len;
+	    unsigned char info[200]; int info_len;
+	    unsigned char okm[200];
+
+	    ikm_len=base16_decode(vecs[i].ikm16,ikm);
+	    salt_len=base16_decode(vecs[i].salt16,salt);
+	    info_len=base16_decode(vecs[i].info16,info);
+
+	    base16_decode(vecs[i].okm16,okm);
+
+	    int outlen=vecs[i].L;
+	    unsigned char output[200];
+
+	    int ret=hkdf_sha256(salt,
+			    salt_len,ikm, ikm_len,
+			    info, info_len,
+			    output, outlen );
+	    assert(ret==0);
+	    for(int j=0;j<ikm_len;j++)
+		    printf("<%02x>",(int)(ikm[j]));
+	    printf("\n---------------------------\n");
+	    for(int j=0;j<outlen;j++)
+		    printf("<%02x>",(int)(output[j]));
+	    printf("\n---------------------------\n");
+	    for(int j=0;j<outlen;j++)
+		    printf("<%02x>",(int)(okm[j]));
+	    printf("\n===========================\n");
+    }
+
+
+}
+
+#endif
+
+

@@ -27,15 +27,17 @@ unsigned char cipher_key_encrypt[cipher_key_len + 100];  //key for aes etc.
 unsigned char cipher_key_decrypt[cipher_key_len + 100];  //key for aes etc.
 
 unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_simple,"simple"},{auth_hmac_sha1,"hmac_sha1"},};
-//TODO HMAC-md5 ,HMAC-sha1
 
 unordered_map<int, const char *> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"},};
 //TODO aes-gcm
 
 auth_mode_t auth_mode=auth_md5;
 cipher_mode_t cipher_mode=cipher_aes128cbc;
-
 int is_hmac_used=0;
+
+//TODO key negotiation and forward secrecy
+
+
 
 int my_init_keys(const char * user_passwd,int is_client)
 {
@@ -57,28 +59,31 @@ int my_init_keys(const char * user_passwd,int is_client)
 		md5((uint8_t*)(salt_text),strlen(salt_text),salt);  //TODO different salt per session
 
 		unsigned char pbkdf2_output1[400]="";
-		PKCS5_PBKDF2_HMAC_SHA256((uint8_t*)user_passwd,len,salt,16,10000, 32,pbkdf2_output1);  //TODO HKDF, argon2 ?
+		PKCS5_PBKDF2_HMAC_SHA256((uint8_t*)user_passwd,len,salt,16,10000, 32,pbkdf2_output1);  //TODO argon2 ?
 
-		unsigned char pbkdf2_output2[400]="";
-		PKCS5_PBKDF2_HMAC_SHA256(pbkdf2_output1,32,0,0,1, hmac_key_len*2+cipher_key_len*2,pbkdf2_output2);  //stretch it
+		//unsigned char pbkdf2_output2[400]="";
+		//PKCS5_PBKDF2_HMAC_SHA256(pbkdf2_output1,32,0,0,1, hmac_key_len*2+cipher_key_len*2,pbkdf2_output2);  //stretch it
+
+		const char *info_hmac_encrypt="hmac_key server-->client";
+		const char *info_hmac_decrypt="hmac_key client-->server";
+		const char *info_cipher_encrypt="cipher_key server-->client";
+		const char *info_cipher_decrypt="cipher_key client-->server";
 
 		if(is_client)
 		{
-			memcpy(cipher_key_encrypt,pbkdf2_output2,cipher_key_len);
-			memcpy(cipher_key_decrypt,pbkdf2_output2+cipher_key_len,cipher_key_len);
-		
-			memcpy(hmac_key_encrypt,pbkdf2_output2+cipher_key_len*2,hmac_key_len);
-			memcpy(hmac_key_decrypt,pbkdf2_output2+cipher_key_len*2+hmac_key_len,hmac_key_len);
+			const char *tmp;
+			tmp=info_hmac_encrypt; info_hmac_encrypt=info_hmac_decrypt;info_hmac_decrypt=tmp;
+			tmp=info_cipher_encrypt; info_cipher_encrypt=info_cipher_decrypt;info_cipher_decrypt=tmp;
 		}
 		else
 		{
-			memcpy(cipher_key_decrypt,pbkdf2_output2,cipher_key_len);
-			memcpy(cipher_key_encrypt,pbkdf2_output2+cipher_key_len,cipher_key_len);
-		
-			memcpy(hmac_key_decrypt,pbkdf2_output2+cipher_key_len*2,hmac_key_len);
-			memcpy(hmac_key_encrypt,pbkdf2_output2+cipher_key_len*2+hmac_key_len,hmac_key_len);
+			//nop
 		}
 
+		assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)info_cipher_encrypt,strlen(info_cipher_encrypt), cipher_key_encrypt, cipher_key_len )  ==0);
+		assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)info_cipher_decrypt,strlen(info_cipher_decrypt), cipher_key_decrypt, cipher_key_len )  ==0);
+		assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)info_hmac_encrypt,strlen(info_hmac_encrypt), hmac_key_encrypt, hmac_key_len )  ==0);
+		assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)info_hmac_decrypt,strlen(info_hmac_decrypt), hmac_key_decrypt, hmac_key_len )  ==0);
 	}
 	
 	print_binary_chars(normal_key,16);
