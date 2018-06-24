@@ -27,15 +27,15 @@ unsigned char cipher_key_encrypt[cipher_key_len + 100];  //key for aes etc.
 unsigned char cipher_key_decrypt[cipher_key_len + 100];  //key for aes etc.
 
 unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_simple,"simple"},{auth_hmac_sha1,"hmac_sha1"},};
-//TODO HMAC-md5 ,HMAC-sha1
 
 unordered_map<int, const char *> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"},};
 //TODO aes-gcm
 
 auth_mode_t auth_mode=auth_md5;
 cipher_mode_t cipher_mode=cipher_aes128cbc;
-
 int is_hmac_used=0;
+
+//TODO key negotiation and forward secrecy
 
 int my_init_keys(const char * user_passwd,int is_client)
 {
