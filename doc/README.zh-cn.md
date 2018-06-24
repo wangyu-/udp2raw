@@ -41,15 +41,11 @@ Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译bi
 ### 模拟TCP3次握手
 模拟TCP3次握手，模拟seq ack过程。另外还模拟了一些tcp option：MSS,sackOk,TS,TS_ack,wscale，用来使流量看起来更像是由普通的linux tcp协议栈发送的。
 
-### 心跳保活、自动重连，连接快速恢复，单向链路失效检测
+### 心跳保活、自动重连，连接恢复
 心跳保活、自动重连，udp2raw重连可以恢复上次的连接，重连后上层连接继续有效，底层掉线上层不掉线。有效解决上层连接断开的问题。 （功能借鉴自[kcptun-raw](https://github.com/Chion82/kcptun-raw)）（**就算你拔掉网线重插，或者重新拨号获得新ip，上层应用也不会断线**）
 
-Client能用单倍的超时时间检测到单向链路的失效，不管是上行还是下行，只要有一个方向失效就能被client检测到。重连只需要client发起，就可以立即被server处理，不需要等到server端的连接超时后。
-
-对于有大量client的情况，对于不同client,server发送的心跳是错开时间发送的，不会因为短时间发送大量的心跳而造成拥塞和延迟抖动。
-
 ### 加密 防重放攻击
-用aes128cbc加密，hmac-sha1/md5/crc32做数据完整校验。用类似ipsec/openvpn的replay window机制来防止重放攻击。
+用aes128cbc加密(或更弱的xor)，hmac-sha1(或更弱的md5/crc32/simple)做数据完整校验。用类似ipsec/openvpn的replay window机制来防止重放攻击。
 
 设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。
 
@@ -63,8 +59,6 @@ NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
 支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed
 
 支持Openwrt，没有编译依赖，容易编译到任何平台上。
-
-epoll实现，高并发，除了回收过期连接外，所有操作的时间复杂度都跟连接数无关。回收过期连接的操做也是柔和进行的，不会因为消耗太多cpu时间造成延迟抖动。
 
 ### 关键词
 突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
