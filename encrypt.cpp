@@ -37,8 +37,6 @@ int is_hmac_used=0;
 
 //TODO key negotiation and forward secrecy
 
-
-
 int my_init_keys(const char * user_passwd,int is_client)
 {
 	char tmp[1000]="";
