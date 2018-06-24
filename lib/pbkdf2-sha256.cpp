@@ -956,13 +956,15 @@ int hkdf_sha256_expand( const unsigned char *prk,
         return( MBEDTLS_ERR_HKDF_BAD_INPUT_DATA );
     }
 
-    /*
-    mbedtls_md_init( &ctx ); 
+    //mbedtls_md_init( &ctx );   //old code
+    memset( &ctx, 0, sizeof( ctx) );  //its not necessary
 
+    /*
     if( (ret = mbedtls_md_setup( &ctx, md, 1) ) != 0 )
     {
         goto exit;
     }*/
+
 
     /* RFC 5869 Section 2.3. */
     for( i = 1; i <= n; i++ )
@@ -988,8 +990,8 @@ int hkdf_sha256_expand( const unsigned char *prk,
     }
 
 //exit:
-    //mbedtls_md_free( &ctx );
-    mbedtls_platform_zeroize( &ctx, sizeof( ctx ) );
+    //mbedtls_md_free( &ctx );  //old code
+    mbedtls_platform_zeroize( &ctx, sizeof( ctx ) ); //not necessary too
 
     mbedtls_platform_zeroize( t, sizeof( t ) );
 

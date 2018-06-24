@@ -64,10 +64,10 @@ int my_init_keys(const char * user_passwd,int is_client)
 		//unsigned char pbkdf2_output2[400]="";
 		//PKCS5_PBKDF2_HMAC_SHA256(pbkdf2_output1,32,0,0,1, hmac_key_len*2+cipher_key_len*2,pbkdf2_output2);  //stretch it
 
-		const char *info_hmac_encrypt="server-->client hmac";
-		const char *info_hmac_decrypt="client-->server hmac";
-		const char *info_cipher_encrypt="server-->client cipher";
-		const char *info_cipher_decrypt="client-->server cipher";
+		const char *info_hmac_encrypt="hmac_key server-->client";
+		const char *info_hmac_decrypt="hmac_key client-->server";
+		const char *info_cipher_encrypt="cipher_key server-->client";
+		const char *info_cipher_decrypt="cipher_key client-->server";
 
 		if(is_client)
 		{
@@ -84,10 +84,6 @@ int my_init_keys(const char * user_passwd,int is_client)
 		assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)info_cipher_decrypt,strlen(info_cipher_decrypt), cipher_key_decrypt, cipher_key_len )  ==0);
 		assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)info_hmac_encrypt,strlen(info_hmac_encrypt), hmac_key_encrypt, hmac_key_len )  ==0);
 		assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)info_hmac_decrypt,strlen(info_hmac_decrypt), hmac_key_decrypt, hmac_key_len )  ==0);
-
-
-
-
 	}
 	
 	print_binary_chars(normal_key,16);
