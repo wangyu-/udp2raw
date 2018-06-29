@@ -74,6 +74,7 @@ typedef unsigned char u_char;
 #define DLT_SLIP	8	/* Serial Line IP */
 #define DLT_PPP		9	/* Point-to-point Protocol */
 #define DLT_FDDI	10	/* FDDI */
+#define DLT_LINUX_SLL   113
 
 #define PCAP_NETMASK_UNKNOWN	0xffffffff
 

@@ -346,6 +346,10 @@ int init_raw_socket()
 	{
 		pcap_link_header_len=4;
 	}
+	else if(ret==DLT_LINUX_SLL)
+	{
+		pcap_link_header_len=16;
+	}
 	else
 	{
 		mylog(log_fatal,"unknown pcap link type : %d\n",ret);
