@@ -810,6 +810,11 @@ int client_event_loop()
 			log_bare(log_warn,"%s:", d->name);
 			int cnt=0;
 			for(pcap_addr_t *a=d->addresses; a!=NULL; a=a->next) {
+				if(a->addr==NULL)
+				{
+					log_bare(log_debug," [a->addr==NULL]");
+					continue;
+				}
 				if(a->addr->sa_family == AF_INET)
 				{
 					cnt++;
