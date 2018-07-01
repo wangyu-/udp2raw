@@ -40,10 +40,42 @@ struct init_pcap_t
 	
 }do_it;
 
+static void init_npcap_dll_path()
+{
+	BOOL(WINAPI *SetDllDirectory)(LPCTSTR);
+	char sysdir_name[512];
+	int len;
+
+	SetDllDirectory = (BOOL(WINAPI *)(LPCTSTR)) GetProcAddress(GetModuleHandle("kernel32.dll"), "SetDllDirectoryA");
+	if (SetDllDirectory == NULL) {
+		printf("Error in SetDllDirectory");
+	}
+	else {
+		len = GetSystemDirectory(sysdir_name, 480);	//	be safe
+		if (!len)
+			printf("Error in GetSystemDirectory (%d)", (int)GetLastError());
+		strcat(sysdir_name, "\\Npcap");
+		if (SetDllDirectory(sysdir_name) == 0)
+			printf("Error in SetDllDirectory(\"System32\\Npcap\")");
+	}
+}
+
 #define EXPORT_FUN(XXX) do{ XXX= (__typeof__(XXX)) GetProcAddress(wpcap, #XXX); }while(0)
 int init_pcap()
 {
 	HMODULE wpcap=LoadLibrary("wpcap.dll");
+	if(wpcap!=0)
+	{
+		printf("using system32/wpcap.dll\n");
+	}
+	else
+	{
+		init_npcap_dll_path();
+		//SetDllDirectory("C:\\Windows\\System32\\Npcap\\");
+		wpcap=LoadLibrary("wpcap.dll");
+		if(wpcap!=0)
+			printf("using system32/npcap/wpcap.dll\n");
+	}
 	if(wpcap==0)
 	{
 		printf("cant not open wpcap.dll, make sure winpcap/npcap is installed\n");
