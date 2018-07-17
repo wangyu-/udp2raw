@@ -137,6 +137,42 @@ void address_t::to_str(char * s)
 	//return res;
 }
 
+char* address_t::get_ip()
+{
+	char ip_addr[max_addr_len];
+	static char s[max_addr_len];
+	const char * ret=0;
+	if(get_type()==AF_INET6)
+	{
+		ret=inet_ntop(AF_INET6, &inner.ipv6.sin6_addr, ip_addr,max_addr_len);
+	}
+	else if(get_type()==AF_INET)
+	{
+		ret=inet_ntop(AF_INET, &inner.ipv4.sin_addr, ip_addr,max_addr_len);
+	}
+	else
+	{
+		assert(0==1);
+	}
+
+	if(ret==0) //NULL on failure
+	{
+		mylog(log_error,"inet_ntop failed\n");
+		myexit(-1);
+	}
+
+	ip_addr[max_addr_len-1]=0;
+	if(get_type()==AF_INET6)
+	{
+		sprintf(s,"[%s]",ip_addr);
+	}else
+	{
+		sprintf(s,"%s",ip_addr);
+	}
+
+	return s;
+}
+
 int address_t::from_sockaddr(sockaddr * addr,socklen_t slen)
 {
 	memset(&inner,0,sizeof(inner));

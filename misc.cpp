@@ -32,9 +32,11 @@ fd_manager_t fd_manager;
 //char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
 //u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
 //int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
-address_t local_addr,remote_addr;
+address_t local_addr,remote_addr,source_addr,bind_addr;
 
+int bind_addr_used=0;
 int force_source_ip=0; //if --source-ip is enabled
+int force_source_port=0;
 
 id_t const_id=0;//an id used for connection recovery,its generated randomly,it never change since its generated
 
@@ -384,6 +386,13 @@ void process_arg(int argc, char *argv[])  //process all options
 		switch (opt) {
 		case 'l':
 			no_l = 0;
+			local_addr.from_str(optarg);
+			if(local_addr.get_port()==22)
+			{
+				mylog(log_fatal,"port 22 not allowed\n");
+				myexit(-1);
+			}
+			/*
 			if (strchr(optarg, ':') != 0) {
 				sscanf(optarg, "%[^:]:%d", local_ip, &local_port);
 				if(local_port==22)
@@ -395,10 +404,17 @@ void process_arg(int argc, char *argv[])  //process all options
 				mylog(log_fatal,"invalid parameter for -l ,%s,should be ip:port\n",optarg);
 				myexit(-1);
 
-			}
+			}*/
 			break;
 		case 'r':
 			no_r = 0;
+			remote_addr.from_str(optarg);
+			if(remote_addr.get_port()==22)
+			{
+				mylog(log_fatal,"port 22 not allowed\n");
+				myexit(-1);
+			}
+			/*
 			if (strchr(optarg, ':') != 0) {
 				sscanf(optarg, "%[^:]:%d", remote_address, &remote_port);
 				if(remote_port==22)
@@ -409,7 +425,7 @@ void process_arg(int argc, char *argv[])  //process all options
 			} else {
 				mylog(log_fatal,"invalid parameter for -r ,%s,should be ip:port\n",optarg);
 				myexit(-1);
-			}
+			}*/
 			break;
 		case 's':
 			if(program_mode==0)
@@ -451,6 +467,8 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				clear_iptables=1;
 			}
+			/////////////////////fix this later
+			/*
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
 			{
 				mylog(log_debug,"parsing long option :source-ip\n");
@@ -463,7 +481,7 @@ void process_arg(int argc, char *argv[])  //process all options
 				mylog(log_debug,"parsing long option :source-port\n");
 				sscanf(optarg, "%d", &source_port);
 				mylog(log_info,"source: %d\n",source_port);
-			}
+			}*/
 			else if(strcmp(long_options[option_index].name,"raw-mode")==0)
 			{
 				for(i=0;i<mode_end;i++)
@@ -701,12 +719,18 @@ void process_arg(int argc, char *argv[])  //process all options
 
 	 log_bare(log_info,"key=%s ",key_string);
 
-	 log_bare(log_info,"local_ip=%s ",local_ip);
+	 log_bare(log_info,"local_addr=%s ",local_addr.get_str());
+	 log_bare(log_info,"remote_addr=%s ",remote_addr.get_str());
+
+	 if(force_source_ip||force_source_port)
+		 log_bare(log_info,"source_addr=%s ",source_addr.get_str());
+
+	 /*log_bare(log_info,"local_ip=%s ",local_ip);
 	 log_bare(log_info,"local_port=%d ",local_port);
 	 log_bare(log_info,"remote_address=%s ",remote_address);
 	 log_bare(log_info,"remote_port=%d ",remote_port);
 	 log_bare(log_info,"source_ip=%s ",source_ip);
-	 log_bare(log_info,"source_port=%d ",source_port);
+	 log_bare(log_info,"source_port=%d ",source_port);*/
 
 	 log_bare(log_info,"socket_buf_size=%d ",socket_buf_size);
 
@@ -868,15 +892,15 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 	{
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p tcp -m tcp --sport %d",remote_ip,remote_port);
+			sprintf(tmp_pattern,"-s %s/32 -p tcp -m tcp --sport %d",remote_addr.get_ip(),remote_addr.get_port());
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p udp -m udp --sport %d",remote_ip,remote_port);
+			sprintf(tmp_pattern,"-s %s/32 -p udp -m udp --sport %d",remote_addr.get_ip(),remote_addr.get_port());
 		}
 		if(raw_mode==mode_icmp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p icmp",remote_ip);
+			sprintf(tmp_pattern,"-s %s/32 -p icmp",remote_addr.get_ip());
 		}
 		pattern=tmp_pattern;
 	}
@@ -885,21 +909,21 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(tmp_pattern,"-p tcp -m tcp --dport %d",local_port);
+			sprintf(tmp_pattern,"-p tcp -m tcp --dport %d",local_addr.get_port());
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(tmp_pattern,"-p udp -m udp --dport %d",local_port);
+			sprintf(tmp_pattern,"-p udp -m udp --dport %d",local_addr.get_port());
 		}
 		if(raw_mode==mode_icmp)
 		{
-			if(local_ip_uint32==0)
+			if(local_addr.inner.ipv4.sin_addr.s_addr==0)
 			{
 				sprintf(tmp_pattern,"-p icmp");
 			}
 			else
 			{
-				sprintf(tmp_pattern,"-d %s/32 -p icmp",local_ip);
+				sprintf(tmp_pattern,"-d %s/32 -p icmp",local_addr.get_ip());
 			}
 		}
 		pattern=tmp_pattern;
@@ -928,19 +952,6 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 
 	}*/
 
-	if(auto_add_iptables_rule)
-	{
-		iptables_rule_init(pattern.c_str(),const_id,keep_rule);
-		if(keep_rule)
-		{
-			if(pthread_create(&keep_thread, NULL, run_keep, 0)) {
-
-				mylog(log_fatal, "Error creating thread\n");
-				myexit(-1);
-			}
-			keep_thread_running=1;
-		}
-	}
 	if(generate_iptables_rule)
 	{
 		string rule=iptables_command+"-I INPUT ";
@@ -957,7 +968,23 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 		myexit(0);
 	}
 
+	if(auto_add_iptables_rule)
+	{
+		iptables_rule_init(pattern.c_str(),const_id,keep_rule);
+		if(keep_rule)
+		{
+			if(pthread_create(&keep_thread, NULL, run_keep, 0)) {
 
+				mylog(log_fatal, "Error creating thread\n");
+				myexit(-1);
+			}
+			keep_thread_running=1;
+		}
+	}
+	else
+	{
+		mylog(log_warn," -a has not been set, make sure you have added the needed iptables rules manually\n");
+	}
 }
 
 int unit_test()

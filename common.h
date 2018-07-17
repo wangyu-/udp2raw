@@ -142,6 +142,38 @@ struct address_t  //TODO scope id
 		return -1;
 	}
 
+	inline u32_t get_port()
+	{
+		u32_t type=get_type();
+		switch(type)
+		{
+			case AF_INET:
+				return ntohs(inner.ipv4.sin_port);
+			case AF_INET6:
+				return ntohs(inner.ipv6.sin6_port);
+			default:
+				assert(0==1);
+		}
+		return -1;
+	}
+
+	inline void set_port(int port)
+	{
+		u32_t type=get_type();
+		switch(type)
+		{
+			case AF_INET:
+				inner.ipv4.sin_port=htons(port);
+				break;
+			case AF_INET6:
+				inner.ipv6.sin6_port=htons(port);
+				break;
+			default:
+				assert(0==1);
+		}
+		return ;
+	}
+
     bool operator == (const address_t &b) const
     {
     	//return this->data==b.data;
@@ -149,6 +181,8 @@ struct address_t  //TODO scope id
     }
 
     int new_connected_udp_fd();
+
+    char* get_ip();
 };
 
 const int max_data_len=1800;

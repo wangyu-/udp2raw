@@ -55,25 +55,50 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 
 
-		u32_t new_ip=0;
-		if(!force_source_ip&&get_src_adress(new_ip,remote_ip_uint32,remote_port)==0)
+		address_t new_addr;
+		//u32_t new_ip=0;
+		if(!force_source_ip)
 		{
+			if(get_src_adress2(new_addr,remote_addr)!=0)
+			{
+				mylog(log_warn,"get_src_adress() failed\n");
+				return -1;
+			}
+			//source_addr=new_addr;
+			//source_addr.set_port(0);
+
+			mylog(log_info,"source_addr is now %s\n",new_addr.get_ip());
+
+			if(new_addr.get_type()==AF_INET)
+			{
+				send_info.src_ip=new_addr.inner.ipv4.sin_addr.s_addr;
+			}
+			else
+			{
+				assert(0==1);
+			}
+			/*
 			if(new_ip!=source_ip_uint32)
 			{
 				mylog(log_info,"source ip changed from %s to ",my_ntoa(source_ip_uint32));
 				log_bare(log_info,"%s\n",my_ntoa(new_ip));
 				source_ip_uint32=new_ip;
 				send_info.src_ip=new_ip;
-			}
-		}
+			}*/
 
-		if (source_port == 0)
-		{
-			send_info.src_port = client_bind_to_a_new_port(bind_fd,local_ip_uint32);
 		}
 		else
 		{
-			send_info.src_port = source_port;
+			new_addr=source_addr;
+		}
+
+		if (force_source_port == 0)
+		{
+			send_info.src_port = client_bind_to_a_new_port2(bind_fd,new_addr);
+		}
+		else
+		{
+			send_info.src_port = source_addr.get_port();
 		}
 
 		if (raw_mode == mode_icmp)
@@ -827,6 +852,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 				return 0;
 			}
 			
+			/*
 			struct sockaddr_in remote_addr_in={0};
 
 			socklen_t slen = sizeof(sockaddr_in);
@@ -835,7 +861,11 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 			remote_addr_in.sin_port = htons(remote_port);
 			remote_addr_in.sin_addr.s_addr = remote_ip_uint32;
 
+
+
 			int new_udp_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+
 			if (new_udp_fd < 0) {
 				mylog(log_warn, "[%s]create udp_fd error\n",ip_port);
 				return -1;
@@ -850,7 +880,14 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 				mylog(log_warn, "udp fd connect fail\n");
 				close(new_udp_fd);
 				return -1;
+			}*/
+
+			int new_udp_fd=remote_addr.new_connected_udp_fd();
+			if (new_udp_fd < 0) {
+				mylog(log_warn, "[%s]new_connected_udp_fd() failed\n",ip_port);
+				return -1;
 			}
+
 			struct epoll_event ev;
 
 			fd64_t new_udp_fd64 =  fd_manager.create(new_udp_fd);
@@ -861,7 +898,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 
 			ev.data.u64 = new_udp_fd64;
 
-			ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, new_udp_fd, &ev);
+			int ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, new_udp_fd, &ev);
 
 			if (ret != 0) {
 				mylog(log_warn, "[%s]add udp_fd error\n",ip_port);
@@ -1068,12 +1105,13 @@ int client_event_loop()
 			u32_t dest_ip;
 			string if_name_string;
 			string hw_string;
+			assert(remote_addr.get_type()==AF_INET);
 
 			if(retry_on_error==0)
 			{
-				if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
+				if(find_lower_level_info(remote_addr.inner.ipv4.sin_addr.s_addr,dest_ip,if_name_string,hw_string)!=0)
 				{
-					mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_ip);
+					mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_addr.get_ip());
 					myexit(-1);
 				}
 			}
@@ -1082,9 +1120,9 @@ int client_event_loop()
 				int ok=0;
 				while(!ok)
 				{
-					if(find_lower_level_info(remote_ip_uint32,dest_ip,if_name_string,hw_string)!=0)
+					if(find_lower_level_info(remote_addr.inner.ipv4.sin_addr.s_addr,dest_ip,if_name_string,hw_string)!=0)
 					{
-						mylog(log_warn,"auto detect lower-level info failed for %s,retry in %d seconds\n",remote_ip,retry_on_error_interval);
+						mylog(log_warn,"auto detect lower-level info failed for %s,retry in %d seconds\n",remote_addr.get_ip(),retry_on_error_interval);
 						sleep(retry_on_error_interval);
 					}
 					else
@@ -1123,12 +1161,16 @@ int client_event_loop()
 
 	}
 	
-	if(source_ip_uint32==0)
+	/*
+
+	address_t new_addr;
+
+	if(!force_source_ip)
 	{
 		mylog(log_info,"get_src_adress called\n");
 		if(retry_on_error==0)
 		{
-			if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
+			if(get_src_adress2(new_addr,remote_addr)!=0)
 			{
 				mylog(log_fatal,"the trick to auto get source ip failed, maybe you dont have internet access\n");
 				myexit(-1);
@@ -1139,7 +1181,7 @@ int client_event_loop()
 			int ok=0;
 			while(!ok)
 			{
-				if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
+				if(get_src_adress2(new_addr,remote_addr)!=0)
 				{
 					mylog(log_warn,"the trick to auto get source ip failed, maybe you dont have internet access, retry in %d seconds\n",retry_on_error_interval);
 					sleep(retry_on_error_interval);
@@ -1153,26 +1195,31 @@ int client_event_loop()
 		}
 
 	}
-	in_addr tmp;
-	tmp.s_addr=source_ip_uint32;
-	mylog(log_info,"source ip = %s\n",inet_ntoa(tmp));
+	else
+	{
+		new_addr=source_addr;
+	}
+	//in_addr tmp;
+	//tmp.s_addr=source_ip_uint32;
+	mylog(log_info,"source ip = %s\n",new_addr.get_ip());*/
 	//printf("done\n");
 
 
+	/*
 	if(try_to_list_and_bind(bind_fd,local_ip_uint32,source_port)!=0)
 	{
 		mylog(log_fatal,"bind to source_port:%d fail\n ",source_port);
 		myexit(-1);
-	}
-	send_info.src_port=source_port;
-	send_info.src_ip = source_ip_uint32;
+	}*/
+	send_info.src_port=0;
+	send_info.src_ip = 0;
 
 	int i, j, k;int ret;
 
 
 	//init_filter(source_port);
-	send_info.dst_ip=remote_ip_uint32;
-	send_info.dst_port=remote_port;
+	send_info.dst_ip=remote_addr.inner.ipv4.sin_addr.s_addr;
+	send_info.dst_port=remote_addr.get_port();
 
 	//g_packet_info.src_ip=source_address_uint32;
 	//g_packet_info.src_port=source_port;
@@ -1188,8 +1235,8 @@ int client_event_loop()
 	socklen_t slen = sizeof(sockaddr_in);
 	//memset(&local_me, 0, sizeof(local_me));
 	local_me.sin_family = AF_INET;
-	local_me.sin_port = htons(local_port);
-	local_me.sin_addr.s_addr = local_ip_uint32;
+	local_me.sin_port = local_addr.get_type();
+	local_me.sin_addr.s_addr = local_addr.inner.ipv4.sin_addr.s_addr;
 
 
 	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
@@ -1404,7 +1451,12 @@ int server_event_loop()
 
 	int i, j, k;int ret;
 
-	bind_address_uint32=local_ip_uint32;//only server has bind adress,client sets it to zero
+	if(local_addr.inner.ipv4.sin_addr.s_addr!=0)
+	{
+		bind_addr_used=1;
+		bind_addr=local_addr;
+	}
+	//bind_address_uint32=local_ip_uint32;//only server has bind adress,client sets it to zero
 
 	if(lower_level)
 	{
@@ -1433,8 +1485,8 @@ int server_event_loop()
     // bzero(&temp_bind_addr, sizeof(temp_bind_addr));
 
      temp_bind_addr.sin_family = AF_INET;
-     temp_bind_addr.sin_port = htons(local_port);
-     temp_bind_addr.sin_addr.s_addr = local_ip_uint32;
+     temp_bind_addr.sin_port = local_addr.get_port();
+     temp_bind_addr.sin_addr.s_addr = local_addr.inner.ipv4.sin_addr.s_addr;
 
      if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
@@ -1455,7 +1507,7 @@ int server_event_loop()
 
 
 	//init_raw_socket();
-	init_filter(local_port);//bpf filter
+	init_filter(local_addr.get_port());//bpf filter
 
 	epollfd = epoll_create1(0);
 	const int max_events = 4096;
@@ -1481,7 +1533,7 @@ int server_event_loop()
 	u64_t begin_time=0;
 	u64_t end_time=0;
 
-	mylog(log_info,"now listening at %s:%d\n",my_ntoa(local_ip_uint32),local_port);
+	mylog(log_info,"now listening at %s\n",local_addr.get_str());
 
 	int fifo_fd=-1;
 
@@ -1758,8 +1810,9 @@ int main(int argc, char *argv[])
 		mylog(log_warn,"you can run udp2raw with non-root account for better security. check README.md in repo for more info.\n");
 	}
 
-	local_ip_uint32=inet_addr(local_ip);
-	source_ip_uint32=inet_addr(source_ip);
+	//local_ip_uint32=inet_addr(local_ip);
+	//source_ip_uint32=inet_addr(source_ip);
+
 	
 #if ENABLE_DNS_RESOLVE
 
@@ -1787,9 +1840,9 @@ int main(int argc, char *argv[])
 #else
 	{
 		//strncpy(remote_ip,remote_address,sizeof(remote_ip)-1);
-		strcpy(remote_ip,remote_address);
-		remote_ip_uint32=inet_addr(remote_ip);
-		mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_ip);
+		//strcpy(remote_ip,remote_address);
+		//remote_ip_uint32=inet_addr(remote_ip);
+		mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_addr.get_ip());
 	}
 #endif
 

@@ -21,7 +21,7 @@ int filter_port=-1;
 
 int disable_bpf_filter=0;  //for test only,most time no need to disable this
 
-u32_t bind_address_uint32=0;
+//u32_t bind_address_uint32=0;
 
 int lower_level=0;
 int lower_level_manual=0;
@@ -750,7 +750,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	}
 
 
-	if(bind_address_uint32!=0 &&recv_info.dst_ip!=bind_address_uint32)
+	if(bind_addr_used && recv_info.dst_ip!=bind_addr.inner.ipv4.sin_addr.s_addr)
 	{
 		mylog(log_trace,"bind adress doenst match, dropped\n");
 		//printf(" bind adress doenst match, dropped\n");
@@ -1823,6 +1823,7 @@ int recv_raw(raw_info_t &raw_info,char *& payload,int & payloadlen)
 	}
 }*/
 
+
 int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick to get src adress for a dest adress,so that we can use the src address in raw socket as source ip
 {
 	struct sockaddr_in remote_addr_in={0};
@@ -1854,13 +1855,33 @@ int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick 
 	struct sockaddr_in my_addr={0};
 	socklen_t len=sizeof(my_addr);
 
-    if(getsockname(new_udp_fd, (struct sockaddr *) &my_addr, &len)!=0) return -1;
+    if(getsockname(new_udp_fd, (struct sockaddr *) &my_addr, &len)!=0){close(new_udp_fd); return -1;}
 
     ip=my_addr.sin_addr.s_addr;
 
     close(new_udp_fd);
 
     return 0;
+}
+
+int get_src_adress2(address_t &output_addr,address_t remote_addr)
+{
+	int new_udp_fd=remote_addr.new_connected_udp_fd();
+	if(new_udp_fd<0)
+	{
+		mylog(log_warn,"create udp_fd error\n");
+		return -1;
+	}
+
+	socklen_t len=sizeof(output_addr.inner);
+
+    if(getsockname(new_udp_fd, (struct sockaddr *) &output_addr.inner, &len)!=0) {close(new_udp_fd); return -1;}
+
+    assert(output_addr.get_type()==remote_addr.get_type());
+
+    close(new_udp_fd);
+
+	return 0;
 }
 
 int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind to a port,may fail.
@@ -1902,12 +1923,69 @@ int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind 
 	 }
      return 0;
 }
+int try_to_list_and_bind2(int &fd,address_t address)  //try to bind to a port,may fail.
+{
+	 int old_bind_fd=fd;
+
+	 if(raw_mode==mode_faketcp)
+	 {
+		 fd=socket(address.get_type(),SOCK_STREAM,0);
+	 }
+	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)
+	 {
+		 fd=socket(address.get_type(),SOCK_DGRAM,0);
+	 }
+     if(old_bind_fd!=-1)
+     {
+    	 close(old_bind_fd);
+     }
+
+	 /*struct sockaddr_in temp_bind_addr={0};
+     //bzero(&temp_bind_addr, sizeof(temp_bind_addr));
+
+     temp_bind_addr.sin_family = AF_INET;
+     temp_bind_addr.sin_port = htons(port);
+     temp_bind_addr.sin_addr.s_addr = local_ip_uint32;*/
+
+     if (bind(fd, (struct sockaddr*)&address.inner, address.get_len()) !=0)
+     {
+    	 mylog(log_debug,"bind fail\n");
+    	 return -1;
+     }
+	 if(raw_mode==mode_faketcp)
+	 {
+
+		if (listen(fd, SOMAXCONN) != 0) {
+			mylog(log_warn,"listen fail\n");
+			return -1;
+		}
+	 }
+     return 0;
+}
+
 int client_bind_to_a_new_port(int &fd,u32_t local_ip_uint32)//find a free port and bind to it.
 {
 	int raw_send_port=10000+get_true_random_number()%(65535-10000);
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
 	{
 		if (try_to_list_and_bind(fd,local_ip_uint32,raw_send_port)==0)
+		{
+			return raw_send_port;
+		}
+	}
+	mylog(log_fatal,"bind port fail\n");
+	myexit(-1);
+	return -1;////for compiler check
+}
+
+int client_bind_to_a_new_port2(int &fd,const address_t& address)//find a free port and bind to it.
+{
+	address_t tmp=address;
+	int raw_send_port=10000+get_true_random_number()%(65535-10000);
+	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
+	{
+		tmp.set_port(raw_send_port);
+		if (try_to_list_and_bind2(fd,address)==0)
 		{
 			return raw_send_port;
 		}
