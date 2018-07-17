@@ -71,7 +71,11 @@ typedef u64_t padding_t;
 
 typedef u64_t anti_replay_seq_t;
 
+const int max_addr_len=100;
 
+extern int force_socket_buf;
+
+/*
 struct ip_port_t
 {
 	u32_t ip;
@@ -79,12 +83,73 @@ struct ip_port_t
 	void from_u64(u64_t u64);
 	u64_t to_u64();
 	char * to_s();
-};
-
-
-
+};*/
 
 typedef u64_t fd64_t;
+
+u32_t djb2(unsigned char *str,int len);
+u32_t sdbm(unsigned char *str,int len);
+
+struct address_t  //TODO scope id
+{
+	struct hash_function
+	{
+	    u32_t operator()(const address_t &key) const
+		{
+	    	return sdbm((unsigned char*)&key.inner,sizeof(key.inner));
+		}
+	};
+
+	union storage_t //sockaddr_storage is too huge, we dont use it.
+	{
+		sockaddr_in ipv4;
+		sockaddr_in6 ipv6;
+	};
+	storage_t inner;
+
+	address_t()
+	{
+		clear();
+	}
+	void clear()
+	{
+		memset(&inner,0,sizeof(inner));
+	}
+	int from_str(char * str);
+
+	int from_sockaddr(sockaddr *,socklen_t);
+
+	char* get_str();
+	void to_str(char *);
+
+	inline u32_t get_type()
+	{
+		return ((sockaddr*)&inner)->sa_family;
+	}
+
+	inline u32_t get_len()
+	{
+		u32_t type=get_type();
+		switch(type)
+		{
+			case AF_INET:
+				return sizeof(sockaddr_in);
+			case AF_INET6:
+				return sizeof(sockaddr_in6);
+			default:
+				assert(0==1);
+		}
+		return -1;
+	}
+
+    bool operator == (const address_t &b) const
+    {
+    	//return this->data==b.data;
+        return memcmp(&this->inner,&b.inner,sizeof(this->inner))==0;
+    }
+
+    int new_connected_udp_fd();
+};
 
 const int max_data_len=1800;
 const int buf_len=max_data_len+400;
@@ -109,7 +174,7 @@ u64_t hton64(u64_t a);
 bool larger_than_u16(uint16_t a,uint16_t b);
 bool larger_than_u32(u32_t a,u32_t b);
 void setnonblocking(int sock);
-int set_buf_size(int fd,int socket_buf_size,int force_socket_buf);
+int set_buf_size(int fd,int socket_buf_size);
 
 void myexit(int a);
 

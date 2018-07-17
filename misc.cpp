@@ -28,10 +28,11 @@ int ttl_value=64;
 
 fd_manager_t fd_manager;
 
-char remote_address[max_address_len]="";
-char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
-u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
-int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
+//char remote_address[max_address_len]="";
+//char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
+//u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
+//int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
+address_t local_addr,remote_addr;
 
 int force_source_ip=0; //if --source-ip is enabled
 
@@ -80,7 +81,7 @@ int about_to_exit=0;
 
 
 int socket_buf_size=1024*1024;
-int force_socket_buf=0;
+
 
 //char lower_level_arg[1000];
 int process_lower_level_arg()//handle --lower-level option

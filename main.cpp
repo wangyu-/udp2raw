@@ -841,7 +841,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 				return -1;
 			}
 			setnonblocking(new_udp_fd);
-			set_buf_size(new_udp_fd,socket_buf_size,force_socket_buf);
+			set_buf_size(new_udp_fd,socket_buf_size);
 
 			mylog(log_debug, "[%s]created new udp_fd %d\n",ip_port, new_udp_fd);
 			int ret = connect(new_udp_fd, (struct sockaddr *) &remote_addr_in,
@@ -1178,7 +1178,7 @@ int client_event_loop()
 	//g_packet_info.src_port=source_port;
 
     udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    set_buf_size(udp_fd,socket_buf_size,force_socket_buf);
+    set_buf_size(udp_fd,socket_buf_size);
 
 	int yes = 1;
 	//setsockopt(udp_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));

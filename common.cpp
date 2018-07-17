@@ -12,6 +12,177 @@
 
 static int random_number_fd=-1;
 
+int force_socket_buf=0;
+
+int address_t::from_str(char *str)
+{
+	clear();
+
+	char ip_addr_str[100];u32_t port;
+	mylog(log_info,"parsing address: %s\n",str);
+	int is_ipv6=0;
+	if(sscanf(str, "[%[^]]]:%u", ip_addr_str,&port)==2)
+	{
+		mylog(log_info,"its an ipv6 adress\n");
+		inner.ipv6.sin6_family=AF_INET6;
+		is_ipv6=1;
+	}
+	else if(sscanf(str, "%[^:]:%u", ip_addr_str,&port)==2)
+	{
+		mylog(log_info,"its an ipv4 adress\n");
+		inner.ipv4.sin_family=AF_INET;
+	}
+	else
+	{
+		mylog(log_error,"failed to parse\n");
+		myexit(-1);
+	}
+
+	mylog(log_info,"ip_address is {%s}, port is {%u}\n",ip_addr_str,port);
+
+	if(port>65535)
+	{
+		mylog(log_error,"invalid port: %d\n",port);
+		myexit(-1);
+	}
+
+	int ret=-100;
+	if(is_ipv6)
+	{
+		ret=inet_pton(AF_INET6, ip_addr_str,&(inner.ipv6.sin6_addr));
+		inner.ipv6.sin6_port=htons(port);
+		if(ret==0)  // 0 if address type doesnt match
+		{
+			mylog(log_error,"ip_addr %s is not an ipv6 address, %d\n",ip_addr_str,ret);
+			myexit(-1);
+		}
+		else if(ret==1) // inet_pton returns 1 on success
+		{
+			//okay
+		}
+		else
+		{
+			mylog(log_error,"ip_addr %s is invalid, %d\n",ip_addr_str,ret);
+			myexit(-1);
+		}
+	}
+	else
+	{
+		ret=inet_pton(AF_INET, ip_addr_str,&(inner.ipv4.sin_addr));
+		inner.ipv4.sin_port=htons(port);
+
+		if(ret==0)
+		{
+			mylog(log_error,"ip_addr %s is not an ipv4 address, %d\n",ip_addr_str,ret);
+			myexit(-1);
+		}
+		else if(ret==1)
+		{
+			//okay
+		}
+		else
+		{
+			mylog(log_error,"ip_addr %s is invalid, %d\n",ip_addr_str,ret);
+			myexit(-1);
+		}
+	}
+
+	return 0;
+}
+
+char * address_t::get_str()
+{
+	static char res[max_addr_len];
+	to_str(res);
+	return res;
+}
+void address_t::to_str(char * s)
+{
+	//static char res[max_addr_len];
+	char ip_addr[max_addr_len];
+	u32_t port;
+	const char * ret=0;
+	if(get_type()==AF_INET6)
+	{
+		ret=inet_ntop(AF_INET6, &inner.ipv6.sin6_addr, ip_addr,max_addr_len);
+		port=inner.ipv6.sin6_port;
+	}
+	else if(get_type()==AF_INET)
+	{
+		ret=inet_ntop(AF_INET, &inner.ipv4.sin_addr, ip_addr,max_addr_len);
+		port=inner.ipv4.sin_port;
+	}
+	else
+	{
+		assert(0==1);
+	}
+
+	if(ret==0) //NULL on failure
+	{
+		mylog(log_error,"inet_ntop failed\n");
+		myexit(-1);
+	}
+
+	port=ntohs(port);
+
+	ip_addr[max_addr_len-1]=0;
+	if(get_type()==AF_INET6)
+	{
+		sprintf(s,"[%s]:%u",ip_addr,(u32_t)port);
+	}else
+	{
+		sprintf(s,"%s:%u",ip_addr,(u32_t)port);
+	}
+
+	//return res;
+}
+
+int address_t::from_sockaddr(sockaddr * addr,socklen_t slen)
+{
+	memset(&inner,0,sizeof(inner));
+	if(addr->sa_family==AF_INET6)
+	{
+		assert(slen==sizeof(sockaddr_in6));
+		inner.ipv6= *( (sockaddr_in6*) addr );
+
+	}
+	else if(addr->sa_family==AF_INET)
+	{
+		assert(slen==sizeof(sockaddr_in));
+		inner.ipv4= *( (sockaddr_in*) addr );
+	}
+	else
+	{
+		assert(0==1);
+	}
+	return 0;
+}
+
+int address_t::new_connected_udp_fd()
+{
+
+	int new_udp_fd;
+	new_udp_fd = socket(get_type(), SOCK_DGRAM, IPPROTO_UDP);
+	if (new_udp_fd < 0) {
+		mylog(log_warn, "create udp_fd error\n");
+		return -1;
+	}
+	setnonblocking(new_udp_fd);
+	set_buf_size(new_udp_fd,socket_buf_size);
+
+	mylog(log_debug, "created new udp_fd %d\n", new_udp_fd);
+	int ret = connect(new_udp_fd, (struct sockaddr *) &inner, get_len());
+	if (ret != 0) {
+		mylog(log_warn, "udp fd connect fail %d %s\n",ret,strerror(errno) );
+		//sock_close(new_udp_fd);
+		close(new_udp_fd);
+		return -1;
+	}
+
+	return new_udp_fd;
+}
+
+
 u64_t get_current_time()
 {
 	timespec tmp_time;
@@ -149,7 +320,7 @@ unsigned short csum(const unsigned short *ptr,int nbytes) {//works both for big 
     return(answer);
 }
 
-int set_buf_size(int fd,int socket_buf_size,int force_socket_buf)
+int set_buf_size(int fd,int socket_buf_size)
 {
 	if(force_socket_buf)
 	{
@@ -593,6 +764,7 @@ int create_fifo(char * file)
 	return fifo_fd;
 }
 
+/*
 void ip_port_t::from_u64(u64_t u64)
 {
 	ip=get_u64_h(u64);
@@ -607,7 +779,7 @@ char * ip_port_t::to_s()
 	static char res[40];
 	sprintf(res,"%s:%d",my_ntoa(ip),port);
 	return res;
-}
+}*/
 
 
 
@@ -622,6 +794,32 @@ void print_binary_chars(const char * a,int len)
 }
 
 
+u32_t djb2(unsigned char *str,int len)
+{
+	 u32_t hash = 5381;
+     int c;
+     int i=0;
+    while(c = *str++,i++!=len)
+    {
+         hash = ((hash << 5) + hash)^c; /* (hash * 33) ^ c */
+    }
+
+     hash=htonl(hash);
+     return hash;
+ }
+
+u32_t sdbm(unsigned char *str,int len)
+{
+     u32_t hash = 0;
+     int c;
+     int i=0;
+	while(c = *str++,i++!=len)
+	{
+		 hash = c + (hash << 6) + (hash << 16) - hash;
+	}
+     //hash=htonl(hash);
+     return hash;
+ }
 
 
 
