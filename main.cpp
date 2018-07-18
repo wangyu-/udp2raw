@@ -69,14 +69,6 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 			mylog(log_info,"source_addr is now %s\n",new_addr.get_ip());
 
-			if(new_addr.get_type()==AF_INET)
-			{
-				send_info.src_ip=new_addr.inner.ipv4.sin_addr.s_addr;
-			}
-			else
-			{
-				assert(0==1);
-			}
 			/*
 			if(new_ip!=source_ip_uint32)
 			{
@@ -90,6 +82,15 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 		else
 		{
 			new_addr=source_addr;
+		}
+
+		if(new_addr.get_type()==AF_INET)
+		{
+			send_info.src_ip=new_addr.inner.ipv4.sin_addr.s_addr;
+		}
+		else
+		{
+			assert(0==1);
 		}
 
 		if (force_source_port == 0)
@@ -1090,7 +1091,7 @@ int client_event_loop()
 		if(lower_level_manual)
 		{
 			int index;
-			init_ifindex(if_name,index);
+			init_ifindex(if_name,raw_send_fd,index);
 			//init_ifindex(if_name);
 			memset(&send_info.addr_ll, 0, sizeof(send_info.addr_ll));
 			send_info.addr_ll.sll_family = AF_PACKET;
@@ -1148,7 +1149,7 @@ int client_event_loop()
 
 			//mylog(log_fatal,"--lower-level auto for client hasnt been implemented\n");
 			int index;
-			init_ifindex(if_name_string.c_str(),index);
+			init_ifindex(if_name_string.c_str(),raw_send_fd,index);
 
 			memset(&send_info.addr_ll, 0, sizeof(send_info.addr_ll));
 			send_info.addr_ll.sll_family = AF_PACKET;
@@ -1462,7 +1463,7 @@ int server_event_loop()
 	{
 		if(lower_level_manual)
 		{
-			init_ifindex(if_name,ifindex);
+			init_ifindex(if_name,raw_send_fd,ifindex);
 			mylog(log_info,"we are running at lower-level (manual) mode\n");
 		}
 		else

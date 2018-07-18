@@ -28,6 +28,8 @@ int lower_level_manual=0;
 int ifindex=-1;
 char if_name[100]="";
 
+char dev[100]="";
+
 unsigned short g_ip_id_counter=0;
 
 unsigned char dest_hw_addr[sizeof(sockaddr_ll::sll_addr)]=
@@ -235,6 +237,24 @@ int init_raw_socket()
         //perror("");
         myexit(1);
     }
+    if(strlen(dev)!=0)
+    {
+        struct sockaddr_ll bind_address;
+        memset(&bind_address, 0, sizeof(bind_address));
+
+        int index=-1;
+        assert(init_ifindex(dev,raw_recv_fd,index)==0);
+
+        bind_address.sll_family = AF_PACKET;
+        bind_address.sll_protocol = htons(ETH_P_ALL);
+        bind_address.sll_ifindex = index;
+
+        if(bind(raw_recv_fd, (struct sockaddr *)&bind_address, sizeof(bind_address))==-1)
+        {
+        	mylog(log_fatal,"bind to dev [%s] failed\n",dev);
+        	myexit(1);
+        }
+    }
 
 	if(force_socket_buf)
 	{
@@ -319,7 +339,7 @@ void remove_filter()
 		//exit(-1);
 	}
 }
-int init_ifindex(const char * if_name,int &index)
+int init_ifindex(const char * if_name,int fd,int &index)
 {
 	struct ifreq ifr;
 	size_t if_name_len=strlen(if_name);
@@ -330,7 +350,7 @@ int init_ifindex(const char * if_name,int &index)
 		mylog(log_fatal,"interface name is too long\n");
 		myexit(-1);
 	}
-	if (ioctl(raw_send_fd,SIOCGIFINDEX,&ifr)==-1) {
+	if (ioctl(fd,SIOCGIFINDEX,&ifr)==-1) {
 
 		mylog(log_fatal,"SIOCGIFINDEX fail ,%s\n",strerror(errno));
 		myexit(-1);

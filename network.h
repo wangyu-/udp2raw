@@ -19,6 +19,7 @@ extern int disable_bpf_filter;
 extern int lower_level;
 extern int lower_level_manual;
 extern char if_name[100];
+extern char dev[100];
 extern unsigned char dest_hw_addr[];
 
 extern int random_drop;
@@ -94,7 +95,7 @@ void init_filter(int port);
 
 void remove_filter();
 
-int init_ifindex(const char * if_name,int &index);
+int init_ifindex(const char * if_name,int fd,int &index);
 
 int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw);
 

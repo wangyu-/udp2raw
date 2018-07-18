@@ -264,6 +264,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"gen-rule", no_argument,    0, 'g'},
 		{"gen-add", no_argument,    0, 1},
 		{"debug", no_argument,    0, 1},
+		{"dev", required_argument,    0, 1},
 		{"retry-on-error", no_argument,    0, 1},
 		{"clear", no_argument,    0, 1},
 		{"simple-rule", no_argument,    0, 1},
@@ -565,6 +566,11 @@ void process_arg(int argc, char *argv[])  //process all options
 			else if(strcmp(long_options[option_index].name,"debug")==0)
 			{
 				debug_flag=1;
+				//enable_log_color=0;
+			}
+			else if(strcmp(long_options[option_index].name,"dev")==0)
+			{
+				sscanf(optarg,"%s",dev);
 				//enable_log_color=0;
 			}
 			else if(strcmp(long_options[option_index].name,"debug-resend")==0)
