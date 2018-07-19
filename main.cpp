@@ -504,25 +504,26 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 			conn_info.blob->conv_manager.c.update_active_time(tmp_conv_id);
 
-			u64_t u64=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
+			//u64_t u64=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
+
+			address_t tmp_addr=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
+
+			//sockaddr_in tmp_sockaddr={0};
+
+			//tmp_sockaddr.sin_family = AF_INET;
+			//tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
+
+			//tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
 
 
-			sockaddr_in tmp_sockaddr={0};
-
-			tmp_sockaddr.sin_family = AF_INET;
-			tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
-
-			tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
-
-
-			int ret=sendto(udp_fd,data+sizeof(u32_t),data_len -(sizeof(u32_t)),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
+			int ret=sendto(udp_fd,data+sizeof(u32_t),data_len -(sizeof(u32_t)),0,(struct sockaddr *)&tmp_addr.inner,tmp_addr.get_len());
 
 			if(ret<0)
 			{
 		    	mylog(log_warn,"sento returned %d\n",ret);
 				//perror("ret<0");
 			}
-			mylog(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
+			//mylog(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
 			mylog(log_trace,"%d byte sent\n",ret);
 		}
 		else
@@ -1403,10 +1404,13 @@ int client_event_loop()
 				}*/
 
 				//last_udp_recv_time=get_current_time();
-				u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
+				address_t tmp_address;
+				tmp_address.from_sockaddr((sockaddr *)&udp_new_addr_in,udp_new_addr_len);
+				//u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
 				u32_t conv;
 
-				if(!conn_info.blob->conv_manager.c.is_data_used(u64))
+				//u64_t u64;//////todo
+				if(!conn_info.blob->conv_manager.c.is_data_used(tmp_address))
 				{
 					if(conn_info.blob->conv_manager.c.get_size() >=max_conv_num)
 					{
@@ -1414,12 +1418,12 @@ int client_event_loop()
 						continue;
 					}
 					conv=conn_info.blob->conv_manager.c.get_new_conv();
-					conn_info.blob->conv_manager.c.insert_conv(conv,u64);
+					conn_info.blob->conv_manager.c.insert_conv(conv,tmp_address);
 					mylog(log_info,"new packet from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
 				}
 				else
 				{
-					conv=conn_info.blob->conv_manager.c.find_conv_by_data(u64);
+					conv=conn_info.blob->conv_manager.c.find_conv_by_data(tmp_address);
 				}
 
 				conn_info.blob->conv_manager.c.update_active_time(conv);

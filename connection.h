@@ -116,7 +116,7 @@ struct conv_manager_t  // manage the udp connections
 		{
 			return data_to_conv[data];
 		}
-		u64_t find_data_by_conv(u32_t conv)
+		T find_data_by_conv(u32_t conv)
 		{
 			return conv_to_data[conv];
 		}
@@ -126,10 +126,10 @@ struct conv_manager_t  // manage the udp connections
 			lru.update(conv);
 			return 0;
 		}
-		int insert_conv(u32_t conv,u64_t u64)
+		int insert_conv(u32_t conv,T data)
 		{
-			data_to_conv[u64]=conv;
-			conv_to_data[conv]=u64;
+			data_to_conv[data]=conv;
+			conv_to_data[conv]=data;
 			//conv_last_active_time[conv]=get_current_time();
 			lru.new_key(conv);
 			return 0;
@@ -137,13 +137,13 @@ struct conv_manager_t  // manage the udp connections
 		int erase_conv(u32_t conv)
 		{
 			if(disable_conv_clear) return 0;
-			u64_t u64=conv_to_data[conv];
-			if(program_mode==server_mode)
+			T data=conv_to_data[conv];
+			if(additional_clear_function!=0)
 			{
-				server_clear_function(u64);
+				additional_clear_function(data);
 			}
 			conv_to_data.erase(conv);
-			data_to_conv.erase(u64);
+			data_to_conv.erase(data);
 			//conv_last_active_time.erase(conv);
 			lru.erase(conv);
 			return 0;
@@ -221,9 +221,9 @@ struct blob_t:not_copy_able_t //used in conn_info_t.  conv_manager_t and anti_re
 {
 	struct //TODO change to unconstrained union
 	{
-		conv_manager_t<u64_t> c;
+		conv_manager_t<address_t> c;
 		conv_manager_t<u64_t> s;
-		conv_manager_t<address_t> test;
+		//conv_manager_t<address_t> test;
 	}conv_manager;
 
 	anti_replay_t anti_replay;
