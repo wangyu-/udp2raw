@@ -1234,14 +1234,14 @@ int client_event_loop()
 
 	struct sockaddr_in local_me={0};
 
-	socklen_t slen = sizeof(sockaddr_in);
+	//socklen_t slen = sizeof(sockaddr_in);
 	//memset(&local_me, 0, sizeof(local_me));
-	local_me.sin_family = AF_INET;
-	local_me.sin_port = local_addr.get_type();
-	local_me.sin_addr.s_addr = local_addr.inner.ipv4.sin_addr.s_addr;
+	//local_me.sin_family = AF_INET;
+	//local_me.sin_port = local_addr.get_type();
+	//local_me.sin_addr.s_addr = local_addr.inner.ipv4.sin_addr.s_addr;
 
 
-	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
+	if (bind(udp_fd, (struct sockaddr*) &local_addr.inner, local_addr.get_len()) == -1) {
 		mylog(log_fatal,"socket bind error\n");
 		//perror("socket bind error");
 		myexit(1);
@@ -1483,14 +1483,14 @@ int server_event_loop()
 		 bind_fd=socket(AF_INET,SOCK_DGRAM,0);
 	 }
 
-	 struct sockaddr_in temp_bind_addr={0};
+	 //struct sockaddr_in temp_bind_addr={0};
     // bzero(&temp_bind_addr, sizeof(temp_bind_addr));
 
-     temp_bind_addr.sin_family = AF_INET;
-     temp_bind_addr.sin_port = local_addr.get_port();
-     temp_bind_addr.sin_addr.s_addr = local_addr.inner.ipv4.sin_addr.s_addr;
+     //temp_bind_addr.sin_family = AF_INET;
+     //temp_bind_addr.sin_port = local_addr.get_port();
+     //temp_bind_addr.sin_addr.s_addr = local_addr.inner.ipv4.sin_addr.s_addr;
 
-     if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
+     if (bind(bind_fd, (struct sockaddr*)&local_addr.inner, local_addr.get_len()) !=0)
      {
     	 mylog(log_fatal,"bind fail\n");
     	 myexit(-1);
