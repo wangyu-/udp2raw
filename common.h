@@ -54,6 +54,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <list>
 using  namespace std;
 
 
@@ -70,6 +71,8 @@ typedef u64_t iv_t;
 typedef u64_t padding_t;
 
 typedef u64_t anti_replay_seq_t;
+
+typedef u64_t my_time_t;
 
 const int max_addr_len=100;
 
@@ -215,6 +218,10 @@ struct not_copy_able_t
 	}
 };
 
+
+
+
+
 const int max_data_len=1800;
 const int buf_len=max_data_len+400;
 
@@ -272,6 +279,94 @@ int hex_to_u32(const string & a,u32_t &output);
 int create_fifo(char * file);
 
 void print_binary_chars(const char * a,int len);
+
+
+template <class key_t>
+struct lru_collector_t:not_copy_able_t
+{
+	//typedef void* key_t;
+//#define key_t void*
+	struct lru_pair_t
+	{
+		key_t key;
+		my_time_t ts;
+	};
+
+	unordered_map<key_t,typename list<lru_pair_t>::iterator> mp;
+
+	list<lru_pair_t> q;
+	int update(key_t key)
+	{
+		assert(mp.find(key)!=mp.end());
+		auto it=mp[key];
+		q.erase(it);
+
+		my_time_t value=get_current_time();
+		if(!q.empty())
+		{
+			assert(value >=q.front().ts);
+		}
+		lru_pair_t tmp; tmp.key=key; tmp.ts=value;
+		q.push_front( tmp);
+		mp[key]=q.begin();
+
+		return 0;
+	}
+	int new_key(key_t key)
+	{
+		assert(mp.find(key)==mp.end());
+
+		my_time_t value=get_current_time();
+		if(!q.empty())
+		{
+			assert(value >=q.front().ts);
+		}
+		lru_pair_t tmp; tmp.key=key; tmp.ts=value;
+		q.push_front( tmp);
+		mp[key]=q.begin();
+
+		return 0;
+	}
+	int size()
+	{
+		return q.size();
+	}
+	int empty()
+	{
+		return q.empty();
+	}
+	void clear()
+	{
+		mp.clear(); q.clear();
+	}
+	my_time_t ts_of(key_t key)
+	{
+		assert(mp.find(key)!=mp.end());
+		return mp[key]->ts;
+	}
+
+	my_time_t peek_back(key_t &key)
+	{
+		assert(!q.empty());
+		auto it=q.end(); it--;
+		key=it->key;
+		return it->ts;
+	}
+	void erase(key_t key)
+	{
+		assert(mp.find(key)!=mp.end());
+		q.erase(mp[key]);
+		mp.erase(key);
+	}
+	/*
+	void erase_back()
+	{
+		assert(!q.empty());
+		auto it=q.end(); it--;
+		key_t key=it->key;
+		erase(key);
+	}*/
+};
 
 
 #endif /* COMMON_H_ */

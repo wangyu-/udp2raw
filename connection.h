@@ -43,9 +43,10 @@ struct conv_manager_t  // manage the udp connections
 	unordered_map<T,u32_t> data_to_conv;  //conv and u64 are both supposed to be uniq
 	unordered_map<u32_t,T> conv_to_data;
 
-	unordered_map<u32_t,u64_t> conv_last_active_time;
+	lru_collector_t<u32_t> lru;
+	//unordered_map<u32_t,u64_t> conv_last_active_time;
 
-	unordered_map<u32_t,u64_t>::iterator clear_it;
+	//unordered_map<u32_t,u64_t>::iterator clear_it;
 
 	void (*additional_clear_function)(T data) =0;
 
@@ -53,7 +54,7 @@ struct conv_manager_t  // manage the udp connections
 
 	conv_manager_t()
 		{
-			clear_it=conv_last_active_time.begin();
+			//clear_it=conv_last_active_time.begin();
 			long long last_clear_time=0;
 			additional_clear_function=0;
 		}
@@ -69,7 +70,9 @@ struct conv_manager_t  // manage the udp connections
 		{
 			data_to_conv.reserve(10007);
 			conv_to_data.reserve(10007);
-			conv_last_active_time.reserve(10007);
+			//conv_last_active_time.reserve(10007);
+
+			lru.mp.reserve(10007);
 		}
 		void clear()
 		{
@@ -85,9 +88,11 @@ struct conv_manager_t  // manage the udp connections
 			}
 			data_to_conv.clear();
 			conv_to_data.clear();
-			conv_last_active_time.clear();
 
-			clear_it=conv_last_active_time.begin();
+			lru.clear();
+			//conv_last_active_time.clear();
+
+			//clear_it=conv_last_active_time.begin();
 
 		}
 		u32_t get_new_conv()
@@ -117,13 +122,16 @@ struct conv_manager_t  // manage the udp connections
 		}
 		int update_active_time(u32_t conv)
 		{
-			return conv_last_active_time[conv]=get_current_time();
+			//return conv_last_active_time[conv]=get_current_time();
+			lru.update(conv);
+			return 0;
 		}
 		int insert_conv(u32_t conv,u64_t u64)
 		{
 			data_to_conv[u64]=conv;
 			conv_to_data[conv]=u64;
-			conv_last_active_time[conv]=get_current_time();
+			//conv_last_active_time[conv]=get_current_time();
+			lru.new_key(conv);
 			return 0;
 		}
 		int erase_conv(u32_t conv)
@@ -136,19 +144,20 @@ struct conv_manager_t  // manage the udp connections
 			}
 			conv_to_data.erase(conv);
 			data_to_conv.erase(u64);
-			conv_last_active_time.erase(conv);
+			//conv_last_active_time.erase(conv);
+			lru.erase(conv);
 			return 0;
 		}
-		int clear_inactive(char * ip_port=0)
+		int clear_inactive(char * info=0)
 		{
 			if(get_current_time()-last_clear_time>conv_clear_interval)
 			{
 				last_clear_time=get_current_time();
-				return clear_inactive0(ip_port);
+				return clear_inactive0(info);
 			}
 			return 0;
 		}
-		int clear_inactive0(char * ip_port)
+		int clear_inactive0(char * info)
 		{
 			if(disable_conv_clear) return 0;
 
@@ -158,46 +167,34 @@ struct conv_manager_t  // manage the udp connections
 
 			//map<uint32_t,uint64_t>::iterator it;
 			int cnt=0;
-			it=clear_it;
-			int size=conv_last_active_time.size();
+			//it=clear_it;
+			int size=lru.size();
 			int num_to_clean=size/conv_clear_ratio+conv_clear_min;   //clear 1/10 each time,to avoid latency glitch
 
 			num_to_clean=min(num_to_clean,size);
 
-			u64_t current_time=get_current_time();
+			my_time_t current_time=get_current_time();
 			for(;;)
 			{
 				if(cnt>=num_to_clean) break;
-				if(conv_last_active_time.begin()==conv_last_active_time.end()) break;
+				if(lru.empty()) break;
 
-				if(it==conv_last_active_time.end())
-				{
-					it=conv_last_active_time.begin();
-				}
+				u32_t conv;
+				my_time_t ts=lru.peek_back(conv);
 
-				if( current_time -it->second  >conv_timeout )
+				if(current_time- ts < conv_timeout) break;
+
+				erase_conv(conv);
+				if(info==0)
 				{
-					//mylog(log_info,"inactive conv %u cleared \n",it->first);
-					old_it=it;
-					it++;
-					u32_t conv= old_it->first;
-					erase_conv(old_it->first);
-					if(ip_port==0)
-					{
-						mylog(log_info,"conv %x cleared\n",conv);
-					}
-					else
-					{
-						mylog(log_info,"[%s]conv %x cleared\n",ip_port,conv);
-					}
+					mylog(log_info,"conv %x cleared\n",conv);
 				}
 				else
 				{
-					it++;
+					mylog(log_info,"[%s]conv %x cleared\n",info,conv);
 				}
 				cnt++;
 			}
-			clear_it=it;
 			return 0;
 		}
 
