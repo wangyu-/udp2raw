@@ -23,7 +23,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
-	conn_info.blob->conv_manager.clear_inactive();
+	conn_info.blob->conv_manager.c.clear_inactive();
 	mylog(log_trace,"timer!\n");
 
 	mylog(log_trace,"roller my %d,oppsite %d,%lld\n",int(conn_info.my_roller),int(conn_info.oppsite_roller),conn_info.last_oppsite_roller_time);
@@ -310,7 +310,7 @@ int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)  //for server. 
 
 	if(conn_info.state.server_current_state==server_ready)
 	{
-		conn_info.blob->conv_manager.clear_inactive(ip_port);
+		conn_info.blob->conv_manager.s.clear_inactive(ip_port);
 		/*
 		if( get_current_time()-conn_info.last_hb_recv_time>heartbeat_timeout )
 		{
@@ -496,15 +496,15 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			memcpy(&tmp_conv_id,&data[0],sizeof(tmp_conv_id));
 			tmp_conv_id=ntohl(tmp_conv_id);
 
-			if(!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id))
+			if(!conn_info.blob->conv_manager.c.is_conv_used(tmp_conv_id))
 			{
 				mylog(log_info,"unknow conv %d,ignore\n",tmp_conv_id);
 				return 0;
 			}
 
-			conn_info.blob->conv_manager.update_active_time(tmp_conv_id);
+			conn_info.blob->conv_manager.c.update_active_time(tmp_conv_id);
 
-			u64_t u64=conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
+			u64_t u64=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
 
 
 			sockaddr_in tmp_sockaddr={0};
@@ -845,8 +845,8 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 			conn_info.last_hb_recv_time = get_current_time();
 
 		mylog(log_trace, "conv:%u\n", tmp_conv_id);
-		if (!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id)) {
-			if (conn_info.blob->conv_manager.get_size() >= max_conv_num) {
+		if (!conn_info.blob->conv_manager.s.is_conv_used(tmp_conv_id)) {
+			if (conn_info.blob->conv_manager.s.get_size() >= max_conv_num) {
 				mylog(log_warn,
 						"[%s]ignored new conv %x connect bc max_conv_num exceed\n",ip_port,
 						tmp_conv_id);
@@ -907,7 +907,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 				return -1;
 			}
 
-			conn_info.blob->conv_manager.insert_conv(tmp_conv_id, new_udp_fd64);
+			conn_info.blob->conv_manager.s.insert_conv(tmp_conv_id, new_udp_fd64);
 
 
 
@@ -924,9 +924,9 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 
 		}
 
-		fd64_t fd64 = conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
+		fd64_t fd64 = conn_info.blob->conv_manager.s.find_data_by_conv(tmp_conv_id);
 
-		conn_info.blob->conv_manager.update_active_time(tmp_conv_id);
+		conn_info.blob->conv_manager.s.update_active_time(tmp_conv_id);
 
 		int fd = fd_manager.to_fd(fd64);
 
@@ -968,6 +968,7 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 		}
 
 		conn_info.prepare();
+		conn_info.blob->conv_manager.s.additional_clear_function=server_clear_function;
 		conn_info.state.server_current_state = server_ready;
 		conn_info.oppsite_const_id=tmp_oppsite_const_id;
 		conn_manager.ready_num++;
@@ -1405,23 +1406,23 @@ int client_event_loop()
 				u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
 				u32_t conv;
 
-				if(!conn_info.blob->conv_manager.is_u64_used(u64))
+				if(!conn_info.blob->conv_manager.c.is_data_used(u64))
 				{
-					if(conn_info.blob->conv_manager.get_size() >=max_conv_num)
+					if(conn_info.blob->conv_manager.c.get_size() >=max_conv_num)
 					{
 						mylog(log_warn,"ignored new udp connect bc max_conv_num exceed\n");
 						continue;
 					}
-					conv=conn_info.blob->conv_manager.get_new_conv();
-					conn_info.blob->conv_manager.insert_conv(conv,u64);
+					conv=conn_info.blob->conv_manager.c.get_new_conv();
+					conn_info.blob->conv_manager.c.insert_conv(conv,u64);
 					mylog(log_info,"new packet from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
 				}
 				else
 				{
-					conv=conn_info.blob->conv_manager.find_conv_by_u64(u64);
+					conv=conn_info.blob->conv_manager.c.find_conv_by_data(u64);
 				}
 
-				conn_info.blob->conv_manager.update_active_time(conv);
+				conn_info.blob->conv_manager.c.update_active_time(conv);
 
 				if(conn_info.state.client_current_state==client_ready)
 				{
@@ -1713,9 +1714,9 @@ int server_event_loop()
 
 				conn_info_t &conn_info=*p_conn_info;
 
-				assert(conn_info.blob->conv_manager.is_u64_used(fd64));
+				assert(conn_info.blob->conv_manager.s.is_data_used(fd64));
 
-				u32_t conv_id=conn_info.blob->conv_manager.find_conv_by_u64(fd64);
+				u32_t conv_id=conn_info.blob->conv_manager.s.find_conv_by_data(fd64);
 
 				int fd=fd_manager.to_fd(fd64);
 

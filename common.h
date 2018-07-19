@@ -185,6 +185,36 @@ struct address_t  //TODO scope id
     char* get_ip();
 };
 
+namespace std {
+template <>
+ struct hash<address_t>
+ {
+   std::size_t operator()(const address_t& key) const
+   {
+
+	 //return address_t::hash_function(k);
+	   return sdbm((unsigned char*)&key.inner,sizeof(key.inner));
+   }
+ };
+}
+
+struct not_copy_able_t
+{
+	not_copy_able_t()
+	{
+
+	}
+	not_copy_able_t(const not_copy_able_t &other)
+	{
+		assert(0==1);
+	}
+	const not_copy_able_t & operator=(const not_copy_able_t &other)
+	{
+		assert(0==1);
+		return other;
+	}
+};
+
 const int max_data_len=1800;
 const int buf_len=max_data_len+400;
 
