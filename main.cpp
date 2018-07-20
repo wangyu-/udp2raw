@@ -590,9 +590,15 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id )
 
 	return 0;
 }*/
-int server_on_timer_multi(conn_info_t &conn_info,char * ip_port)  //for server. called when a timer is ready in epoll.for server,there will be one timer for every connection
+int server_on_timer(conn_info_t &conn_info)  //for server. called when a timer is ready in epoll.for server,there will be one timer for every connection
 
 {
+	char ip_port[40];
+	u32_t ip=conn_info.raw_info.send_info.dst_ip;
+	u32_t port=conn_info.raw_info.send_info.dst_port;
+
+	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
+
 	//keep_iptables_rule();
 	mylog(log_trace,"server timer!\n");
 	raw_info_t &raw_info=conn_info.raw_info;
@@ -1164,101 +1170,17 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 	return -1;
 }
 
-int server_on_udp_recv(fd64_t fd64)
+int server_on_udp_recv(conn_info_t &conn_info,fd64_t fd64)
 {
-	u64_t begin_time=0;
-	u64_t end_time=0;
-
 	char buf[buf_len];
 
-	if(!fd_manager.exist(fd64))
-	{
-		mylog(log_trace ,"fd64 no longer exist\n");
-		return -1;
-	}
-
-	assert(fd_manager.exist_info(fd64));
-
-	conn_info_t* p_conn_info=fd_manager.get_info(fd64).p_conn_info;
-	u32_t ip=p_conn_info->raw_info.send_info.dst_ip;
-	u32_t port=p_conn_info->raw_info.send_info.dst_port;
-
-	//assert(conn_manager.exist(ip,port));
-
-	///conn_info_t* p_conn_info=conn_manager.find_insert_p(ip,port);
-
-
-	if(fd64==p_conn_info->timer_fd64)//////////timer_fd64
-	{
-
-	if(debug_flag)begin_time=get_current_time();
-	//int fd=get_u64_l(events[idx].data.u64);
-	int fd=fd_manager.to_fd(fd64);
-	u64_t dummy;
-	read(fd, &dummy, 8);
-
-	/*if(conn_manager.timer_fd_mp.find(fd)==conn_manager.timer_fd_mp.end()) //this can happen,when fd is a just closed fd
-	{
-		mylog(log_info,"timer_fd no longer exits\n");
-		continue;
-	}*/
-	//conn_info_t* p_conn_info=conn_manager.timer_fd_mp[fd];
-	//u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
-	//u32_t port=p_conn_info->raw_info.recv_info.src_port;
-	//assert(conn_manager.exist(ip,port));//TODO remove this for peformance
-
-	assert(p_conn_info->state.server_current_state == server_ready); //TODO remove this for peformance
-
-	//conn_info_t &conn_info=conn_manager.find(ip,port);
-	char ip_port[40];
-
-	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
-
-	server_on_timer_multi(*p_conn_info,ip_port);
-
-	if(debug_flag)
-	{
-		end_time=get_current_time();
-		mylog(log_debug,"(events[idx].data.u64 >>32u) == 2u ,%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
-	}
-
-	}
-	else//udp_fd64
-	{
-//}
-//else if ((events[idx].data.u64 >>32u) == 1u)
-//{
-	//uint32_t conv_id=events[n].data.u64>>32u;
-
-	if(debug_flag)begin_time=get_current_time();
-
-	//int fd=int((events[idx].data.u64<<32u)>>32u);
-
-	/*
-	if(conn_manager.udp_fd_mp.find(fd)==conn_manager.udp_fd_mp.end()) //this can happen,when fd is a just closed fd
-	{
-		mylog(log_debug,"fd no longer exists in udp_fd_mp,udp fd %d\n",fd);
-		recv(fd,0,0,0);
-		continue;
-	}*/
-	//conn_info_t* p_conn_info=conn_manager.udp_fd_mp[fd];
-
-	//u32_t ip=p_conn_info->raw_info.recv_info.src_ip;
-	//u32_t port=p_conn_info->raw_info.recv_info.src_port;
-
-	/*if(!conn_manager.exist(ip,port))//TODO remove this for peformance
-	{
-		mylog(log_fatal,"ip port no longer exits 2!!!this shouldnt happen\n");
-		myexit(-1);
-	}*/
-
-	if(p_conn_info->state.server_current_state!=server_ready)//TODO remove this for peformance
+	if(conn_info.state.server_current_state!=server_ready)//TODO remove this for peformance
 	{
 		mylog(log_fatal,"p_conn_info->state.server_current_state!=server_ready!!!this shouldnt happen\n");
 		myexit(-1);
 	}
 
-	conn_info_t &conn_info=*p_conn_info;
+	//conn_info_t &conn_info=*p_conn_info;
 
 	assert(conn_info.blob->conv_manager.s.is_data_used(fd64));
 
@@ -1296,14 +1218,6 @@ int server_on_udp_recv(fd64_t fd64)
 		mylog(log_trace,"send_data_safer ,sent !!\n");
 	}
 
-	if(debug_flag)
-	{
-		end_time=get_current_time();
-	    mylog(log_debug,"(events[idx].data.u64 >>32u) == 1u,%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
-	}
-
-
-	}
 
 	return 0;
 }
@@ -1780,7 +1694,39 @@ int server_event_loop()
 			{
 
 				fd64_t fd64=events[idx].data.u64;
-				server_on_udp_recv(fd64);
+				if(!fd_manager.exist(fd64))
+				{
+					mylog(log_trace ,"fd64 no longer exist\n");
+					return -1;
+				}
+				assert(fd_manager.exist_info(fd64));
+				conn_info_t* p_conn_info=fd_manager.get_info(fd64).p_conn_info;
+				conn_info_t &conn_info=*p_conn_info;
+				if(fd64==conn_info.timer_fd64)//////////timer_fd64
+				{
+
+					if(debug_flag)begin_time=get_current_time();
+					int fd=fd_manager.to_fd(fd64);
+					u64_t dummy;
+					read(fd, &dummy, 8);
+					assert(conn_info.state.server_current_state == server_ready); //TODO remove this for peformance
+					server_on_timer(conn_info);
+					if(debug_flag)
+					{
+						end_time=get_current_time();
+						mylog(log_debug,"(events[idx].data.u64 >>32u) == 2u ,%llu,%llu,%llu  \n",begin_time,end_time,end_time-begin_time);
+					}
+				}
+				else//udp_fd64
+				{
+					if(debug_flag)begin_time=get_current_time();
+					server_on_udp_recv(conn_info,fd64);
+					if(debug_flag)
+					{
+						end_time=get_current_time();
+						mylog(log_debug,"(events[idx].data.u64 >>32u) == 1u,%lld,%lld,%lld  \n",begin_time,end_time,end_time-begin_time);
+					}
+				}
 			}
 			else
 			{

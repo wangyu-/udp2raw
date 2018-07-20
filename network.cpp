@@ -1388,11 +1388,19 @@ int parse_tcp_option(char * option_begin,char * option_end,packet_info_t &recv_i
     		}
     		else
     		{
+    			int len=(unsigned char)*(ptr+1);
+    			if(len<=1)
+    			{
+    				mylog(log_debug,"invaild option len %d\n",len);
+    				return -1;
+    			}
     			//omit check
-    			ptr+=*(ptr+1);
+    			ptr+=len;
     		}
     	}
+    	//printf("!");
     }
+    //printf("\n");
 
 	return 0;
 }
@@ -1426,6 +1434,11 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     if (!(tcphdrlen > 0 && tcphdrlen <=60)) {
     	mylog(log_debug,"tcph error\n");
+    	return 0;
+    }
+
+    if (tcphdrlen >ip_payloadlen) {
+    	mylog(log_debug,"error,tcphdrlen >ip_payloadlen\n");
     	return 0;
     }
 
@@ -1467,6 +1480,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     char *tcp_begin=ip_payload;  //ip packet's data part
 
     char *tcp_option=ip_payload+sizeof(tcphdr);
+    char *option_end=ip_payload+tcphdrlen;
 
     /*
     //old ts parse code
@@ -1516,7 +1530,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     }
     printf("<%d %d>\n",recv_info.ts,recv_info.ts_ack);
     */
-    parse_tcp_option(tcp_option,tcp_begin+tcph->doff*4,recv_info);
+    parse_tcp_option(tcp_option,option_end,recv_info);
 
     recv_info.ack=tcph->ack;
     recv_info.syn=tcph->syn;

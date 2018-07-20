@@ -245,6 +245,7 @@ struct conn_info_t     //stores info for a raw connection.for client ,there is o
 
 
 	fd64_t timer_fd64;
+	fd64_t udp_fd64;
 
 	id_t oppsite_const_id;
 
