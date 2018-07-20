@@ -64,6 +64,9 @@ typedef long long i64_t;
 typedef unsigned int u32_t;
 typedef int i32_t;
 
+typedef unsigned short u16_t;
+typedef short i16_t;
+
 typedef u32_t id_t;
 
 typedef u64_t iv_t;
@@ -250,6 +253,16 @@ u32_t get_true_random_number();
 u32_t get_true_random_number_nz();
 u64_t ntoh64(u64_t a);
 u64_t hton64(u64_t a);
+
+void write_u16(char *,u16_t a);// network order
+u16_t read_u16(char *);
+
+void write_u32(char *,u32_t a);// network order
+u32_t read_u32(char *);
+
+void write_u64(char *,u64_t a);
+u64_t read_uu64(char *);
+
 bool larger_than_u16(uint16_t a,uint16_t b);
 bool larger_than_u32(u32_t a,u32_t b);
 void setnonblocking(int sock);
@@ -258,6 +271,7 @@ int set_buf_size(int fd,int socket_buf_size);
 void myexit(int a);
 
 unsigned short csum(const unsigned short *ptr,int nbytes);
+unsigned short csum_with_header(char* header,int hlen,const unsigned short *ptr,int nbytes);
 
 int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len);
 int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3);

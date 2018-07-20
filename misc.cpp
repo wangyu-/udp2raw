@@ -157,6 +157,7 @@ void print_help()
 	printf("    --disable-bpf                         disable the kernel space filter,most time its not necessary\n");
 	printf("                                          unless you suspect there is a bug\n");
 //	printf("\n");
+	printf("    --dev                 <string>        bind raw socket to a device, not necessary but improves performance\n");
 	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024\n");
 	printf("    --force-sock-buf                      bypass system limitation while setting sock-buf\n");
 	printf("    --seq-mode            <number>        seq increase mode for faketcp:\n");

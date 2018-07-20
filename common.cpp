@@ -314,6 +314,46 @@ u64_t hton64(u64_t a)
 
 }
 
+void write_u16(char * p,u16_t w)
+{
+	*(unsigned char*)(p + 1) = (w & 0xff);
+	*(unsigned char*)(p + 0) = (w >> 8);
+}
+u16_t read_u16(char * p)
+{
+	u16_t res;
+	res = *(const unsigned char*)(p + 0);
+	res = *(const unsigned char*)(p + 1) + (res << 8);
+	return res;
+}
+
+void write_u32(char * p,u32_t l)
+{
+	*(unsigned char*)(p + 3) = (unsigned char)((l >>  0) & 0xff);
+	*(unsigned char*)(p + 2) = (unsigned char)((l >>  8) & 0xff);
+	*(unsigned char*)(p + 1) = (unsigned char)((l >> 16) & 0xff);
+	*(unsigned char*)(p + 0) = (unsigned char)((l >> 24) & 0xff);
+}
+u32_t read_u32(char * p)
+{
+	u32_t res;
+	res = *(const unsigned char*)(p + 0);
+	res = *(const unsigned char*)(p + 1) + (res << 8);
+	res = *(const unsigned char*)(p + 2) + (res << 8);
+	res = *(const unsigned char*)(p + 3) + (res << 8);
+	return res;
+}
+
+void write_u64(char * s,u64_t a)
+{
+	assert(0==1);
+}
+u64_t read_u64(char * s)
+{
+	assert(0==1);
+	return 0;
+}
+
 void setnonblocking(int sock) {
 	int opts;
 	opts = fcntl(sock, F_GETFL);
@@ -341,6 +381,39 @@ unsigned short csum(const unsigned short *ptr,int nbytes) {//works both for big 
     register short answer;
 
     sum=0;
+    while(nbytes>1) {
+        sum+=*ptr++;
+        nbytes-=2;
+    }
+    if(nbytes==1) {
+        oddbyte=0;
+        *((u_char*)&oddbyte)=*(u_char*)ptr;
+        sum+=oddbyte;
+    }
+
+    sum = (sum>>16)+(sum & 0xffff);
+    sum = sum + (sum>>16);
+    answer=(short)~sum;
+
+    return(answer);
+}
+
+unsigned short csum_with_header(char* header,int hlen,const unsigned short *ptr,int nbytes) {//works both for big and little endian
+
+    long sum;
+    unsigned short oddbyte;
+    short answer;
+
+    assert(hlen%2==0);
+
+    sum=0;
+	unsigned short * tmp= (unsigned short *)header;
+	for(int i=0;i<hlen/2;i++)
+	{
+		sum+=*tmp++;
+	}
+
+
     while(nbytes>1) {
         sum+=*ptr++;
         nbytes-=2;

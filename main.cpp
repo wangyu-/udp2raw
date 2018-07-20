@@ -12,6 +12,8 @@ char hb_buf[buf_len];
 
 int on_epoll_recv_event=0;  //TODO, just a flag to help detect epoll infinite shoot
 
+int server_easytcp=0;//currently only for test
+
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
 	//keep_iptables_rule();
@@ -1011,6 +1013,8 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 			{
 				return 0;
 			}
+			if(server_easytcp!=0)
+				return 0;
 			raw_info_t &raw_info=tmp_raw_info;
 			packet_info_t &send_info=raw_info.send_info;
 			packet_info_t &recv_info=raw_info.recv_info;
