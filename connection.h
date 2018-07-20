@@ -217,16 +217,17 @@ struct conv_manager_t  // manage the udp connections
 	int clear_inactive0(char * ip_port);*/
 };//g_conv_manager;
 
-struct blob_t:not_copy_able_t //used in conn_info_t.  conv_manager_t and anti_replay_t are costly data structures ,we dont allocate them until its necessary
+struct blob_t:not_copy_able_t //used in conn_info_t.
 {
-	struct //TODO change to unconstrained union
+	struct  //conv_manager_t is here to avoid copying when a connection is recovered
+	//TODO maybe an unconstrained union is better, but struct is okay since conv_manger is small when no data is filled in.
 	{
 		conv_manager_t<address_t> c;
 		conv_manager_t<u64_t> s;
-		//conv_manager_t<address_t> test;
+		//avoid templates here and there, avoid pointer and type cast
 	}conv_manager;
 
-	anti_replay_t anti_replay;
+	anti_replay_t anti_replay;//anti_replay_t is here bc its huge,its allocation is delayed.
 };
 struct conn_info_t     //stores info for a raw connection.for client ,there is only one connection,for server there can be thousand of connection since server can
 //handle multiple clients
@@ -279,14 +280,16 @@ struct conn_manager_t  //manager for connections. for client,we dont need conn_m
 
  unordered_map<id_t,conn_info_t *> const_id_mp;
 
- unordered_map<u64_t,conn_info_t*> mp; //put it at end so that it de-consturcts first
+ unordered_map<address_t,conn_info_t*> mp; //put it at end so that it de-consturcts first
 
- unordered_map<u64_t,conn_info_t*>::iterator clear_it;
+ lru_collector_t<address_t> lru;
+
+ //unordered_map<u64_t,conn_info_t*>::iterator clear_it;
 
  long long last_clear_time;
 
  conn_manager_t();
- int exist(u32_t ip,uint16_t port);
+ int exist(address_t addr);
  /*
  int insert(uint32_t ip,uint16_t port)
  {
@@ -297,10 +300,10 @@ struct conn_manager_t  //manager for connections. for client,we dont need conn_m
 	 mp[u64];
 	 return 0;
  }*/
- conn_info_t *& find_insert_p(u32_t ip,uint16_t port);  //be aware,the adress may change after rehash
- conn_info_t & find_insert(u32_t ip,uint16_t port) ; //be aware,the adress may change after rehash
+ conn_info_t *& find_insert_p(address_t addr);  //be aware,the adress may change after rehash //not true?
+ conn_info_t & find_insert(address_t addr) ; //be aware,the adress may change after rehash
 
- int erase(unordered_map<u64_t,conn_info_t*>::iterator erase_it);
+ int erase(unordered_map<address_t,conn_info_t*>::iterator erase_it);
 int clear_inactive();
 int clear_inactive0();
 

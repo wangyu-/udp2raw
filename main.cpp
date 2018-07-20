@@ -565,9 +565,11 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 	mylog(log_trace,"[%s]peek_raw\n",ip_port);
 	int data_len; char *data;
 
+	address_t addr;
+	addr.from_ip_port(ip,port);
 	if(raw_mode==mode_faketcp&&peek_info.syn==1)
 	{
-		if(!conn_manager.exist(ip,port)||conn_manager.find_insert(ip,port).state.server_current_state!=server_ready)
+		if(!conn_manager.exist(addr)||conn_manager.find_insert(addr).state.server_current_state!=server_ready)
 		{//reply any syn ,before state become ready
 
 			raw_info_t tmp_raw_info;
@@ -610,7 +612,7 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		}
 		return 0;
 	}
-	if(!conn_manager.exist(ip,port))
+	if(!conn_manager.exist(addr))
 	{
 		if(conn_manager.mp.size()>=max_handshake_conn_num)
 		{
@@ -649,7 +651,7 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 
 		mylog(log_info,"[%s]got packet from a new ip\n",ip_port);
 
-		conn_info_t &conn_info=conn_manager.find_insert(ip,port);
+		conn_info_t &conn_info=conn_manager.find_insert(addr);
 		conn_info.raw_info=tmp_raw_info;
 		raw_info_t &raw_info=conn_info.raw_info;
 
@@ -690,7 +692,7 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 
 
 
-	conn_info_t & conn_info=conn_manager.find_insert(ip,port);//insert if not exist
+	conn_info_t & conn_info=conn_manager.find_insert(addr);//insert if not exist
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
@@ -969,7 +971,6 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 		}
 
 		conn_info.prepare();
-		conn_info.blob->conv_manager.s.additional_clear_function=server_clear_function;
 		conn_info.state.server_current_state = server_ready;
 		conn_info.oppsite_const_id=tmp_oppsite_const_id;
 		conn_manager.ready_num++;
@@ -1027,18 +1028,20 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 				 conn_info.oppsite_const_id=0;
 				 return 0;
 			}
-			if(!conn_manager.exist(ori_conn_info.raw_info.recv_info.src_ip,ori_conn_info.raw_info.recv_info.src_port))//TODO remove this
+			address_t addr1;addr1.from_ip_port(ori_conn_info.raw_info.recv_info.src_ip,ori_conn_info.raw_info.recv_info.src_port);
+			if(!conn_manager.exist(addr1))//TODO remove this
 			{
 				mylog(log_fatal,"[%s]this shouldnt happen\n",ip_port);
 				myexit(-1);
 			}
-			if(!conn_manager.exist(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port))//TODO remove this
+			address_t addr2;addr2.from_ip_port(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
+			if(!conn_manager.exist(addr2))//TODO remove this
 			{
 				mylog(log_fatal,"[%s]this shouldnt happen2\n",ip_port);
 				myexit(-1);
 			}
-			conn_info_t *&p_ori=conn_manager.find_insert_p(ori_conn_info.raw_info.recv_info.src_ip,ori_conn_info.raw_info.recv_info.src_port);
-			conn_info_t *&p=conn_manager.find_insert_p(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
+			conn_info_t *&p_ori=conn_manager.find_insert_p(addr1);
+			conn_info_t *&p=conn_manager.find_insert_p(addr2);
 			conn_info_t *tmp=p;
 			p=p_ori;
 			p_ori=tmp;
@@ -1227,7 +1230,7 @@ int client_event_loop()
 	//g_packet_info.src_ip=source_address_uint32;
 	//g_packet_info.src_port=source_port;
 
-    udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    udp_fd=socket(remote_addr.get_type(), SOCK_DGRAM, IPPROTO_UDP);
     set_buf_size(udp_fd,socket_buf_size);
 
 	int yes = 1;
@@ -1480,11 +1483,11 @@ int server_event_loop()
 
 	 if(raw_mode==mode_faketcp)
 	 {
-		 bind_fd=socket(AF_INET,SOCK_STREAM,0);
+		 bind_fd=socket(local_addr.get_type(),SOCK_STREAM,0);
 	 }
 	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)//bind an adress to avoid collision,for icmp,there is no port,just bind a udp port
 	 {
-		 bind_fd=socket(AF_INET,SOCK_DGRAM,0);
+		 bind_fd=socket(local_addr.get_type(),SOCK_DGRAM,0);
 	 }
 
 	 //struct sockaddr_in temp_bind_addr={0};

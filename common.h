@@ -118,6 +118,14 @@ struct address_t  //TODO scope id
 	{
 		memset(&inner,0,sizeof(inner));
 	}
+	int from_ip_port(u32_t  ip, int port)
+	{
+		clear();
+		inner.ipv4.sin_family=AF_INET;
+		inner.ipv4.sin_port=htons(port);
+		inner.ipv4.sin_addr.s_addr=ip;
+		return 0;
+	}
 	int from_str(char * str);
 
 	int from_sockaddr(sockaddr *,socklen_t);
