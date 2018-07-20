@@ -175,17 +175,19 @@ char* address_t::get_ip()
 
 int address_t::from_sockaddr(sockaddr * addr,socklen_t slen)
 {
-	memset(&inner,0,sizeof(inner));
+	clear();
+	//memset(&inner,0,sizeof(inner));
 	if(addr->sa_family==AF_INET6)
 	{
 		assert(slen==sizeof(sockaddr_in6));
-		inner.ipv6= *( (sockaddr_in6*) addr );
-
+		//inner.ipv6= *( (sockaddr_in6*) addr );
+		memcpy(&inner,addr,slen);
 	}
 	else if(addr->sa_family==AF_INET)
 	{
 		assert(slen==sizeof(sockaddr_in));
-		inner.ipv4= *( (sockaddr_in*) addr );
+		//inner.ipv4= *( (sockaddr_in*) addr );
+		memcpy(&inner,addr,slen);
 	}
 	else
 	{

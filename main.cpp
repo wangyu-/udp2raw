@@ -468,7 +468,7 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 			if(ret<0)
 			{
-		    	mylog(log_warn,"sento returned %d\n",ret);
+		    	mylog(log_warn,"sento returned %d,%s,%02x,%s\n",ret,strerror(errno),int(tmp_addr.get_type()),tmp_addr.get_str());
 				//perror("ret<0");
 			}
 			//mylog(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
@@ -493,12 +493,12 @@ int client_on_udp_recv(conn_info_t &conn_info)
 {
 	int recv_len;
 	char buf[buf_len];
-	struct sockaddr_in udp_new_addr_in={0};
-	socklen_t udp_new_addr_len = sizeof(sockaddr_in);
+	address_t::storage_t udp_new_addr_in={0};
+	socklen_t udp_new_addr_len = sizeof(address_t::storage_t);
 	if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 			(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
-		mylog(log_error,"recv_from error,this shouldnt happen at client\n");
-		myexit(1);
+		mylog(log_warn,"recv_from error,%s\n",strerror(errno));
+		//myexit(1);
 	};
 
 	if(recv_len==max_data_len+1)
@@ -511,8 +511,8 @@ int client_on_udp_recv(conn_info_t &conn_info)
 	{
 		mylog(log_warn,"huge packet,data len=%d (>=%d).strongly suggested to set a smaller mtu at upper level,to get rid of this warn\n ",recv_len,mtu_warn);
 	}
-	mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
-			ntohs(udp_new_addr_in.sin_port),recv_len);
+	//mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
+		//	ntohs(udp_new_addr_in.sin_port),recv_len);
 
 	/*
 	if(udp_old_addr_in.sin_addr.s_addr==0&&udp_old_addr_in.sin_port==0)
@@ -536,13 +536,13 @@ int client_on_udp_recv(conn_info_t &conn_info)
 	}*/
 
 	//last_udp_recv_time=get_current_time();
-	address_t tmp_address;
-	tmp_address.from_sockaddr((sockaddr *)&udp_new_addr_in,udp_new_addr_len);
+	address_t tmp_addr;
+	tmp_addr.from_sockaddr((sockaddr *)&udp_new_addr_in,udp_new_addr_len);
 	//u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
 	u32_t conv;
 
 	//u64_t u64;//////todo
-	if(!conn_info.blob->conv_manager.c.is_data_used(tmp_address))
+	if(!conn_info.blob->conv_manager.c.is_data_used(tmp_addr))
 	{
 		if(conn_info.blob->conv_manager.c.get_size() >=max_conv_num)
 		{
@@ -550,12 +550,12 @@ int client_on_udp_recv(conn_info_t &conn_info)
 			return -1;
 		}
 		conv=conn_info.blob->conv_manager.c.get_new_conv();
-		conn_info.blob->conv_manager.c.insert_conv(conv,tmp_address);
-		mylog(log_info,"new packet from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
+		conn_info.blob->conv_manager.c.insert_conv(conv,tmp_addr);
+		mylog(log_info,"new packet from %s,conv_id=%x\n",tmp_addr.get_str(),conv);
 	}
 	else
 	{
-		conv=conn_info.blob->conv_manager.c.find_conv_by_data(tmp_address);
+		conv=conn_info.blob->conv_manager.c.find_conv_by_data(tmp_addr);
 	}
 
 	conn_info.blob->conv_manager.c.update_active_time(conv);
@@ -1455,13 +1455,13 @@ int client_event_loop()
 	//g_packet_info.src_ip=source_address_uint32;
 	//g_packet_info.src_port=source_port;
 
-    udp_fd=socket(remote_addr.get_type(), SOCK_DGRAM, IPPROTO_UDP);
+    udp_fd=socket(local_addr.get_type(), SOCK_DGRAM, IPPROTO_UDP);
     set_buf_size(udp_fd,socket_buf_size);
 
 	int yes = 1;
 	//setsockopt(udp_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
-	struct sockaddr_in local_me={0};
+	//struct sockaddr_in local_me={0};
 
 	//socklen_t slen = sizeof(sockaddr_in);
 	//memset(&local_me, 0, sizeof(local_me));
