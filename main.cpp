@@ -591,7 +591,7 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id )
 	return 0;
 }*/
 int server_on_timer(conn_info_t &conn_info)  //for server. called when a timer is ready in epoll.for server,there will be one timer for every connection
-
+// there is also a global timer for server,but its not handled here
 {
 	char ip_port[40];
 	u32_t ip=conn_info.raw_info.send_info.dst_ip;

@@ -215,6 +215,11 @@ conn_manager_t conn_manager;
 	 if(it==mp.end())
 	 {
 		 mp[addr]=new conn_info_t;
+		 //lru.new_key(addr);
+	 }
+	 else
+	 {
+		 //lru.update(addr);
 	 }
 	 return mp[addr];
  }
@@ -228,6 +233,11 @@ conn_manager_t conn_manager;
 	 if(it==mp.end())
 	 {
 		 mp[addr]=new conn_info_t;
+		 //lru.new_key(addr);
+	 }
+	 else
+	 {
+		 //lru.update(addr);
 	 }
 	 return *mp[addr];
  }
@@ -282,14 +292,14 @@ int conn_manager_t::clear_inactive()
 }
 int conn_manager_t::clear_inactive0()
 {
-	 //unordered_map<u64_t,conn_info_t*>::iterator it;
-	// unordered_map<u64_t,conn_info_t*>::iterator old_it;
+	 unordered_map<address_t,conn_info_t*>::iterator it;
+	 unordered_map<address_t,conn_info_t*>::iterator old_it;
 
 	if(disable_conn_clear) return 0;
 
 	//map<uint32_t,uint64_t>::iterator it;
 	int cnt=0;
-	//it=clear_it;
+	it=clear_it;
 	int size=mp.size();
 	int num_to_clean=size/conn_clear_ratio+conn_clear_min;   //clear 1/10 each time,to avoid latency glitch
 
@@ -301,43 +311,37 @@ int conn_manager_t::clear_inactive0()
 	for(;;)
 	{
 		if(cnt>=num_to_clean) break;
+		if(mp.begin()==mp.end()) break;
 
-		if(lru.empty()) break;
-		address_t key;
-		my_time_t ts=lru.peek_back(key);
-
-		//if(mp.begin()==mp.end()) break;
-
-		//if(it==mp.end())
-		//{
-		//	it=mp.begin();
-		//}
-
-		auto it=mp.find(key);
+		if(it==mp.end())
+		{
+			it=mp.begin();
+		}
 
 		if(it->second->state.server_current_state==server_ready &&current_time - it->second->last_hb_recv_time  <=server_conn_timeout)
 		{
-				//it++;
+				it++;
 		}
 		else if(it->second->state.server_current_state!=server_ready&& current_time - it->second->last_state_time  <=server_handshake_timeout )
 		{
-			//it++;
+			it++;
 		}
 		else if(it->second->blob!=0&&it->second->blob->conv_manager.s.get_size() >0)
 		{
 			assert(it->second->state.server_current_state==server_ready);
-			//it++;
+			it++;
 		}
 		else
 		{
 			mylog(log_info,"[%s:%d]inactive conn cleared \n",my_ntoa(it->second->raw_info.recv_info.src_ip),it->second->raw_info.recv_info.src_port);
-			//old_it=it;
-			//it++;
-			erase(it);
+			old_it=it;
+			it++;
+			erase(old_it);
 		}
 		cnt++;
 	}
-	//clear_it=it;
+	clear_it=it;
+
 	return 0;
 }
 

@@ -283,9 +283,9 @@ struct conn_manager_t  //manager for connections. for client,we dont need conn_m
 
  unordered_map<address_t,conn_info_t*> mp; //put it at end so that it de-consturcts first
 
- lru_collector_t<address_t> lru;
+ //lru_collector_t<address_t> lru;
 
- //unordered_map<u64_t,conn_info_t*>::iterator clear_it;
+ unordered_map<address_t,conn_info_t*>::iterator clear_it;
 
  long long last_clear_time;
 
