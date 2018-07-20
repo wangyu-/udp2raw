@@ -81,7 +81,7 @@ Now,an encrypted raw tunnel has been established between client and server throu
 ### Note
 To run on Android, check [Android_Guide](/doc/android_guide.md)
 
-`-a` option automatically add an iptable rule for you, udp2raw relys on this iptables rule to work stably. Be aware you dont forget `-a` (its a common mistake). If you dont want udp2raw to add iptables rule automatically, you can add it manually(take a look at `-g` option). 
+`-a` option automatically adds an iptables rule (or a few iptables rules) for you, udp2raw relys on this iptables rule to work stably. Be aware you dont forget `-a` (its a common mistake). If you dont want udp2raw to add iptables rule automatically, you can add it manually(take a look at `-g` option) and omit `-a`. 
 
 
 # Advanced Topic
