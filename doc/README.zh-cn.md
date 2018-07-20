@@ -98,7 +98,7 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
-`-a`选项会自动添加一条/几条iptables规则，udp2raw必须和iptables规则配合才能稳定工作，一定要注意不要忘了`-a`(这是个常见错误)。 如果你不想让udp2raw自动添加iptables规则，可以自己手动添加相应的iptables规则(看一下-g选项)，然后以不带`-a`的方式运行udp2raw。
+`-a`选项会自动添加一条/几条iptables规则，udp2raw必须和相应的iptables规则配合才能稳定工作，一定要注意不要忘了`-a`(这是个常见错误)。 如果你不想让udp2raw自动添加iptables规则，可以自己手动添加相应的iptables规则(看一下`-g`选项)，然后以不带`-a`的方式运行udp2raw。
 
 # 进阶操作说明
 
