@@ -75,10 +75,10 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 ```
 在server端运行:
-./udp2raw_amd64 -s -l0.0.0.0:4096  -r127.0.0.1:7777   -a -k "passwd" --raw-mode faketcp   --cipher-mode xor
+./udp2raw_amd64 -s -l0.0.0.0:4096  -r127.0.0.1:7777   -k "passwd" --raw-mode faketcp   --cipher-mode xor  -a
 
 在client端运行:
-./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -a -k "passwd" --raw-mode faketcp   --cipher-mode xor
+./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -k "passwd" --raw-mode faketcp   --cipher-mode xor  -a
 ```
 (以上例子需要用root账号运行。 用非root运行udp2raw需要一些额外的步骤，具体方法请看 [这个](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-as-non-root) 链接。用非root运行更安全)
 
@@ -98,9 +98,7 @@ https://github.com/wangyu-/udp2raw-tunnel/releases
 
 如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
 
-如果要在梅林固件的路由器上使用，添加`--lower-level auto` `--keep-rule`
-
-如果client和server无法连接，或者连接经常断开，请看一下`--seq-mode`的用法，尝试不同的seq-mode。
+`-a`选项会自动添加一条/几条iptables规则，udp2raw必须和iptables规则配合才能稳定工作，一定要注意不要忘了`-a`(这是个常见错误)。 如果你不想让udp2raw自动添加iptables规则，可以自己手动添加相应的iptables规则(看一下-g选项)，然后以不带`-a`的方式运行udp2raw。
 
 # 进阶操作说明
 
