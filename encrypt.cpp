@@ -19,7 +19,7 @@ static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog
 ****/
 
 char normal_key[16 + 100];//generated from key_string by md5. reserved for compatiblity
-const int hmac_key_len=64;//generate 512bit long keys, but its necessary to use the full length
+const int hmac_key_len=64;//generate 512bit long keys, use first n chars when needed
 const int cipher_key_len=64;
 unsigned char hmac_key_encrypt[hmac_key_len + 100];  //key for hmac
 unsigned char hmac_key_decrypt[hmac_key_len + 100];  //key for hmac
@@ -161,7 +161,7 @@ int auth_hmac_sha1_cal(const char *data,char * output,int &len)
 	mylog(log_trace,"auth_hmac_sha1_cal() is called\n");
 	memcpy(output,data,len);//TODO inefficient code
 	sha1_hmac(hmac_key_encrypt, 20, (const unsigned char *)data, len,(unsigned char *)(output+len));
-	//use key len of 20 instead of hmac_key_len, key_len >sha1_block_size doesnt provide extra strength
+	//use key len of 20 instead of hmac_key_len, "extra length would not significantly increase the function strength" (rfc2104)
 	len+=20;
 	return 0;
 }
