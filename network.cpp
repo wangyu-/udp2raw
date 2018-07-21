@@ -190,7 +190,7 @@ int init_raw_socket()
 	g_ip_id_counter=get_true_random_number()%65535;
 	if(lower_level==0)
 	{
-		raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);// IPPROTO_TCP??
+		raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_RAW);// IPPROTO_TCP??
 
 	    if(raw_send_fd == -1) {
 	    	mylog(log_fatal,"Failed to create raw_send_fd\n");
@@ -198,13 +198,14 @@ int init_raw_socket()
 	        myexit(1);
 	    }
 
+	    /*
 	    int one = 1;
 	    const int *val = &one;
 	    if (setsockopt (raw_send_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0) {
 	    	mylog(log_fatal,"Error setting IP_HDRINCL %d\n",errno);
 	        //perror("Error setting IP_HDRINCL");
 	        myexit(2);
-	    }
+	    }*/
 
 
 	}
