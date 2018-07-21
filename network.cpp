@@ -67,7 +67,7 @@ ev_loop* g_default_loop;
 pthread_t pcap_recv_thread;
 
 char g_packet_buf[buf_len]; //dirty code, fix it later
-int g_packet_buf_len=1;
+int g_packet_buf_len=-1;
 int g_packet_buf_cnt=0;
 
 
