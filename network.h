@@ -26,6 +26,10 @@ extern int random_drop;
 
 extern int ifindex;
 
+extern char g_packet_buf[buf_len];
+extern int g_packet_buf_len;
+extern int g_packet_buf_cnt;
+
 struct icmphdr
 {
 	uint8_t type;
@@ -107,6 +111,9 @@ int try_to_list_and_bind(int & bind_fd,u32_t local_ip_uint32,int port);  //try t
 
 int client_bind_to_a_new_port(int & bind_fd,u32_t local_ip_uint32);//find a free port and bind to it.
 int client_bind_to_a_new_port2(int &fd,const address_t& address);
+
+int discard_raw_packet();
+int pre_recv_raw_packet();
 
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen);
 

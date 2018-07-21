@@ -304,10 +304,13 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 	raw_info_t &raw_info=conn_info.raw_info;
 
 	mylog(log_trace,"<client_on_raw_recv,send_info.ts_ack= %u>\n",send_info.ts_ack);
+	if(pre_recv_raw_packet()<0) return -1;
 
 	if(conn_info.state.client_current_state==client_idle )
 	{
-		recv(raw_recv_fd, 0,0, 0  );
+
+		discard_raw_packet();
+		//recv(raw_recv_fd, 0,0, 0  );
 	}
 	else if(conn_info.state.client_current_state==client_tcp_handshake)//received syn ack
 	{
@@ -988,9 +991,11 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 {
 	char dummy_buf[buf_len];
 	packet_info_t peek_info;
+	if(pre_recv_raw_packet()<0) return -1;
 	if(peek_raw(peek_info)<0)
 	{
-		recv(raw_recv_fd, 0,0, 0  );//
+		discard_raw_packet();
+		//recv(raw_recv_fd, 0,0, 0  );//
 		//struct sockaddr saddr;
 		//socklen_t saddr_size=sizeof(saddr);
 		///recvfrom(raw_recv_fd, 0,0, 0 ,&saddr , &saddr_size);//
@@ -1052,7 +1057,8 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		}
 		else
 		{
-			recv(raw_recv_fd, 0,0,0);
+			discard_raw_packet();
+			//recv(raw_recv_fd, 0,0,0);
 		}
 		return 0;
 	}
@@ -1061,7 +1067,8 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		if(conn_manager.mp.size()>=max_handshake_conn_num)
 		{
 			mylog(log_info,"[%s]reached max_handshake_conn_num,ignored new handshake\n",ip_port);
-			recv(raw_recv_fd, 0,0, 0  );//
+			discard_raw_packet();
+			//recv(raw_recv_fd, 0,0, 0  );//
 			return 0;
 		}
 
@@ -1162,7 +1169,8 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 
 	if(conn_info.state.server_current_state==server_idle)
 	{
-		recv(raw_recv_fd, 0,0, 0  );//
+		discard_raw_packet();
+		//recv(raw_recv_fd, 0,0, 0  );//
 		return 0;
 	}
 	mylog(log_fatal,"we should never run to here\n");

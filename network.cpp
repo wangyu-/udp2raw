@@ -40,6 +40,18 @@ const u32_t receive_window_lower_bound=40960;
 const u32_t receive_window_random_range=512;
 const unsigned char wscale=0x05;
 
+char g_packet_buf[buf_len]; //looks dirty but works well
+int g_packet_buf_len=-1;
+int g_packet_buf_cnt=0;
+
+union
+{
+	sockaddr_ll ll;
+	sockaddr_in ipv4;
+	sockaddr_in6 ipv6;
+}g_sockaddr;
+socklen_t g_sockaddr_len = -1;
+
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
 		{ 0x15, 0, 10, 0x00000800 },//1
@@ -178,7 +190,7 @@ int init_raw_socket()
 	g_ip_id_counter=get_true_random_number()%65535;
 	if(lower_level==0)
 	{
-		raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);
+		raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);// IPPROTO_TCP??
 
 	    if(raw_send_fd == -1) {
 	    	mylog(log_fatal,"Failed to create raw_send_fd\n");
@@ -198,7 +210,7 @@ int init_raw_socket()
 	}
 	else
 	{
-		raw_send_fd = socket(PF_PACKET , SOCK_DGRAM , htons(ETH_P_IP));
+		raw_send_fd = socket(PF_PACKET , SOCK_DGRAM , htons(ETH_P_IP));// todo  how to create a recv only raw socket?
 
 	    if(raw_send_fd == -1) {
 	    	mylog(log_fatal,"Failed to create raw_send_fd\n");
@@ -231,6 +243,9 @@ int init_raw_socket()
 	//raw_fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
 
 	raw_recv_fd= socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
+	//ETH_P_IP doesnt read outgoing packets
+	//   https://stackoverflow.com/questions/20264895/eth-p-ip-is-not-working-as-expected-i-can-only-receive-incoming-packets
+	//   to capture both incoming and outgoing packets use ETH_P_ALL
 
     if(raw_recv_fd == -1) {
     	mylog(log_fatal,"Failed to create raw_recv_fd\n");
@@ -661,11 +676,17 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     return 0;
 }
 int peek_raw(packet_info_t &peek_info)
-{	static char peek_raw_buf[buf_len];
+{
+	//static char peek_raw_buf[buf_len];
+	assert(g_packet_buf_cnt==1);
+	//g_packet_buf_cnt--;
+	char * peek_raw_buf=g_packet_buf;
+	int recv_len=g_packet_buf_len;
+
 	char *ip_begin=peek_raw_buf+link_level_header_len;
-	struct sockaddr saddr={0};
-	socklen_t saddr_size=sizeof(saddr);
-	int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,max_data_len, MSG_PEEK ,&saddr , &saddr_size);//change max_data_len to something smaller,we only need header here
+	//struct sockaddr saddr={0};
+	//socklen_t saddr_size=sizeof(saddr);
+	//int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,max_data_len, MSG_PEEK ,&saddr , &saddr_size);//change max_data_len to something smaller,we only need header here
 	iphdr * iph = (struct iphdr *) (ip_begin);
 	//mylog(log_info,"recv_len %d\n",recv_len);
 	if(recv_len<int(sizeof(iphdr)))
@@ -720,30 +741,56 @@ int peek_raw(packet_info_t &peek_info)
     }
     return 0;
 }
-int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
+int pre_recv_raw_packet()
 {
-	const packet_info_t &send_info=raw_info.send_info;
-	packet_info_t &recv_info=raw_info.recv_info;
+	assert(g_packet_buf_cnt==0);
 
-	static char recv_raw_ip_buf[buf_len];
+	g_sockaddr_len=sizeof(g_sockaddr.ll);
+	g_packet_buf_len = recvfrom(raw_recv_fd, g_packet_buf, max_data_len+1, 0 ,(sockaddr*)&g_sockaddr , &g_sockaddr_len);
+	//assert(g_sockaddr_len==sizeof(g_sockaddr.ll)); //g_sockaddr_len=18, sizeof(g_sockaddr.ll)=20, why its not equal? maybe its bc sll_halen is 6?
 
-	iphdr *  iph;
-	struct sockaddr_ll saddr={0};
-	socklen_t saddr_size = sizeof(saddr);
-	int flag=0;
-	int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
+	//assert(g_addr_ll_size==sizeof(g_addr_ll));
 
-	if(recv_len==max_data_len+1)
+	if(g_packet_buf_len==max_data_len+1)
 	{
 		mylog(log_warn,"huge packet, data_len > %d,dropped\n",max_data_len);
 		return -1;
 	}
 
-	if(recv_len<0)
+	if(g_packet_buf_len<0)
 	{
-		mylog(log_trace,"recv_len %d\n",recv_len);
+		mylog(log_trace,"recv_len %d\n",g_packet_buf_len);
 		return -1;
 	}
+	g_packet_buf_cnt++;
+	return 0;
+}
+int discard_raw_packet()
+{
+	assert(g_packet_buf_cnt==1);
+	g_packet_buf_cnt--;
+	return 0;
+}
+int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
+{
+	assert(g_packet_buf_cnt==1);
+	g_packet_buf_cnt--;
+
+	char *recv_raw_ip_buf=g_packet_buf;
+	//static char recv_raw_ip_buf[buf_len];
+
+	int recv_len=g_packet_buf_len;
+
+	const packet_info_t &send_info=raw_info.send_info;
+	packet_info_t &recv_info=raw_info.recv_info;
+
+
+	iphdr *  iph;
+
+	int flag=0;
+	//int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
+
+
 	if(recv_len<int(link_level_header_len))
 	{
 		mylog(log_trace,"length error\n");
@@ -766,7 +813,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 	if(lower_level)
 	{
-		memcpy(&recv_info.addr_ll,&saddr,sizeof(recv_info.addr_ll));
+		memcpy(&recv_info.addr_ll,&g_sockaddr.ll,sizeof(recv_info.addr_ll));
 	}
 
 
