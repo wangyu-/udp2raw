@@ -1,4 +1,4 @@
-#include "lib/aes.h"
+#include "lib/aes-common.h"
 #include "lib/md5.h"
 #include "lib/pbkdf2-sha1.h"
 #include "lib/pbkdf2-sha256.h"
@@ -28,7 +28,7 @@ unsigned char cipher_key_decrypt[cipher_key_len + 100];  //key for aes etc.
 
 unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_simple,"simple"},{auth_hmac_sha1,"hmac_sha1"},};
 
-unordered_map<int, const char *> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"},};
+unordered_map<int, const char *> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cfb,"aes128cfb"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"},};
 //TODO aes-gcm
 
 auth_mode_t auth_mode=auth_md5;
@@ -320,6 +320,23 @@ int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 	AES_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	return 0;
 }
+int cipher_aes128cfb_encrypt(const char *data,char *output,int &len,char * key)
+{
+	static int first_time=1;
+	if(aes_key_optimize)
+	{
+		if(first_time==0) key=0;
+		else first_time=0;
+	}
+
+	char buf[buf_len];
+	memcpy(buf,data,len);//TODO inefficient code
+
+	//if(padding(buf,len,16)<0) return -1;
+
+	AES_CFB_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	return 0;
+}
 int auth_crc32_verify(const char *data,int &len)
 {
 	if(len<int(sizeof(unsigned int)))
@@ -355,6 +372,20 @@ int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 	//if(len<0) {mylog(log_debug,"len <0\n");return -1;}
 	AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	if(de_padding(output,len,16)<0) return -1;
+	return 0;
+}
+int cipher_aes128cfb_decrypt(const char *data,char *output,int &len,char * key)
+{
+	static int first_time=1;
+	if(aes_key_optimize)
+	{
+		if(first_time==0) key=0;
+		else first_time=0;
+	}
+	//if(len%16 !=0) {mylog(log_debug,"len%%16!=0\n");return -1;}
+	//if(len<0) {mylog(log_debug,"len <0\n");return -1;}
+	AES_CFB_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	//if(de_padding(output,len,16)<0) return -1;
 	return 0;
 }
 
@@ -402,6 +433,7 @@ int cipher_encrypt(const char *data,char *output,int &len,char * key)
 	switch(cipher_mode)
 	{
 	case cipher_aes128cbc:return cipher_aes128cbc_encrypt(data,output,len, key);
+	case cipher_aes128cfb:return cipher_aes128cfb_encrypt(data,output,len, key);
 	case cipher_xor:return cipher_xor_encrypt(data,output,len, key);
 	case cipher_none:return cipher_none_encrypt(data,output,len, key);
 	//default:return cipher_aes128cbc_encrypt(data,output,len, key);
@@ -415,6 +447,7 @@ int cipher_decrypt(const char *data,char *output,int &len,char * key)
 	switch(cipher_mode)
 	{
 		case cipher_aes128cbc:return cipher_aes128cbc_decrypt(data,output,len, key);
+		case cipher_aes128cfb:return cipher_aes128cfb_decrypt(data,output,len, key);
 		case cipher_xor:return cipher_xor_decrypt(data,output,len, key);
 		case cipher_none:return cipher_none_decrypt(data,output,len, key);
 	//	default:	return cipher_aes128cbc_decrypt(data,output,len,key);
