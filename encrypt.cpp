@@ -19,8 +19,8 @@ static int8_t zero_iv[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,   0,0,0,0};//this prog
 ****/
 
 char normal_key[16 + 100];//generated from key_string by md5. reserved for compatiblity
-const int hmac_key_len=32;
-const int cipher_key_len=32;
+const int hmac_key_len=64;//generate 512bit long keys, but its necessary to use the full length
+const int cipher_key_len=64;
 unsigned char hmac_key_encrypt[hmac_key_len + 100];  //key for hmac
 unsigned char hmac_key_decrypt[hmac_key_len + 100];  //key for hmac
 unsigned char cipher_key_encrypt[cipher_key_len + 100];  //key for aes etc.
@@ -85,10 +85,10 @@ int my_init_keys(const char * user_passwd,int is_client)
 	}
 	
 	print_binary_chars(normal_key,16);
-	print_binary_chars((char *)hmac_key_encrypt,32);
-	print_binary_chars((char *)hmac_key_decrypt,32);
-	print_binary_chars((char *)cipher_key_encrypt,32);
-	print_binary_chars((char *)cipher_key_decrypt,32);
+	print_binary_chars((char *)hmac_key_encrypt,hmac_key_len);
+	print_binary_chars((char *)hmac_key_decrypt,hmac_key_len);
+	print_binary_chars((char *)cipher_key_encrypt,cipher_key_len);
+	print_binary_chars((char *)cipher_key_decrypt,cipher_key_len);
 
 	return 0;
 }
@@ -160,8 +160,8 @@ int auth_hmac_sha1_cal(const char *data,char * output,int &len)
 {
 	mylog(log_trace,"auth_hmac_sha1_cal() is called\n");
 	memcpy(output,data,len);//TODO inefficient code
-	sha1_hmac(hmac_key_encrypt, hmac_key_len, (const unsigned char *)data, len,(unsigned char *)(output+len));
-	//md5((unsigned char *)output,len,(unsigned char *)(output+len));
+	sha1_hmac(hmac_key_encrypt, 20, (const unsigned char *)data, len,(unsigned char *)(output+len));
+	//use key len of 20 instead of hmac_key_len, key_len >sha1_block_size doesnt provide extra strength
 	len+=20;
 	return 0;
 }
@@ -176,7 +176,7 @@ int auth_hmac_sha1_verify(const char *data,int &len)
 	}
 	char res[20];
 
-	sha1_hmac(hmac_key_decrypt, hmac_key_len, (const unsigned char *)data, len-20,(unsigned char *)(res));
+	sha1_hmac(hmac_key_decrypt, 20, (const unsigned char *)data, len-20,(unsigned char *)(res));
 
 	if(memcmp(res,data+len-20,20)!=0)
 	{

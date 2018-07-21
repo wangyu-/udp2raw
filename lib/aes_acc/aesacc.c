@@ -6,6 +6,7 @@
 #include "aesarm.h"
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
 
 #if defined(AES256) && (AES256 == 1)
 #define AES_KEYSIZE 256
@@ -342,10 +343,7 @@ void AES_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
   uint8_t iv_tmp[16];
   static uint8_t rk[AES_RKSIZE];
 
-  if (iv == NULL)
-  {
-    return;
-  }
+  assert(iv!=NULL);
   aeshw_init();
   memcpy(iv_tmp, iv, 16);
   if(key!= NULL)
@@ -358,10 +356,7 @@ void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
   uint8_t iv_tmp[16];
   static uint8_t rk[AES_RKSIZE];
 
-  if (iv == NULL)
-  {
-    return;
-  }
+  assert(iv!=NULL);
   aeshw_init();
   memcpy(iv_tmp, iv, 16);
   if(key!= NULL)
@@ -371,6 +366,7 @@ void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
   decrypt_cbc(rk, length, iv_tmp, input, output);
 }
 
+/*
 void AES_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output, const uint32_t length)
 {
   uint8_t rk[AES_RKSIZE];
@@ -395,4 +391,79 @@ void AES_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, 
   aeshw_init();
   setkey_dec(rk, key);
   decrypt_ecb(AES_NR, rk, input, output);
+}*/
+
+static void encrypt_cfb( uint8_t* rk,
+                         uint32_t length,size_t *iv_off,
+                         uint8_t iv[16],
+                         const uint8_t *input,
+                         uint8_t *output )
+{
+    int c;
+    size_t n = *iv_off;
+    while( length-- )
+    {
+        if( n == 0 )
+        	encrypt_ecb( AES_NR, rk, iv, iv );
+
+        iv[n] = *output++ = (unsigned char)( iv[n] ^ *input++ );
+
+        n = ( n + 1 ) & 0x0F;
+    }
+
+    *iv_off = n;
 }
+
+static void decrypt_cfb( uint8_t* rk,
+                         uint32_t length,size_t *iv_off,
+                         uint8_t iv[16],
+                         const uint8_t *input,
+                         uint8_t *output )
+{
+    int c;
+    size_t n = *iv_off;
+    while( length-- )
+    {
+        if( n == 0 )
+        	encrypt_ecb( AES_NR, rk, iv, iv );
+
+        c = *input++;
+        *output++ = (unsigned char)( c ^ iv[n] );
+        iv[n] = (unsigned char) c;
+
+        n = ( n + 1 ) & 0x0F;
+    }
+
+    *iv_off = n;
+}
+
+void AES_CFB_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+{
+  uint8_t iv_tmp[16];
+  static uint8_t rk[AES_RKSIZE];
+
+  assert(iv!=NULL);
+  aeshw_init();
+  memcpy(iv_tmp, iv, 16);
+  if(key!= NULL)
+	  setkey_enc(rk, key);
+  size_t offset=0;
+  encrypt_cfb(rk, length,&offset, iv_tmp, input, output);
+}
+
+void AES_CFB_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+{
+  uint8_t iv_tmp[16];
+  static uint8_t rk[AES_RKSIZE];
+
+  assert(iv!=NULL);
+  aeshw_init();
+  memcpy(iv_tmp, iv, 16);
+  if(key!= NULL)
+  {
+	  setkey_enc(rk, key);//its enc again,not typo
+  }
+  size_t offset=0;
+  decrypt_cfb(rk, length,&offset, iv_tmp, input, output);
+}
+
