@@ -74,6 +74,7 @@ int iptables_rule_keep_index=0;
 
 program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 raw_mode_t raw_mode=mode_faketcp;
+ip_version_t ip_version=version_unset;
 unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 
 int about_to_exit=0;

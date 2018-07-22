@@ -65,6 +65,7 @@ enum server_current_state_t {server_idle=0,server_handshake1,server_ready};  //s
 enum client_current_state_t {client_idle=0,client_tcp_handshake,client_handshake1,client_handshake2,client_ready};//client state machine
 
 enum raw_mode_t{mode_faketcp=0,mode_udp,mode_icmp,mode_end};
+enum ip_version_t{version_unset=0,version_ipv4,version_ipv6,version_end};
 enum program_mode_t {unset_mode=0,client_mode,server_mode};
 
 union current_state_t
@@ -110,6 +111,7 @@ extern char fifo_file[1000];
 
 
 extern raw_mode_t raw_mode;
+extern ip_version_t ip_version;
 
 extern program_mode_t program_mode;
 extern unordered_map<int, const char*> raw_mode_tostring ;

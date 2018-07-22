@@ -222,6 +222,9 @@ int init_raw_socket()
 
 	}
 
+    int opt = 0;
+    assert(setsockopt(raw_send_fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt))==0);// raw_send_fd is for send only, set its recv buffer to zero
+
 	if(force_socket_buf)
 	{
 		if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
@@ -909,11 +912,11 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 
 	char send_raw_udp_buf[buf_len];
 
-	udphdr *udph=(struct udphdr *) (send_raw_udp_buf
-			+ sizeof(struct pseudo_header));
+	udphdr *udph=(struct udphdr *) (send_raw_udp_buf);
 
 	memset(udph,0,sizeof(udphdr));
-	struct pseudo_header *psh = (struct pseudo_header *) (send_raw_udp_buf);
+	struct pseudo_header tmp_header={0};
+	struct pseudo_header *psh = &tmp_header;
 
 	udph->source = htons(send_info.src_port);
 	udph->dest = htons(send_info.dst_port);
@@ -928,7 +931,7 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	mylog(log_trace,"udp_len:%d %d\n",udp_tot_len,udph->len);
 	udph->len=htons(uint16_t(udp_tot_len));
 
-	memcpy(send_raw_udp_buf+sizeof(struct pseudo_header)+sizeof(udphdr),payload,payloadlen);
+	memcpy(send_raw_udp_buf+sizeof(udphdr),payload,payloadlen);
 
 	psh->source_address = send_info.src_ip;
 	psh->dest_address = send_info.dst_ip;
@@ -936,11 +939,11 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	psh->protocol = IPPROTO_UDP;
 	psh->tcp_length = htons(uint16_t(udp_tot_len));
 
-	int csum_size = sizeof(struct pseudo_header) +udp_tot_len  ;
+	int csum_size = udp_tot_len  ;
 
-	udph->check = csum( (unsigned short*) send_raw_udp_buf, csum_size);
+	udph->check = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) send_raw_udp_buf, csum_size);
 
-	if(send_raw_ip(raw_info,send_raw_udp_buf+ sizeof(struct pseudo_header),udp_tot_len)!=0)
+	if(send_raw_ip(raw_info,send_raw_udp_buf,udp_tot_len)!=0)
 	{
 		return -1;
 	}
@@ -1316,7 +1319,7 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 {
 	const packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
-	static char recv_raw_udp_buf[buf_len];
+	//static char recv_raw_udp_buf[buf_len];
 	char * ip_payload;
 	int ip_payloadlen;
 
@@ -1350,9 +1353,10 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
     	return -1;
     }
 
-    memcpy(recv_raw_udp_buf+ sizeof(struct pseudo_header) , ip_payload , ip_payloadlen);
+    //memcpy(recv_raw_udp_buf+ sizeof(struct pseudo_header) , ip_payload , ip_payloadlen);
 
-    struct pseudo_header *psh=(pseudo_header *)recv_raw_udp_buf ;
+    pseudo_header tmp_header={0};
+    struct pseudo_header *psh=&tmp_header ;
 
     psh->source_address = recv_info.src_ip;
     psh->dest_address = recv_info.dst_ip;
@@ -1360,8 +1364,8 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
     psh->protocol = IPPROTO_UDP;
     psh->tcp_length = htons(ip_payloadlen);
 
-    int csum_len=sizeof(struct pseudo_header)+ip_payloadlen;
-    uint16_t udp_chk = csum( (unsigned short*) recv_raw_udp_buf, csum_len);
+    int csum_len=ip_payloadlen;
+    uint16_t udp_chk = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) ip_payload, csum_len);
 
     if(udp_chk!=0)
     {
@@ -1371,7 +1375,7 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 
     }
 
-    char *udp_begin=recv_raw_udp_buf+sizeof(struct pseudo_header);
+    char *udp_begin=ip_payload;
 
     recv_info.src_port=ntohs(udph->source);
     recv_info.dst_port=ntohs(udph->dest);
