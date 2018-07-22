@@ -306,7 +306,7 @@ void myexit(int a)
    	printf("%s\n",RESET);
     if(keep_thread_running)
     {
-		if(pthread_cancel(keep_thread))
+		if(pthread_kill(keep_thread,SIGUSR1))
 		{
 			mylog(log_warn,"pthread_cancel failed\n");
 		}

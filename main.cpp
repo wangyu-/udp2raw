@@ -1192,7 +1192,7 @@ int client_event_loop()
 	local_me.sin_addr.s_addr = local_ip_uint32;
 
 
-	if (bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
+	if (::bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
 		mylog(log_fatal,"socket bind error\n");
 		//perror("socket bind error");
 		myexit(1);
@@ -1436,7 +1436,7 @@ int server_event_loop()
      temp_bind_addr.sin_port = htons(local_port);
      temp_bind_addr.sin_addr.s_addr = local_ip_uint32;
 
-     if (bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
+     if (::bind(bind_fd, (struct sockaddr*)&temp_bind_addr, sizeof(temp_bind_addr)) !=0)
      {
     	 mylog(log_fatal,"bind fail\n");
     	 myexit(-1);
