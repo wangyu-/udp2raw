@@ -333,7 +333,7 @@ int conn_manager_t::clear_inactive0()
 		}
 		else
 		{
-			mylog(log_info,"[%s:%d]inactive conn cleared \n",my_ntoa(it->second->raw_info.recv_info.src_ip),it->second->raw_info.recv_info.src_port);
+			mylog(log_info,"[%s:%d]inactive conn cleared \n",it->second->raw_info.recv_info.new_src_ip.get_str1(),it->second->raw_info.recv_info.src_port);
 			old_it=it;
 			it++;
 			erase(old_it);

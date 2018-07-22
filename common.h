@@ -129,6 +129,25 @@ struct address_t  //TODO scope id
 		inner.ipv4.sin_addr.s_addr=ip;
 		return 0;
 	}
+
+	int from_ip_port_new(int type, void *  ip, int port)
+	{
+		clear();
+		if(type==AF_INET)
+		{
+			inner.ipv4.sin_family=AF_INET;
+			inner.ipv4.sin_port=htons(port);
+			inner.ipv4.sin_addr.s_addr=*((u32_t *)ip);
+		}
+		else if(type==AF_INET6)
+		{
+			inner.ipv6.sin6_family=AF_INET;
+			inner.ipv6.sin6_port=htons(port);
+			inner.ipv6.sin6_addr=*((in6_addr*)ip);
+		}
+		return 0;
+	}
+
 	int from_str(char * str);
 
 	int from_sockaddr(sockaddr *,socklen_t);
@@ -138,7 +157,9 @@ struct address_t  //TODO scope id
 
 	inline u32_t get_type()
 	{
-		return ((sockaddr*)&inner)->sa_family;
+		u32_t ret=((sockaddr*)&inner)->sa_family;
+		assert(ret==AF_INET||ret==AF_INET6);
+		return ret;
 	}
 
 	inline u32_t get_len()

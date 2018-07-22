@@ -52,11 +52,11 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 
 
-		address_t new_addr;
+		address_t tmp_addr;
 		//u32_t new_ip=0;
 		if(!force_source_ip)
 		{
-			if(get_src_adress2(new_addr,remote_addr)!=0)
+			if(get_src_adress2(tmp_addr,remote_addr)!=0)
 			{
 				mylog(log_warn,"get_src_adress() failed\n");
 				return -1;
@@ -64,7 +64,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			//source_addr=new_addr;
 			//source_addr.set_port(0);
 
-			mylog(log_info,"source_addr is now %s\n",new_addr.get_ip());
+			mylog(log_info,"source_addr is now %s\n",tmp_addr.get_ip());
 
 			/*
 			if(new_ip!=source_ip_uint32)
@@ -78,12 +78,16 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 		}
 		else
 		{
-			new_addr=source_addr;
+			tmp_addr=source_addr;
 		}
 
-		if(new_addr.get_type()==AF_INET)
+		if(tmp_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET)
 		{
-			send_info.src_ip=new_addr.inner.ipv4.sin_addr.s_addr;
+			send_info.new_src_ip.v4=tmp_addr.inner.ipv4.sin_addr.s_addr;
+		}
+		else if(tmp_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET6)
+		{
+			send_info.new_src_ip.v6=tmp_addr.inner.ipv6.sin6_addr;
 		}
 		else
 		{
@@ -92,7 +96,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 		if (force_source_port == 0)
 		{
-			send_info.src_port = client_bind_to_a_new_port2(bind_fd,new_addr);
+			send_info.src_port = client_bind_to_a_new_port2(bind_fd,tmp_addr);
 		}
 		else
 		{
@@ -319,9 +323,9 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 		{
 			return -1;
 		}
-		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
+		if(!recv_info.new_src_ip.equal(send_info.new_dst_ip)||recv_info.src_port!=send_info.dst_port)
 		{
-			mylog(log_debug,"unexpected adress %x %x %d %d\n",recv_info.src_ip,send_info.dst_ip,recv_info.src_port,send_info.dst_port);
+			mylog(log_debug,"unexpected adress %s %s %d %d\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);
 			return -1;
 		}
 		if(data_len==0&&raw_info.recv_info.syn==1&&raw_info.recv_info.ack==1)
@@ -352,9 +356,9 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			mylog(log_debug,"recv_bare failed!\n");
 			return -1;
 		}
-		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
+		if(!recv_info.new_src_ip.equal(send_info.new_dst_ip)||recv_info.src_port!=send_info.dst_port)
 		{
-			mylog(log_debug,"unexpected adress %x %x %d %d\n",recv_info.src_ip,send_info.dst_ip,recv_info.src_port,send_info.dst_port);
+			mylog(log_debug,"unexpected adress %s %s %d %d\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);
 			return -1;
 		}
 		if(data_len<int( 3*sizeof(id_t)))
@@ -417,9 +421,9 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			mylog(log_debug,"recv_safer failed!\n");
 			return -1;
 		}
-		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
+		if(!recv_info.new_src_ip.equal(send_info.new_dst_ip)||recv_info.src_port!=send_info.dst_port)
 		{
-			mylog(log_warn,"unexpected adress %x %x %d %d,this shouldnt happen.\n",recv_info.src_ip,send_info.dst_ip,recv_info.src_port,send_info.dst_port);
+			mylog(log_warn,"unexpected adress %s %s %d %d,this shouldnt happen.\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);
 			return -1;
 		}
 		if(conn_info.state.client_current_state==client_handshake2)
@@ -593,14 +597,17 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,id_t tmp_oppsite_id )
 
 	return 0;
 }*/
-int server_on_timer(conn_info_t &conn_info)  //for server. called when a timer is ready in epoll.for server,there will be one timer for every connection
+int server_on_timer_multi(conn_info_t &conn_info)  //for server. called when a timer is ready in epoll.for server,there will be one timer for every connection
 // there is also a global timer for server,but its not handled here
 {
 	char ip_port[40];
-	u32_t ip=conn_info.raw_info.send_info.dst_ip;
-	u32_t port=conn_info.raw_info.send_info.dst_port;
+	//u32_t ip=conn_info.raw_info.send_info.dst_ip;
+	//u32_t port=conn_info.raw_info.send_info.dst_port;
 
-	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
+	address_t tmp_addr;
+	tmp_addr.from_ip_port_new(raw_ip_version,&conn_info.raw_info.send_info.new_dst_ip,conn_info.raw_info.send_info.dst_port);
+	//sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
+	tmp_addr.to_str(ip_port);
 
 	//keep_iptables_rule();
 	mylog(log_trace,"server timer!\n");
@@ -863,13 +870,13 @@ int server_on_raw_recv_pre_ready(conn_info_t &conn_info,char * ip_port,u32_t tmp
 				 conn_info.oppsite_const_id=0;
 				 return 0;
 			}
-			address_t addr1;addr1.from_ip_port(ori_conn_info.raw_info.recv_info.src_ip,ori_conn_info.raw_info.recv_info.src_port);
+			address_t addr1;addr1.from_ip_port_new(raw_ip_version,&ori_conn_info.raw_info.recv_info.new_src_ip,ori_conn_info.raw_info.recv_info.src_port);
 			if(!conn_manager.exist(addr1))//TODO remove this
 			{
 				mylog(log_fatal,"[%s]this shouldnt happen\n",ip_port);
 				myexit(-1);
 			}
-			address_t addr2;addr2.from_ip_port(conn_info.raw_info.recv_info.src_ip,conn_info.raw_info.recv_info.src_port);
+			address_t addr2;addr2.from_ip_port_new(raw_ip_version,&conn_info.raw_info.recv_info.new_src_ip,conn_info.raw_info.recv_info.src_port);
 			if(!conn_manager.exist(addr2))//TODO remove this
 			{
 				mylog(log_fatal,"[%s]this shouldnt happen2\n",ip_port);
@@ -1005,15 +1012,19 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 	{
 		mylog(log_trace,"peek_raw success\n");
 	}
-	u32_t ip=peek_info.src_ip;uint16_t port=peek_info.src_port;
+	//u32_t ip=peek_info.src_ip;uint16_t port=peek_info.src_port;
 
-	char ip_port[40];
-	sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
-	mylog(log_trace,"[%s]peek_raw\n",ip_port);
+
 	int data_len; char *data;
 
 	address_t addr;
-	addr.from_ip_port(ip,port);
+	addr.from_ip_port_new(raw_ip_version,&peek_info.new_src_ip,peek_info.src_port);
+
+	char ip_port[40];
+	addr.to_str(ip_port);
+	//sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
+	mylog(log_trace,"[%s]peek_raw\n",ip_port);
+
 	if(raw_mode==mode_faketcp&&peek_info.syn==1)
 	{
 		if(!conn_manager.exist(addr)||conn_manager.find_insert(addr).state.server_current_state!=server_ready)
@@ -1030,11 +1041,11 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 			packet_info_t &send_info=raw_info.send_info;
 			packet_info_t &recv_info=raw_info.recv_info;
 
-			send_info.src_ip=recv_info.dst_ip;
+			send_info.new_src_ip=recv_info.new_dst_ip;
 			send_info.src_port=recv_info.dst_port;
 
 			send_info.dst_port = recv_info.src_port;
-			send_info.dst_ip = recv_info.src_ip;
+			send_info.new_dst_ip = recv_info.new_src_ip;
 
 			if(lower_level)
 			{
@@ -1077,7 +1088,7 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 
 		if(raw_mode==mode_icmp)
 		{
-			tmp_raw_info.send_info.dst_port=tmp_raw_info.send_info.src_port=port;
+			tmp_raw_info.send_info.dst_port=tmp_raw_info.send_info.src_port=addr.get_port();
 		}
 		if(recv_bare(tmp_raw_info,data,data_len)<0)
 		{
@@ -1114,11 +1125,11 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 
 
 
-		send_info.src_ip=recv_info.dst_ip;
+		send_info.new_src_ip=recv_info.new_dst_ip;
 		send_info.src_port=recv_info.dst_port;
 
 		send_info.dst_port = recv_info.src_port;
-		send_info.dst_ip = recv_info.src_ip;
+		send_info.new_dst_ip = recv_info.new_src_ip;
 
 		if(lower_level)
 		{
@@ -1369,13 +1380,26 @@ int client_event_loop()
 		myexit(-1);
 	}*/
 	send_info.src_port=0;
-	send_info.src_ip = 0;
+	memset(&send_info.new_src_ip,0,sizeof(send_info.new_src_ip));
 
 	int i, j, k;int ret;
 
 
 	//init_filter(source_port);
-	send_info.dst_ip=remote_addr.inner.ipv4.sin_addr.s_addr;
+
+	if(remote_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET)
+	{
+		send_info.new_dst_ip.v4=remote_addr.inner.ipv4.sin_addr.s_addr;
+	}
+	else if(remote_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET6)
+	{
+		send_info.new_dst_ip.v6=remote_addr.inner.ipv6.sin6_addr;
+	}
+	else
+	{
+		assert(0==1);
+	}
+
 	send_info.dst_port=remote_addr.get_port();
 
 	//g_packet_info.src_ip=source_address_uint32;
@@ -1436,8 +1460,7 @@ int client_event_loop()
 
 	set_timer(epollfd,timer_fd);
 
-	mylog(log_debug,"send_raw : from %x %d  to %x %d\n",send_info.src_ip,send_info.src_port,send_info.dst_ip,send_info.dst_port);
-
+	mylog(log_debug,"send_raw : from %s %d  to %s %d\n",send_info.new_src_ip.get_str1(),send_info.src_port,send_info.new_dst_ip.get_str2(),send_info.dst_port);
 	int fifo_fd=-1;
 
 	if(fifo_file[0]!=0)
@@ -1718,7 +1741,7 @@ int server_event_loop()
 					u64_t dummy;
 					read(fd, &dummy, 8);
 					assert(conn_info.state.server_current_state == server_ready); //TODO remove this for peformance
-					server_on_timer(conn_info);
+					server_on_timer_multi(conn_info);
 					if(debug_flag)
 					{
 						end_time=get_current_time();
@@ -1815,14 +1838,9 @@ int main(int argc, char *argv[])
 	//}
 	//else
 
-#else
-	{
-		//strncpy(remote_ip,remote_address,sizeof(remote_ip)-1);
-		//strcpy(remote_ip,remote_address);
-		//remote_ip_uint32=inet_addr(remote_ip);
-		mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_addr.get_ip());
-	}
 #endif
+
+	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_addr.get_ip());
 
 	//current_time_rough=get_current_time();
 

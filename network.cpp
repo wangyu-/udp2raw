@@ -154,6 +154,45 @@ tcpdump -i eth1  ip and icmp -dd
 
  */
 
+bool packet_info_t::tmp_ip_t::equal (const tmp_ip_t &b) const
+{
+	//extern int raw_ip_version;
+	if(raw_ip_version==AF_INET)
+	{
+		return v4==b.v4;
+	}else if(raw_ip_version==AF_INET)
+	{
+		return memcmp(&v6,&b.v6,sizeof(v6));
+	}
+	assert(0==1);
+	return 0;
+}
+char * packet_info_t::tmp_ip_t::get_str1() const
+{
+	static char res[max_addr_len];
+	if(raw_ip_version==AF_INET6)
+	{
+		assert(inet_ntop(AF_INET6, &v6, res,max_addr_len)!=0);
+	}
+	else if(raw_ip_version==AF_INET)
+	{
+		assert(inet_ntop(AF_INET, &v4, res,max_addr_len)!=0);
+	}
+	return res;
+}
+char * packet_info_t::tmp_ip_t::get_str2() const
+{
+	static char res[max_addr_len];
+	if(raw_ip_version==AF_INET6)
+	{
+		assert(inet_ntop(AF_INET6, &v6, res,max_addr_len)!=0);
+	}
+	else if(raw_ip_version==AF_INET)
+	{
+		assert(inet_ntop(AF_INET, &v4, res,max_addr_len)!=0);
+	}
+	return res;
+}
 packet_info_t::packet_info_t()
 {
 	src_port=0;
@@ -607,7 +646,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 
 	if(raw_info.disabled)
 	{
-		mylog(log_debug,"[%s,%d]connection disabled, no packet will be sent\n",my_ntoa(recv_info.src_ip),recv_info.src_port);
+		mylog(log_debug,"[%s,%d]connection disabled, no packet will be sent\n",recv_info.new_src_ip.get_str1(),recv_info.src_port);
 		assert(max_rst_allowed>=0);
 		return 0;
 	}
@@ -633,8 +672,8 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     iph->ttl = (unsigned char)ttl_value;
     iph->protocol = send_info.protocol;
     iph->check = 0; //Set to 0 before calculating checksum
-    iph->saddr = send_info.src_ip;    //Spoof the source ip address
-    iph->daddr = send_info.dst_ip;
+    iph->saddr = send_info.new_src_ip.v4;    //Spoof the source ip address
+    iph->daddr = send_info.new_dst_ip.v4;
 
     uint16_t ip_tot_len=sizeof (struct iphdr)+payloadlen;
     if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
@@ -654,7 +693,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 		struct sockaddr_in sin={0};
 		sin.sin_family = AF_INET;
 		//sin.sin_port = htons(info.dst_port); //dont need this
-		sin.sin_addr.s_addr = send_info.dst_ip;
+		sin.sin_addr.s_addr = send_info.new_dst_ip.v4;
 		ret = sendto(raw_send_fd, send_raw_ip_buf, ip_tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
 
     }
@@ -699,7 +738,7 @@ int peek_raw(packet_info_t &peek_info)
 		mylog(log_trace,"%s\n ",strerror(errno));
 		return -1;
 	}
-	peek_info.src_ip=iph->saddr;
+	peek_info.new_src_ip.v4=iph->saddr;
     unsigned short iphdrlen =iph->ihl*4;
     char *payload=ip_begin+iphdrlen;
 
@@ -811,8 +850,8 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 	iph = (struct iphdr *) (ip_begin);
 
-	recv_info.src_ip=iph->saddr;
-	recv_info.dst_ip=iph->daddr;
+	recv_info.new_src_ip.v4=iph->saddr;
+	recv_info.new_dst_ip.v4=iph->daddr;
 	recv_info.protocol=iph->protocol;
 
 	if(lower_level)
@@ -821,7 +860,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	}
 
 
-	if(bind_addr_used && recv_info.dst_ip!=bind_addr.inner.ipv4.sin_addr.s_addr)
+	if(bind_addr_used && recv_info.new_dst_ip.v4!=bind_addr.inner.ipv4.sin_addr.s_addr)
 	{
 		mylog(log_trace,"bind adress doenst match, dropped\n");
 		//printf(" bind adress doenst match, dropped\n");
@@ -933,8 +972,8 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 
 	memcpy(send_raw_udp_buf+sizeof(udphdr),payload,payloadlen);
 
-	psh->source_address = send_info.src_ip;
-	psh->dest_address = send_info.dst_ip;
+	psh->source_address = send_info.new_src_ip.v4;
+	psh->dest_address = send_info.new_dst_ip.v4;
 	psh->placeholder = 0;
 	psh->protocol = IPPROTO_UDP;
 	psh->tcp_length = htons(uint16_t(udp_tot_len));
@@ -1054,8 +1093,8 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 
 	memcpy(tcp_data, payload, payloadlen);
 
-	psh->source_address = send_info.src_ip;
-	psh->dest_address = send_info.dst_ip;
+	psh->source_address = send_info.new_src_ip.v4;
+	psh->dest_address = send_info.new_dst_ip.v4;
 	psh->placeholder = 0;
 	psh->protocol = IPPROTO_TCP;
 	psh->tcp_length = htons(tcph->doff * 4 + payloadlen);
@@ -1358,8 +1397,8 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
     pseudo_header tmp_header={0};
     struct pseudo_header *psh=&tmp_header ;
 
-    psh->source_address = recv_info.src_ip;
-    psh->dest_address = recv_info.dst_ip;
+    psh->source_address = recv_info.new_src_ip.v4;
+    psh->dest_address = recv_info.new_dst_ip.v4;
     psh->placeholder = 0;
     psh->protocol = IPPROTO_UDP;
     psh->tcp_length = htons(ip_payloadlen);
@@ -1506,8 +1545,8 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     pseudo_header tmp_header;
     struct pseudo_header *psh=&tmp_header ;
 
-    psh->source_address = recv_info.src_ip;
-    psh->dest_address = recv_info.dst_ip;
+    psh->source_address = recv_info.new_src_ip.v4;
+    psh->dest_address = recv_info.new_dst_ip.v4;
     psh->placeholder = 0;
     psh->protocol = IPPROTO_TCP;
     psh->tcp_length = htons(ip_payloadlen);
@@ -1615,29 +1654,29 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     	{
     		if(raw_info.rst_received < max_rst_to_show)
     		{
-    			mylog(log_warn,"[%s,%d]rst==1,cnt=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    			mylog(log_warn,"[%s,%d]rst==1,cnt=%d\n",recv_info.new_src_ip.get_str1(),recv_info.src_port,(int)raw_info.rst_received);
     		}
     		else if(raw_info.rst_received == max_rst_to_show)
     		{
-    			mylog(log_warn,"[%s,%d]rst==1,cnt=%d >=max_rst_to_show, this log will be muted for current connection\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    			mylog(log_warn,"[%s,%d]rst==1,cnt=%d >=max_rst_to_show, this log will be muted for current connection\n",recv_info.new_src_ip.get_str1(),recv_info.src_port,(int)raw_info.rst_received);
     		}
     		else
     		{
-    			mylog(log_debug,"[%s,%d]rst==1,cnt=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    			mylog(log_debug,"[%s,%d]rst==1,cnt=%d\n",recv_info.new_src_ip.get_str1(),recv_info.src_port,(int)raw_info.rst_received);
     		}
     	}
     	else if(max_rst_to_show==0)
     	{
-    		mylog(log_debug,"[%s,%d]rst==1,cnt=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    		mylog(log_debug,"[%s,%d]rst==1,cnt=%d\n",recv_info.new_src_ip.get_str1(),recv_info.src_port,(int)raw_info.rst_received);
     	}
     	else
     	{
-    		mylog(log_warn,"[%s,%d]rst==1,cnt=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received);
+    		mylog(log_warn,"[%s,%d]rst==1,cnt=%d\n",recv_info.new_src_ip.get_str1(),recv_info.src_port,(int)raw_info.rst_received);
     	}
 
 		if(max_rst_allowed>=0 && raw_info.rst_received==max_rst_allowed+1 )
 		{
-			mylog(log_warn,"[%s,%d]connection disabled because of rst_received=%d > max_rst_allow=%d\n",my_ntoa(recv_info.src_ip),recv_info.src_port,(int)raw_info.rst_received,(int)max_rst_allowed );
+			mylog(log_warn,"[%s,%d]connection disabled because of rst_received=%d > max_rst_allow=%d\n",recv_info.new_src_ip.get_str1(),recv_info.src_port,(int)raw_info.rst_received,(int)max_rst_allowed );
 			raw_info.disabled=1;
 		}
     }
@@ -1832,7 +1871,7 @@ int send_raw0(raw_info_t &raw_info,const char * payload,int payloadlen)
 
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
-	mylog(log_trace,"send_raw : from %x %d  to %x %d\n",send_info.src_ip,send_info.src_port,send_info.dst_ip,send_info.dst_port);
+	mylog(log_trace,"send_raw : from %s %d  to %s %d\n",send_info.new_src_ip.get_str1(),send_info.src_port,send_info.new_dst_ip.get_str2(),send_info.dst_port);
 	switch(raw_mode)
 	{
 		case mode_faketcp:return send_raw_tcp(raw_info,payload,payloadlen);

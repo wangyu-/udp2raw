@@ -74,7 +74,7 @@ int iptables_rule_keep_index=0;
 
 program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 raw_mode_t raw_mode=mode_faketcp;
-ip_version_t ip_version=version_unset;
+u32_t raw_ip_version=(u32_t)-1;
 unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 
 int about_to_exit=0;
@@ -713,6 +713,14 @@ void process_arg(int argc, char *argv[])  //process all options
 	{
 		print_help();
 		myexit(-1);
+	}
+	if(program_mode==client_mode)
+	{
+		raw_ip_version=remote_addr.get_type();
+	}
+	else
+	{
+		raw_ip_version=local_addr.get_type();
 	}
 
 	//if(lower_level)

@@ -50,11 +50,22 @@ struct pseudo_header {
 struct packet_info_t  //todo change this to union
 {
 	uint8_t protocol;
-	//ip_part:
-	u32_t src_ip;
-	uint16_t src_port;
 
-	u32_t dst_ip;
+	union tmp_ip_t
+	{
+		u32_t v4;
+		in6_addr v6;
+
+	    bool equal (const tmp_ip_t &b) const;
+
+	    char * get_str1() const;
+	    char * get_str2() const;
+	}ip;
+
+	tmp_ip_t new_src_ip;
+	tmp_ip_t new_dst_ip;
+
+	uint16_t src_port;
 	uint16_t dst_port;
 
 	//tcp_part:
