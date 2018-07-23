@@ -28,6 +28,7 @@
 #include <netinet/tcp.h>   //Provides declarations for tcp header
 #include <netinet/udp.h>
 #include <netinet/ip.h>    //Provides declarations for ip header
+#include <netinet/ip6.h>
 #include <netinet/if_ether.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -150,6 +151,8 @@ struct address_t  //TODO scope id
 
 	int from_str(char * str);
 
+	int from_str_ip_only(char * str);
+
 	int from_sockaddr(sockaddr *,socklen_t);
 
 	char* get_str();
@@ -232,6 +235,19 @@ template <>
    }
  };
 }
+
+union my_ip_t //just a simple version of address_t,stores ip only
+{
+	u32_t v4;
+	in6_addr v6;
+
+    bool equal (const my_ip_t &b) const;
+
+    //int from_str(char * str);
+    char * get_str1() const;
+    char * get_str2() const;
+
+};
 
 struct not_copy_able_t
 {

@@ -154,45 +154,6 @@ tcpdump -i eth1  ip and icmp -dd
 
  */
 
-bool packet_info_t::tmp_ip_t::equal (const tmp_ip_t &b) const
-{
-	//extern int raw_ip_version;
-	if(raw_ip_version==AF_INET)
-	{
-		return v4==b.v4;
-	}else if(raw_ip_version==AF_INET)
-	{
-		return memcmp(&v6,&b.v6,sizeof(v6));
-	}
-	assert(0==1);
-	return 0;
-}
-char * packet_info_t::tmp_ip_t::get_str1() const
-{
-	static char res[max_addr_len];
-	if(raw_ip_version==AF_INET6)
-	{
-		assert(inet_ntop(AF_INET6, &v6, res,max_addr_len)!=0);
-	}
-	else if(raw_ip_version==AF_INET)
-	{
-		assert(inet_ntop(AF_INET, &v4, res,max_addr_len)!=0);
-	}
-	return res;
-}
-char * packet_info_t::tmp_ip_t::get_str2() const
-{
-	static char res[max_addr_len];
-	if(raw_ip_version==AF_INET6)
-	{
-		assert(inet_ntop(AF_INET6, &v6, res,max_addr_len)!=0);
-	}
-	else if(raw_ip_version==AF_INET)
-	{
-		assert(inet_ntop(AF_INET, &v4, res,max_addr_len)!=0);
-	}
-	return res;
-}
 packet_info_t::packet_info_t()
 {
 	src_port=0;
@@ -637,7 +598,42 @@ int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw)
 	return 0;
 }
 
+int send_raw_packet(raw_info_t &raw_info,const char * packet,int len)
+{
+	const packet_info_t &send_info=raw_info.send_info;
+	const packet_info_t &recv_info=raw_info.recv_info;
 
+    int ret;
+    if(lower_level==0)
+    {
+		struct sockaddr_in sin={0};
+		sin.sin_family = AF_INET;
+		//sin.sin_port = htons(info.dst_port); //dont need this
+		sin.sin_addr.s_addr = send_info.new_dst_ip.v4;
+		ret = sendto(raw_send_fd, packet, len ,  0, (struct sockaddr *) &sin, sizeof (sin));
+
+    }
+    else
+    {
+
+    	struct sockaddr_ll addr={0};  //={0} not necessary
+    	memcpy(&addr,&send_info.addr_ll,sizeof(addr));
+
+    	ret = sendto(raw_send_fd, packet, len ,  0, (struct sockaddr *) &addr, sizeof (addr));
+    }
+    if(ret==-1)
+    {
+
+    	mylog(log_trace,"sendto failed\n");
+    	//perror("why?");
+    	return -1;
+    }
+    else
+    {
+    	//mylog(log_info,"sendto succ\n");
+    }
+    return 0;
+}
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
 	const packet_info_t &send_info=raw_info.send_info;
@@ -687,36 +683,8 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     else
     	iph->check=0;
 
-    int ret;
-    if(lower_level==0)
-    {
-		struct sockaddr_in sin={0};
-		sin.sin_family = AF_INET;
-		//sin.sin_port = htons(info.dst_port); //dont need this
-		sin.sin_addr.s_addr = send_info.new_dst_ip.v4;
-		ret = sendto(raw_send_fd, send_raw_ip_buf, ip_tot_len ,  0, (struct sockaddr *) &sin, sizeof (sin));
 
-    }
-    else
-    {
-
-    	struct sockaddr_ll addr={0};  //={0} not necessary
-    	memcpy(&addr,&send_info.addr_ll,sizeof(addr));
-
-    	ret = sendto(raw_send_fd, send_raw_ip_buf, ip_tot_len ,  0, (struct sockaddr *) &addr, sizeof (addr));
-    }
-    if(ret==-1)
-    {
-
-    	mylog(log_trace,"sendto failed\n");
-    	//perror("why?");
-    	return -1;
-    }
-    else
-    {
-    	//mylog(log_info,"sendto succ\n");
-    }
-    return 0;
+    return send_raw_packet(raw_info,send_raw_ip_buf,ip_tot_len);
 }
 int peek_raw(packet_info_t &peek_info)
 {
@@ -814,15 +782,33 @@ int discard_raw_packet()
 	g_packet_buf_cnt--;
 	return 0;
 }
-int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
+int recv_raw_packet(char * &packet,int &len)
 {
 	assert(g_packet_buf_cnt==1);
 	g_packet_buf_cnt--;
 
-	char *recv_raw_ip_buf=g_packet_buf;
-	//static char recv_raw_ip_buf[buf_len];
+	if(g_packet_buf_len<int(link_level_header_len))
+	{
+		mylog(log_trace,"packet len %d shorter than link_level_header_len %d\n");
+		return -1;
+	}
 
-	int recv_len=g_packet_buf_len;
+	if(link_level_header_len ==14&&(g_packet_buf[12]!=8||g_packet_buf[13]!=0))
+	{
+		mylog(log_trace,"not an ipv4 packet!\n");
+		return -1;
+	}
+	packet=g_packet_buf+int(link_level_header_len);
+	len=g_packet_buf_len-int(link_level_header_len);
+	return 0;
+}
+int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
+{
+	char *raw_packet_buf;
+	//static char recv_raw_ip_buf[buf_len];
+	int raw_packet_len;
+
+	if(recv_raw_packet(raw_packet_buf,raw_packet_len)!=0) return -1;
 
 	const packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
@@ -833,20 +819,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	int flag=0;
 	//int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
 
-
-	if(recv_len<int(link_level_header_len))
-	{
-		mylog(log_trace,"length error\n");
-	}
-
-	if(link_level_header_len ==14&&(recv_raw_ip_buf[12]!=8||recv_raw_ip_buf[13]!=0))
-	{
-		mylog(log_trace,"not an ipv4 packet!\n");
-		return -1;
-	}
-
-
-	char *ip_begin=recv_raw_ip_buf+link_level_header_len;  //14 is eth net header
+	char *ip_begin=raw_packet_buf;  //14 is eth net header
 
 	iph = (struct iphdr *) (ip_begin);
 
@@ -875,7 +848,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 	int ip_len=ntohs(iph->tot_len);
 
-	if(recv_len-int(link_level_header_len) <ip_len)
+	if(raw_packet_len <ip_len)
 	{
 		mylog(log_debug,"incomplete packet\n");
 		return -1;

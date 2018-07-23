@@ -90,6 +90,46 @@ int address_t::from_str(char *str)
 	return 0;
 }
 
+int address_t::from_str_ip_only(char * str)
+{
+	clear();
+
+	u32_t type;
+
+	if(strchr(str,':')==NULL)
+		type=AF_INET;
+	else
+		type=AF_INET6;
+
+	((sockaddr*)&inner)->sa_family=type;
+
+	int ret;
+	if(type==AF_INET)
+	{
+		ret=inet_pton(type, str,&inner.ipv4.sin_addr);
+	}
+	else
+	{
+		ret=inet_pton(type, str,&inner.ipv6.sin6_addr);
+	}
+
+	if(ret==0)  // 0 if address type doesnt match
+	{
+		mylog(log_error,"confusion in parsing %s, %d\n",str,ret);
+		myexit(-1);
+	}
+	else if(ret==1) // inet_pton returns 1 on success
+	{
+		//okay
+	}
+	else
+	{
+		mylog(log_error,"ip_addr %s is invalid, %d\n",str,ret);
+		myexit(-1);
+	}
+	return 0;
+}
+
 char * address_t::get_str()
 {
 	static char res[max_addr_len];
@@ -220,7 +260,74 @@ int address_t::new_connected_udp_fd()
 	return new_udp_fd;
 }
 
+bool my_ip_t::equal (const my_ip_t &b) const
+{
+	//extern int raw_ip_version;
+	if(raw_ip_version==AF_INET)
+	{
+		return v4==b.v4;
+	}else if(raw_ip_version==AF_INET)
+	{
+		return memcmp(&v6,&b.v6,sizeof(v6));
+	}
+	assert(0==1);
+	return 0;
+}
+char * my_ip_t::get_str1() const
+{
+	static char res[max_addr_len];
+	if(raw_ip_version==AF_INET6)
+	{
+		assert(inet_ntop(AF_INET6, &v6, res,max_addr_len)!=0);
+	}
+	else if(raw_ip_version==AF_INET)
+	{
+		assert(inet_ntop(AF_INET, &v4, res,max_addr_len)!=0);
+	}
+	return res;
+}
+char * my_ip_t::get_str2() const
+{
+	static char res[max_addr_len];
+	if(raw_ip_version==AF_INET6)
+	{
+		assert(inet_ntop(AF_INET6, &v6, res,max_addr_len)!=0);
+	}
+	else if(raw_ip_version==AF_INET)
+	{
+		assert(inet_ntop(AF_INET, &v4, res,max_addr_len)!=0);
+	}
+	return res;
+}
+/*
+int my_ip_t::from_str(char * str)
+{
+	u32_t type;
 
+	if(strchr(str,':')==NULL)
+		type=AF_INET;
+	else
+		type=AF_INET6;
+
+	int ret;
+	ret=inet_pton(type, str,this);
+
+	if(ret==0)  // 0 if address type doesnt match
+	{
+		mylog(log_error,"confusion in parsing %s, %d\n",str,ret);
+		myexit(-1);
+	}
+	else if(ret==1) // inet_pton returns 1 on success
+	{
+		//okay
+	}
+	else
+	{
+		mylog(log_error,"ip_addr %s is invalid, %d\n",str,ret);
+		myexit(-1);
+	}
+	return 0;
+}*/
 u64_t get_current_time()
 {
 	timespec tmp_time;

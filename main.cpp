@@ -100,7 +100,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 		}
 		else
 		{
-			send_info.src_port = source_addr.get_port();
+			send_info.src_port = source_port;
 		}
 
 		if (raw_mode == mode_icmp)

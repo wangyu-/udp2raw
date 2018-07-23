@@ -34,6 +34,8 @@ fd_manager_t fd_manager;
 //int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
 address_t local_addr,remote_addr,source_addr,bind_addr;
 
+int source_port=-1;
+
 int bind_addr_used=0;
 int force_source_ip=0; //if --source-ip is enabled
 int force_source_port=0;
@@ -132,7 +134,7 @@ void print_help()
 	printf("common options,these options must be same on both side:\n");
 	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp\n");
 	printf("    -k,--key              <string>        password to gen symetric key,default:\"secret key\"\n");
-	printf("    --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none\n");
+	printf("    --cipher-mode         <string>        avaliable values:aes128cfb,aes128cbc(default),xor,none\n");
 	printf("    --auth-mode           <string>        avaliable values:hmac_sha1,md5(default),crc32,simple,none\n");
 	printf("    -a,--auto-rule                        auto add (and delete) iptables rule\n");
 	printf("    -g,--gen-rule                         generate iptables rule then exit,so that you can copy and\n");
@@ -470,13 +472,13 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				clear_iptables=1;
 			}
-			/////////////////////fix this later
-			/*
+
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
 			{
 				mylog(log_debug,"parsing long option :source-ip\n");
-				sscanf(optarg, "%s", source_ip);
-				mylog(log_debug,"source: %s\n",source_ip);
+				//sscanf(optarg, "%s", source_ip);
+				source_addr.from_str_ip_only(optarg);
+				mylog(log_debug,"source: %s\n",source_addr.get_ip());
 				force_source_ip=1;
 			}
 			else if(strcmp(long_options[option_index].name,"source-port")==0)
@@ -484,7 +486,8 @@ void process_arg(int argc, char *argv[])  //process all options
 				mylog(log_debug,"parsing long option :source-port\n");
 				sscanf(optarg, "%d", &source_port);
 				mylog(log_info,"source: %d\n",source_port);
-			}*/
+				force_source_port=1;
+			}
 			else if(strcmp(long_options[option_index].name,"raw-mode")==0)
 			{
 				for(i=0;i<mode_end;i++)

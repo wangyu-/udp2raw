@@ -30,6 +30,7 @@ extern char g_packet_buf[buf_len];
 extern int g_packet_buf_len;
 extern int g_packet_buf_cnt;
 
+
 struct icmphdr
 {
 	uint8_t type;
@@ -51,19 +52,10 @@ struct packet_info_t  //todo change this to union
 {
 	uint8_t protocol;
 
-	union tmp_ip_t
-	{
-		u32_t v4;
-		in6_addr v6;
 
-	    bool equal (const tmp_ip_t &b) const;
 
-	    char * get_str1() const;
-	    char * get_str2() const;
-	}ip;
-
-	tmp_ip_t new_src_ip;
-	tmp_ip_t new_dst_ip;
+	my_ip_t new_src_ip;
+	my_ip_t new_dst_ip;
 
 	uint16_t src_port;
 	uint16_t dst_port;
