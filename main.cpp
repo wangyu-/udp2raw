@@ -997,9 +997,11 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 int server_on_raw_recv_multi() //called when server received an raw packet
 {
 	char dummy_buf[buf_len];
-	packet_info_t peek_info;
+	raw_info_t peek_raw_info;
+	peek_raw_info.peek=1;
+	packet_info_t &peek_info=peek_raw_info.recv_info;
 	if(pre_recv_raw_packet()<0) return -1;
-	if(peek_raw(peek_info)<0)
+	if(peek_raw(peek_raw_info)<0)
 	{
 		discard_raw_packet();
 		//recv(raw_recv_fd, 0,0, 0  );//
@@ -1554,10 +1556,23 @@ int server_event_loop()
 
 	int i, j, k;int ret;
 
-	if(local_addr.inner.ipv4.sin_addr.s_addr!=0)
+	if(raw_ip_version==AF_INET)
 	{
-		bind_addr_used=1;
-		bind_addr=local_addr;
+		if(local_addr.inner.ipv4.sin_addr.s_addr!=0)
+		{
+			bind_addr_used=1;
+			bind_addr.v4=local_addr.inner.ipv4.sin_addr.s_addr;
+		}
+	}
+	else
+	{
+		assert(raw_ip_version==AF_INET6);
+		char zero_arr[16]={0};
+		if(memcmp(&local_addr.inner.ipv6.sin6_addr,zero_arr,16)!=0)
+		{
+			bind_addr_used=1;
+			bind_addr.v6=local_addr.inner.ipv6.sin6_addr;
+		}
 	}
 	//bind_address_uint32=local_ip_uint32;//only server has bind adress,client sets it to zero
 

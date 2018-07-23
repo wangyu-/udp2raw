@@ -78,7 +78,9 @@ union current_state_t
 //extern u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
 //extern int local_port , remote_port,source_port;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
 
-extern address_t local_addr,remote_addr,source_addr,bind_addr;
+extern address_t local_addr,remote_addr,source_addr;
+
+extern my_ip_t bind_addr;
 
 extern int bind_addr_used;
 extern int force_source_ip; //if --source-ip is enabled

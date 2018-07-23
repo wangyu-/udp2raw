@@ -32,7 +32,9 @@ fd_manager_t fd_manager;
 //char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
 //u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
 //int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
-address_t local_addr,remote_addr,source_addr,bind_addr;
+address_t local_addr,remote_addr,source_addr;
+
+my_ip_t bind_addr;
 
 int source_port=-1;
 

@@ -190,7 +190,7 @@ int init_raw_socket()
 	g_ip_id_counter=get_true_random_number()%65535;
 	if(lower_level==0)
 	{
-		raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_RAW);// IPPROTO_TCP??
+		raw_send_fd = socket(raw_ip_version , SOCK_RAW , IPPROTO_RAW);// IPPROTO_TCP??
 
 	    if(raw_send_fd == -1) {
 	    	mylog(log_fatal,"Failed to create raw_send_fd\n");
@@ -606,11 +606,25 @@ int send_raw_packet(raw_info_t &raw_info,const char * packet,int len)
     int ret;
     if(lower_level==0)
     {
-		struct sockaddr_in sin={0};
-		sin.sin_family = AF_INET;
-		//sin.sin_port = htons(info.dst_port); //dont need this
-		sin.sin_addr.s_addr = send_info.new_dst_ip.v4;
-		ret = sendto(raw_send_fd, packet, len ,  0, (struct sockaddr *) &sin, sizeof (sin));
+    	if(raw_ip_version==AF_INET)
+    	{
+			struct sockaddr_in sin={0};
+			sin.sin_family = raw_ip_version;
+			//sin.sin_port = htons(info.dst_port); //dont need this
+			sin.sin_addr.s_addr = send_info.new_dst_ip.v4;
+			ret = sendto(raw_send_fd, packet, len ,  0, (struct sockaddr *) &sin, sizeof (sin));
+    	}
+    	else if(raw_ip_version==AF_INET6)
+    	{
+			struct sockaddr_in6 sin={0};
+			sin.sin6_family = raw_ip_version;
+			//sin.sin_port = htons(info.dst_port); //dont need this
+			sin.sin6_addr = send_info.new_dst_ip.v6;
+			ret = sendto(raw_send_fd, packet, len ,  0, (struct sockaddr *) &sin, sizeof (sin));
+    	}else
+    	{
+    		assert(0==1);
+    	}
 
     }
     else
@@ -686,72 +700,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 
     return send_raw_packet(raw_info,send_raw_ip_buf,ip_tot_len);
 }
-int peek_raw(packet_info_t &peek_info)
-{
-	//static char peek_raw_buf[buf_len];
-	assert(g_packet_buf_cnt==1);
-	//g_packet_buf_cnt--;
-	char * peek_raw_buf=g_packet_buf;
-	int recv_len=g_packet_buf_len;
 
-	char *ip_begin=peek_raw_buf+link_level_header_len;
-	//struct sockaddr saddr={0};
-	//socklen_t saddr_size=sizeof(saddr);
-	//int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,max_data_len, MSG_PEEK ,&saddr , &saddr_size);//change max_data_len to something smaller,we only need header here
-	iphdr * iph = (struct iphdr *) (ip_begin);
-	//mylog(log_info,"recv_len %d\n",recv_len);
-	if(recv_len<int(sizeof(iphdr)))
-	{
-		mylog(log_trace,"failed here %d %d\n",recv_len,int(sizeof(iphdr)));
-		mylog(log_trace,"%s\n ",strerror(errno));
-		return -1;
-	}
-	peek_info.new_src_ip.v4=iph->saddr;
-    unsigned short iphdrlen =iph->ihl*4;
-    char *payload=ip_begin+iphdrlen;
-
-	//mylog(log_info,"protocol %d\n",iph->protocol);
-    switch(raw_mode)
-    {
-    	case mode_faketcp:
-    	{
-    		if(iph->protocol!=IPPROTO_TCP)
-    		{
-    			mylog(log_trace,"failed here");
-    			return -1;
-    		}
-    		struct tcphdr *tcph=(tcphdr *)payload;
-    		if(recv_len<int( iphdrlen+sizeof(tcphdr) ))
-    		{
-    			mylog(log_trace,"failed here");
-    			return -1;
-    		}
-    		peek_info.src_port=ntohs(tcph->source);
-    		peek_info.syn=tcph->syn;
-			break;
-    	}
-    	case mode_udp:
-    	{
-    		if(iph->protocol!=IPPROTO_UDP) return -1;
-    		struct udphdr *udph=(udphdr *)payload;
-    		if(recv_len<int(iphdrlen+sizeof(udphdr)))
-    			return -1;
-    		peek_info.src_port=ntohs(udph->source);
-			break;
-    	}
-    	case mode_icmp:
-    	{
-    		if(iph->protocol!=IPPROTO_ICMP) return -1;
-    		struct icmphdr *icmph=(icmphdr *)payload;
-    		if(recv_len<int( iphdrlen+sizeof(icmphdr) ))
-    			return -1;
-    		peek_info.src_port=ntohs(icmph->id);
-			break;
-    	}
-    	default:return -1;
-    }
-    return 0;
-}
 int pre_recv_raw_packet()
 {
 	assert(g_packet_buf_cnt==0);
@@ -782,21 +731,29 @@ int discard_raw_packet()
 	g_packet_buf_cnt--;
 	return 0;
 }
-int recv_raw_packet(char * &packet,int &len)
+int recv_raw_packet(char * &packet,int &len,int peek)
 {
 	assert(g_packet_buf_cnt==1);
-	g_packet_buf_cnt--;
+	if(!peek)
+		g_packet_buf_cnt--;
 
 	if(g_packet_buf_len<int(link_level_header_len))
 	{
-		mylog(log_trace,"packet len %d shorter than link_level_header_len %d\n");
+		mylog(log_trace,"packet len %d shorter than link_level_header_len %d\n",g_packet_buf_len,int(link_level_header_len));
 		return -1;
 	}
 
-	if(link_level_header_len ==14&&(g_packet_buf[12]!=8||g_packet_buf[13]!=0))
+	if(link_level_header_len ==14)
 	{
-		mylog(log_trace,"not an ipv4 packet!\n");
-		return -1;
+		unsigned char a=g_packet_buf[12];
+		unsigned char b=g_packet_buf[13];
+
+		if(! ((a==0x08&&b==0x00) ||(a==0x86&&b==0xdd))   )
+		{
+			mylog(log_trace,"not an ipv4 or ipv6 packet!\n");
+			return -1;
+		}
+
 	}
 	packet=g_packet_buf+int(link_level_header_len);
 	len=g_packet_buf_len-int(link_level_header_len);
@@ -808,45 +765,93 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	//static char recv_raw_ip_buf[buf_len];
 	int raw_packet_len;
 
-	if(recv_raw_packet(raw_packet_buf,raw_packet_len)!=0) return -1;
+	if(recv_raw_packet(raw_packet_buf,raw_packet_len,raw_info.peek)!=0) return -1;
 
-	const packet_info_t &send_info=raw_info.send_info;
+	//const packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
 
 
 	iphdr *  iph;
-
+	ip6_hdr * ip6h;
 	int flag=0;
 	//int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
 
 	char *ip_begin=raw_packet_buf;  //14 is eth net header
 
-	iph = (struct iphdr *) (ip_begin);
 
-	recv_info.new_src_ip.v4=iph->saddr;
-	recv_info.new_dst_ip.v4=iph->daddr;
-	recv_info.protocol=iph->protocol;
+	if(raw_packet_len<1)
+	{
+		mylog(log_trace,"raw_packet_len <1, dropped\n");
+		return -1;
+	}
+	iph = (struct iphdr *) (ip_begin);  //just use the iphdr here to get the  first 4bit
+	ip6h= (struct ip6_hdr *) (ip_begin);
+	if(raw_ip_version==AF_INET)
+	{
+		if(iph->version!=4)
+		{
+			mylog(log_trace,"expect ipv4 packet, but got something else: %02x\n",iph->version);
+			return -1;
+		}
+		if(raw_packet_len<(int)sizeof(iphdr))
+		{
+			mylog(log_trace,"raw_packet_len<sizeof(iphdr)\n");
+			return -1;
+		}
+	}
+	else
+	{
+		assert(raw_ip_version==AF_INET6);
+		if(iph->version!=6)
+		{
+			mylog(log_trace,"expect ipv6 packet, but got something else: %02x\n",iph->version);
+			return -1;
+		}
+		if(raw_packet_len<(int)sizeof(ip6_hdr))
+		{
+			mylog(log_trace,"raw_packet_len<sizeof(ip6_hdr)\n");
+			return -1;
+		}
+	}
 
 	if(lower_level)
 	{
 		memcpy(&recv_info.addr_ll,&g_sockaddr.ll,sizeof(recv_info.addr_ll));
 	}
 
-
-	if(bind_addr_used && recv_info.new_dst_ip.v4!=bind_addr.inner.ipv4.sin_addr.s_addr)
+	if(bind_addr_used && !recv_info.new_dst_ip.equal(bind_addr))
 	{
 		mylog(log_trace,"bind adress doenst match, dropped\n");
 		//printf(" bind adress doenst match, dropped\n");
 		return -1;
 	}
 
+	unsigned short iphdrlen;
+	int ip_len;
+	if(raw_ip_version==AF_INET)
+	{
+		recv_info.new_src_ip.v4=iph->saddr;
+		recv_info.new_dst_ip.v4=iph->daddr;
+		recv_info.protocol=iph->protocol;
+		iphdrlen =iph->ihl*4;
+		ip_len=ntohs(iph->tot_len);
+	}
+	else
+	{
+		//todo flow id
+		recv_info.new_src_ip.v6=ip6h->ip6_src;
+		recv_info.new_dst_ip.v6=ip6h->ip6_dst;
+		iphdrlen=40;
+		recv_info.protocol=ip6h->ip6_nxt;  //todo handle extension headers;
+		ip_len=ntohs(ip6h->ip6_plen);
+	}
 
-    if (!(iph->ihl > 0 && iph->ihl <=60)) {
-    	mylog(log_trace,"iph ihl error\n");
-        return -1;
-    }
 
-	int ip_len=ntohs(iph->tot_len);
+    //if (!(iph->ihl > 0 && iph->ihl <=60)) {
+    //	mylog(log_trace,"iph ihl error\n");
+    //   return -1;
+    // }
+
 
 	if(raw_packet_len <ip_len)
 	{
@@ -854,15 +859,23 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 		return -1;
 	}
 
-    unsigned short iphdrlen =iph->ihl*4;
+	if(raw_ip_version==AF_INET)
+	{
+		if(raw_info.peek==0)// avoid cal it twice
+		{
+			u32_t ip_chk=csum ((unsigned short *) ip_begin, iphdrlen);
 
-    u32_t ip_chk=csum ((unsigned short *) ip_begin, iphdrlen);
+			if(ip_chk!=0)
+			{
+				mylog(log_debug,"ip header error %x\n",ip_chk);
+				return -1;
+			}
+		}
+	}
+	else
+	{
 
-    if(ip_chk!=0)
-     {
-    	mylog(log_debug,"ip header error %x\n",ip_chk);
-     	return -1;
-     }
+	}
 
     payload=ip_begin+iphdrlen;
 
@@ -877,7 +890,77 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	return 0;
 }
 
+int peek_raw(raw_info_t &raw_info)
+{
+	//static char peek_raw_buf[buf_len];
+	//assert(g_packet_buf_cnt==1);
+	//g_packet_buf_cnt--;
+	//char * peek_raw_buf=g_packet_buf;
+	//int recv_len=g_packet_buf_len;
 
+	//char *ip_begin=peek_raw_buf+link_level_header_len;
+	//struct sockaddr saddr={0};
+	//socklen_t saddr_size=sizeof(saddr);
+	//int recv_len = recvfrom(raw_recv_fd, peek_raw_buf,max_data_len, MSG_PEEK ,&saddr , &saddr_size);//change max_data_len to something smaller,we only need header here
+	//iphdr * iph = (struct iphdr *) (ip_begin);
+	//mylog(log_info,"recv_len %d\n",recv_len);
+	//if(recv_len<int(sizeof(iphdr)))
+	//{
+	//	mylog(log_trace,"failed here %d %d\n",recv_len,int(sizeof(iphdr)));
+	//	mylog(log_trace,"%s\n ",strerror(errno));
+	//	return -1;
+	//}
+	//peek_info.new_src_ip.v4=iph->saddr;
+    //unsigned short iphdrlen =iph->ihl*4;
+    //char *payload=ip_begin+iphdrlen;
+
+	packet_info_t &recv_info=raw_info.recv_info;
+
+	char *payload;int payload_len;
+	if(recv_raw_ip(raw_info,payload,payload_len)!=0)
+		return -1;
+	//mylog(log_info,"protocol %d\n",iph->protocol);
+    switch(raw_mode)
+    {
+    	case mode_faketcp:
+    	{
+    		if(recv_info.protocol!=IPPROTO_TCP)
+    		{
+    			mylog(log_trace,"failed here");
+    			return -1;
+    		}
+    		struct tcphdr *tcph=(tcphdr *)payload;
+    		if(payload_len<int(sizeof(tcphdr) ))
+    		{
+    			mylog(log_trace,"failed here");
+    			return -1;
+    		}
+    		recv_info.src_port=ntohs(tcph->source);
+    		recv_info.syn=tcph->syn;
+			break;
+    	}
+    	case mode_udp:
+    	{
+    		if(recv_info.protocol!=IPPROTO_UDP) return -1;
+    		struct udphdr *udph=(udphdr *)payload;
+    		if(payload_len<int(sizeof(udphdr)))
+    			return -1;
+    		recv_info.src_port=ntohs(udph->source);
+			break;
+    	}
+    	case mode_icmp:
+    	{
+    		if(recv_info.protocol!=IPPROTO_ICMP) return -1;
+    		struct icmphdr *icmph=(icmphdr *)payload;
+    		if(payload_len<int(sizeof(udphdr)))
+    			return -1;
+    		recv_info.src_port=ntohs(icmph->id);
+			break;
+    	}
+    	default:return -1;
+    }
+    return 0;
+}
 int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 {
 	const packet_info_t &send_info=raw_info.send_info;
@@ -1992,7 +2075,7 @@ int recv_raw(raw_info_t &raw_info,char *& payload,int & payloadlen)
 	}
 }*/
 
-
+/*
 int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick to get src adress for a dest adress,so that we can use the src address in raw socket as source ip
 {
 	struct sockaddr_in remote_addr_in={0};
@@ -2031,7 +2114,7 @@ int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick 
     close(new_udp_fd);
 
     return 0;
-}
+}*/
 
 int get_src_adress2(address_t &output_addr,address_t remote_addr)
 {
@@ -2052,7 +2135,7 @@ int get_src_adress2(address_t &output_addr,address_t remote_addr)
 
 	return 0;
 }
-
+/*
 int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind to a port,may fail.
 {
 	 int old_bind_fd=fd;
@@ -2091,7 +2174,7 @@ int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind 
 		}
 	 }
      return 0;
-}
+}*/
 int try_to_list_and_bind2(int &fd,address_t address)  //try to bind to a port,may fail.
 {
 	 int old_bind_fd=fd;
@@ -2131,7 +2214,7 @@ int try_to_list_and_bind2(int &fd,address_t address)  //try to bind to a port,ma
 	 }
      return 0;
 }
-
+/*
 int client_bind_to_a_new_port(int &fd,u32_t local_ip_uint32)//find a free port and bind to it.
 {
 	int raw_send_port=10000+get_true_random_number()%(65535-10000);
@@ -2145,7 +2228,7 @@ int client_bind_to_a_new_port(int &fd,u32_t local_ip_uint32)//find a free port a
 	mylog(log_fatal,"bind port fail\n");
 	myexit(-1);
 	return -1;////for compiler check
-}
+}*/
 
 int client_bind_to_a_new_port2(int &fd,const address_t& address)//find a free port and bind to it.
 {

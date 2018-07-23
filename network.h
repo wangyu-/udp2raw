@@ -87,7 +87,8 @@ struct raw_info_t
 	packet_info_t recv_info;
 	//int last_send_len;
 	//int last_recv_len;
-
+	bool peek=0;
+	//bool csum=1;
 	u32_t reserved_send_seq;
 	//uint32_t first_seq,first_ack_seq;
 	int rst_received=0;
@@ -120,7 +121,7 @@ int pre_recv_raw_packet();
 
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen);
 
-int peek_raw(packet_info_t &peek_info);
+int peek_raw(raw_info_t &peek_info);
 
 int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen);
 
