@@ -1000,6 +1000,7 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 	raw_info_t peek_raw_info;
 	peek_raw_info.peek=1;
 	packet_info_t &peek_info=peek_raw_info.recv_info;
+	mylog(log_trace,"got a packet\n");
 	if(pre_recv_raw_packet()<0) return -1;
 	if(peek_raw(peek_raw_info)<0)
 	{

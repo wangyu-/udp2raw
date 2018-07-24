@@ -30,6 +30,28 @@ extern char g_packet_buf[buf_len];
 extern int g_packet_buf_len;
 extern int g_packet_buf_cnt;
 
+struct my_ip6hdr
+  {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    u_int32_t traffic_class_high:4;
+    u_int32_t version:4;
+    u_int32_t traffic_class_low:4;
+    u_int32_t flow_label:20;
+#elif __BYTE_ORDER == __BIG_ENDIAN
+    u_int32_t flow_label:20;
+    u_int32_t traffic_class_low:4;
+	u_int32_t version:4;
+    u_int32_t traffic_class_high:4;
+#else
+# error	"Please fix this"
+#endif
+    u_int16_t payload_len;
+    unsigned char next_header;
+    unsigned char hop_limit;
+
+    struct in6_addr src;
+    struct in6_addr dst;
+  };
 
 struct icmphdr
 {
@@ -46,6 +68,15 @@ struct pseudo_header {
     u_int8_t placeholder;
     u_int8_t protocol;
     u_int16_t tcp_length;
+};
+
+struct pseudo_header6 {
+    struct in6_addr src;
+    struct in6_addr dst;
+    u_int32_t tcp_length;
+    u_int16_t placeholder1;
+    u_int8_t placeholder2;
+    u_int8_t next_header;
 };
 
 struct packet_info_t  //todo change this to union

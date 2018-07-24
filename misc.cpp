@@ -69,7 +69,7 @@ char fifo_file[1000]="";
 
 int clear_iptables=0;
 int wait_xtables_lock=0;
-string iptables_command0="iptables ";
+string iptables_command0="iptables/ip6tables ";
 string iptables_command="";
 string iptables_pattern="";
 int iptables_rule_added=0;
@@ -864,6 +864,14 @@ void *run_keep(void *none)  //called in a new thread for --keep-rule option
 }
 void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-lock
 {
+	assert(raw_ip_version==AF_INET||raw_ip_version==AF_INET6);
+
+	if(raw_ip_version==AF_INET)
+	{
+		iptables_command0="iptables ";
+	}
+	else
+		iptables_command0="ip6tables ";
 	if(!wait_xtables_lock)
 	{
 		iptables_command=iptables_command0;

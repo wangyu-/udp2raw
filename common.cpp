@@ -204,7 +204,7 @@ char* address_t::get_ip()
 	ip_addr[max_addr_len-1]=0;
 	if(get_type()==AF_INET6)
 	{
-		sprintf(s,"[%s]",ip_addr);
+		sprintf(s,"%s",ip_addr);
 	}else
 	{
 		sprintf(s,"%s",ip_addr);
@@ -266,9 +266,9 @@ bool my_ip_t::equal (const my_ip_t &b) const
 	if(raw_ip_version==AF_INET)
 	{
 		return v4==b.v4;
-	}else if(raw_ip_version==AF_INET)
+	}else if(raw_ip_version==AF_INET6)
 	{
-		return memcmp(&v6,&b.v6,sizeof(v6));
+		return memcmp(&v6,&b.v6,sizeof(v6))==0;
 	}
 	assert(0==1);
 	return 0;
@@ -280,7 +280,7 @@ char * my_ip_t::get_str1() const
 	{
 		assert(inet_ntop(AF_INET6, &v6, res,max_addr_len)!=0);
 	}
-	else if(raw_ip_version==AF_INET)
+	else if(raw_ip_version==AF_INET6)
 	{
 		assert(inet_ntop(AF_INET, &v4, res,max_addr_len)!=0);
 	}

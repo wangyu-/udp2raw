@@ -80,7 +80,43 @@ struct sock_filter code_tcp[] = {
 { 0x6, 0, 0, 0x0000ffff },//9
 { 0x6, 0, 0, 0x00000000 },//10
 };
+/*
+{ 0x28, 0, 0, 0x0000000c },
+{ 0x15, 0, 8, 0x00000800 },
+{ 0x30, 0, 0, 0x00000017 },
+{ 0x15, 0, 6, 0x00000006 },
+{ 0x28, 0, 0, 0x00000014 },
+{ 0x45, 4, 0, 0x00001fff },
+{ 0xb1, 0, 0, 0x0000000e },
+{ 0x48, 0, 0, 0x00000010 },
+{ 0x15, 0, 1, 0x0000fffe },
+{ 0x6, 0, 0, 0x0000ffff },
+{ 0x6, 0, 0, 0x00000000 },
+*/
+
 int code_tcp_port_index=6;
+
+//tcpdump -i ens33 ip6 and tcp and dst port 65534 -dd
+struct sock_filter code_tcp6[] = {
+//{ 0x28, 0, 0, 0x0000000c },//0
+//{ 0x15, 0, 5, 0x000086dd },//1
+{ 0x30, 0, 0, 0x00000006 },//2
+{ 0x15, 0, 3, 0x00000006 },//3
+{ 0x28, 0, 0, 0x0000002a },//4
+{ 0x15, 0, 1, 0x0000fffe },//5
+{ 0x6, 0, 0, 0x00040000 },//6
+{ 0x6, 0, 0, 0x00000000 },//7
+};//note: this filter doesnt support extension headers
+/*
+ { 0x30, 0, 0, 0x00000014 },//2
+{ 0x15, 0, 3, 0x00000006 },//3
+{ 0x28, 0, 0, 0x00000038 },//4
+{ 0x15, 0, 1, 0x0000fffe },//5
+{ 0x6, 0, 0, 0x00040000 },//6
+{ 0x6, 0, 0, 0x00000000 },//7
+*/
+
+int code_tcp6_port_index=3;
 
 struct sock_filter code_udp[] = {
 //{ 0x5, 0, 0, 0x00000001 },
@@ -96,6 +132,20 @@ struct sock_filter code_udp[] = {
 { 0x6, 0, 0, 0x00000000 },
 };
 int code_udp_port_index=6;
+
+struct sock_filter code_udp6[] = {
+//		{ 0x28, 0, 0, 0x0000000c },
+//		{ 0x15, 0, 5, 0x000086dd },
+		{ 0x30, 0, 0, 0x00000006 },
+		{ 0x15, 0, 3, 0x00000011 },
+		{ 0x28, 0, 0, 0x0000002a },
+		{ 0x15, 0, 1, 0x0000fffe },
+		{ 0x6, 0, 0, 0x00040000 },
+		{ 0x6, 0, 0, 0x00000000 },
+
+};
+int code_udp6_port_index=3;
+
 struct sock_filter code_icmp[] = {
 //{ 0x5, 0, 0, 0x00000001 },
 //{ 0x5, 0, 0, 0x00000000 },
@@ -186,6 +236,7 @@ packet_info_t::packet_info_t()
 
 int init_raw_socket()
 {
+	assert(raw_ip_version==AF_INET||raw_ip_version==AF_INET6);
 
 	g_ip_id_counter=get_true_random_number()%65535;
 	if(lower_level==0)
@@ -198,7 +249,7 @@ int init_raw_socket()
 	        myexit(1);
 	    }
 
-	    /*
+	    /*ETH_P_IP
 	    int one = 1;
 	    const int *val = &one;
 	    if (setsockopt (raw_send_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0) {
@@ -246,7 +297,10 @@ int init_raw_socket()
 
 	//raw_fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
 
-	raw_recv_fd= socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
+	if(raw_ip_version==AF_INET)
+		raw_recv_fd= socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
+	else
+		raw_recv_fd= socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IPV6));
 	//ETH_P_IP doesnt read outgoing packets
 	//   https://stackoverflow.com/questions/20264895/eth-p-ip-is-not-working-as-expected-i-can-only-receive-incoming-packets
 	//   to capture both incoming and outgoing packets use ETH_P_ALL
@@ -265,7 +319,10 @@ int init_raw_socket()
         assert(init_ifindex(dev,raw_recv_fd,index)==0);
 
         bind_address.sll_family = AF_PACKET;
-        bind_address.sll_protocol = htons(ETH_P_ALL);
+    	if(raw_ip_version==AF_INET)
+    		bind_address.sll_protocol = htons(ETH_P_IP);
+    	else
+    		bind_address.sll_protocol = htons(ETH_P_IPV6);
         bind_address.sll_ifindex = index;
 
         if(bind(raw_recv_fd, (struct sockaddr *)&bind_address, sizeof(bind_address))==-1)
@@ -304,6 +361,7 @@ int init_raw_socket()
 void init_filter(int port)
 {
 	sock_fprog bpf;
+	assert(raw_ip_version==AF_INET||raw_ip_version==AF_INET6);
 	if(raw_mode==mode_faketcp||raw_mode==mode_udp)
 	{
 		filter_port=port;
@@ -313,15 +371,31 @@ void init_filter(int port)
 	//code_tcp[8].k=code_tcp[10].k=port;
 	if(raw_mode==mode_faketcp)
 	{
-		bpf.len = sizeof(code_tcp)/sizeof(code_tcp[0]);
-		code_tcp[code_tcp_port_index].k=port;
-		bpf.filter = code_tcp;
+		if(raw_ip_version==AF_INET)
+		{
+			bpf.len = sizeof(code_tcp)/sizeof(code_tcp[0]);
+			code_tcp[code_tcp_port_index].k=port;
+			bpf.filter = code_tcp;
+		}else
+		{
+			bpf.len = sizeof(code_tcp6)/sizeof(code_tcp6[0]);
+			code_tcp6[code_tcp6_port_index].k=port;
+			bpf.filter = code_tcp6;
+		}
 	}
 	else if(raw_mode==mode_udp)
 	{
-		bpf.len = sizeof(code_udp)/sizeof(code_udp[0]);
-		code_udp[code_udp_port_index].k=port;
-		bpf.filter = code_udp;
+		if(raw_ip_version==AF_INET)
+		{
+			bpf.len = sizeof(code_udp)/sizeof(code_udp[0]);
+			code_udp[code_udp_port_index].k=port;
+			bpf.filter = code_udp;
+		}else
+		{
+			bpf.len = sizeof(code_udp6)/sizeof(code_udp6[0]);
+			code_udp6[code_udp6_port_index].k=port;
+			bpf.filter = code_udp6;
+		}
 	}
 	else if(raw_mode==mode_icmp)
 	{
@@ -661,41 +735,64 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 		return 0;
 	}
 
-	struct iphdr *iph = (struct iphdr *) send_raw_ip_buf;
-    memset(iph,0,sizeof(iphdr));
-
-    iph->ihl = sizeof(iphdr)/4;  //we dont use ip options,so the length is just sizeof(iphdr)
-    iph->version = 4;
-    iph->tos = 0;
-
-    if(lower_level)
+    uint16_t ip_tot_len;
+    if(raw_ip_version==AF_INET)
     {
-    	//iph->id=0;
-    	iph->id = htons (g_ip_id_counter++); //Id of this packet
+    	struct iphdr *iph = (struct iphdr *) send_raw_ip_buf;
+        memset(iph,0,sizeof(iphdr));
+
+        iph->ihl = sizeof(iphdr)/4;  //we dont use ip options,so the length is just sizeof(iphdr)
+        iph->version = 4;
+        iph->tos = 0;
+
+		if(lower_level)
+		{
+			//iph->id=0;
+			iph->id = htons (g_ip_id_counter++); //Id of this packet
+		}
+		else//no need to else?
+		{
+			iph->id = htons (g_ip_id_counter++); //Id of this packet
+			//iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero  ,or really?????// todo //seems like there is a problem
+		}
+
+		iph->frag_off = htons(0x4000); //DF set,others are zero
+	   // iph->frag_off = htons(0x0000); //DF set,others are zero
+		iph->ttl = (unsigned char)ttl_value;
+		iph->protocol = send_info.protocol;
+		iph->check = 0; //Set to 0 before calculating checksum
+		iph->saddr = send_info.new_src_ip.v4;    //Spoof the source ip address
+		iph->daddr = send_info.new_dst_ip.v4;
+
+		ip_tot_len=sizeof (struct iphdr)+payloadlen;
+		if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
+		else
+			iph->tot_len = 0;
+
+		memcpy(send_raw_ip_buf+sizeof(iphdr) , payload, payloadlen);
+
+		if(lower_level) iph->check =
+				csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4); //this is not necessary ,kernel will always auto fill this
+		else
+			iph->check=0;
     }
     else
-    	iph->id = htons (g_ip_id_counter++); //Id of this packet
-    	//iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero  ,or really?????// todo //seems like there is a problem
+    {
+    	assert(raw_ip_version==AF_INET6);
 
-    iph->frag_off = htons(0x4000); //DF set,others are zero
-   // iph->frag_off = htons(0x0000); //DF set,others are zero
-    iph->ttl = (unsigned char)ttl_value;
-    iph->protocol = send_info.protocol;
-    iph->check = 0; //Set to 0 before calculating checksum
-    iph->saddr = send_info.new_src_ip.v4;    //Spoof the source ip address
-    iph->daddr = send_info.new_dst_ip.v4;
+    	struct my_ip6hdr *ip6h = (struct my_ip6hdr *) send_raw_ip_buf;
+        memset(ip6h,0,sizeof(my_ip6hdr));
 
-    uint16_t ip_tot_len=sizeof (struct iphdr)+payloadlen;
-    if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
-    else
-    	iph->tot_len = 0;
+        ip6h->version=6;
+        ip6h->payload_len=htons(payloadlen);
+        ip6h->next_header=send_info.protocol;
+        ip6h->hop_limit=(unsigned char)ttl_value;
+        ip6h->src=send_info.new_src_ip.v6;
+        ip6h->dst=send_info.new_dst_ip.v6;
 
-    memcpy(send_raw_ip_buf+sizeof(iphdr) , payload, payloadlen);
-
-    if(lower_level) iph->check =
-    		csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4); //this is not necessary ,kernel will always auto fill this
-    else
-    	iph->check=0;
+        ip_tot_len=sizeof (struct my_ip6hdr)+payloadlen;
+        memcpy(send_raw_ip_buf+sizeof(my_ip6hdr) , payload, payloadlen);
+    }
 
 
     return send_raw_packet(raw_info,send_raw_ip_buf,ip_tot_len);
@@ -772,7 +869,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
 
 	iphdr *  iph;
-	ip6_hdr * ip6h;
+	my_ip6hdr * ip6h;
 	int flag=0;
 	//int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
 
@@ -784,8 +881,8 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 		mylog(log_trace,"raw_packet_len <1, dropped\n");
 		return -1;
 	}
-	iph = (struct iphdr *) (ip_begin);  //just use the iphdr here to get the  first 4bit
-	ip6h= (struct ip6_hdr *) (ip_begin);
+	iph = (struct iphdr *) (ip_begin);
+	ip6h= (struct my_ip6hdr *) (ip_begin);
 	if(raw_ip_version==AF_INET)
 	{
 		if(iph->version!=4)
@@ -802,12 +899,12 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	else
 	{
 		assert(raw_ip_version==AF_INET6);
-		if(iph->version!=6)
+		if(ip6h->version!=6)
 		{
-			mylog(log_trace,"expect ipv6 packet, but got something else: %02x\n",iph->version);
+			mylog(log_trace,"expect ipv6 packet, but got something else: %02x\n",ip6h->version);
 			return -1;
 		}
-		if(raw_packet_len<(int)sizeof(ip6_hdr))
+		if(raw_packet_len<(int)sizeof(my_ip6hdr))
 		{
 			mylog(log_trace,"raw_packet_len<sizeof(ip6_hdr)\n");
 			return -1;
@@ -839,11 +936,11 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	else
 	{
 		//todo flow id
-		recv_info.new_src_ip.v6=ip6h->ip6_src;
-		recv_info.new_dst_ip.v6=ip6h->ip6_dst;
+		recv_info.new_src_ip.v6=ip6h->src;
+		recv_info.new_dst_ip.v6=ip6h->dst;
 		iphdrlen=40;
-		recv_info.protocol=ip6h->ip6_nxt;  //todo handle extension headers;
-		ip_len=ntohs(ip6h->ip6_plen);
+		recv_info.protocol=ip6h->next_header;  //todo handle extension headers;
+		ip_len=ntohs(ip6h->payload_len)+iphdrlen;
 	}
 
 
@@ -1010,13 +1107,12 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	udphdr *udph=(struct udphdr *) (send_raw_udp_buf);
 
 	memset(udph,0,sizeof(udphdr));
-	struct pseudo_header tmp_header={0};
-	struct pseudo_header *psh = &tmp_header;
 
 	udph->source = htons(send_info.src_port);
 	udph->dest = htons(send_info.dst_port);
 
 	int udp_tot_len=payloadlen+sizeof(udphdr);
+
 
 	if(udp_tot_len>65535)
 	{
@@ -1028,15 +1124,39 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 
 	memcpy(send_raw_udp_buf+sizeof(udphdr),payload,payloadlen);
 
-	psh->source_address = send_info.new_src_ip.v4;
-	psh->dest_address = send_info.new_dst_ip.v4;
-	psh->placeholder = 0;
-	psh->protocol = IPPROTO_UDP;
-	psh->tcp_length = htons(uint16_t(udp_tot_len));
 
-	int csum_size = udp_tot_len  ;
 
-	udph->check = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) send_raw_udp_buf, csum_size);
+
+	if(raw_ip_version==AF_INET)
+	{
+		pseudo_header v4;
+		struct pseudo_header *psh = &v4;
+
+		psh->source_address = send_info.new_src_ip.v4;
+		psh->dest_address = send_info.new_dst_ip.v4;
+		psh->placeholder = 0;
+		psh->protocol = IPPROTO_UDP;
+		psh->tcp_length = htons(udp_tot_len);
+
+		udph->check  = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) send_raw_udp_buf, udp_tot_len);
+	}
+	else
+	{
+		pseudo_header6 v6;
+		struct pseudo_header6 *psh = &v6;
+
+		psh->src=send_info.new_src_ip.v6;
+		psh->dst=send_info.new_dst_ip.v6;
+		psh->next_header=IPPROTO_UDP;
+		psh->tcp_length=htons(udp_tot_len);
+
+		psh->placeholder1 = 0;
+		psh->placeholder2 = 0;
+
+
+		udph->check  = csum_with_header((char *)psh,sizeof(pseudo_header6), (unsigned short*) send_raw_udp_buf, udp_tot_len);
+	}
+
 
 	if(send_raw_ip(raw_info,send_raw_udp_buf,udp_tot_len)!=0)
 	{
@@ -1059,9 +1179,6 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 	struct tcphdr *tcph = (struct tcphdr *) (send_raw_tcp_buf);
 
 	memset(tcph,0,sizeof(tcphdr));
-
-	pseudo_header tmp_header={0};
-	struct pseudo_header *psh = &tmp_header;
 
 	//TCP Header
 	tcph->source = htons(send_info.src_port);
@@ -1148,18 +1265,36 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 	char *tcp_data = send_raw_tcp_buf+ + tcph->doff * 4;
 
 	memcpy(tcp_data, payload, payloadlen);
-
-	psh->source_address = send_info.new_src_ip.v4;
-	psh->dest_address = send_info.new_dst_ip.v4;
-	psh->placeholder = 0;
-	psh->protocol = IPPROTO_TCP;
-	psh->tcp_length = htons(tcph->doff * 4 + payloadlen);
-
-	int csum_size = tcph->doff*4 + payloadlen;
-
-	tcph->check = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) send_raw_tcp_buf, csum_size);
-
 	int tcp_totlen=tcph->doff*4 + payloadlen;
+
+	if(raw_ip_version==AF_INET)
+	{
+		pseudo_header v4;
+		struct pseudo_header *psh = &v4;
+
+		psh->source_address = send_info.new_src_ip.v4;
+		psh->dest_address = send_info.new_dst_ip.v4;
+		psh->placeholder = 0;
+		psh->protocol = IPPROTO_TCP;
+		psh->tcp_length = htons(tcph->doff * 4 + payloadlen);
+
+		tcph->check = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) send_raw_tcp_buf, tcp_totlen);
+	}
+	else
+	{
+		pseudo_header6 v6;
+		struct pseudo_header6 *psh = &v6;
+
+		psh->src=send_info.new_src_ip.v6;
+		psh->dst=send_info.new_dst_ip.v6;
+		psh->next_header=IPPROTO_TCP;
+		psh->tcp_length=htons(tcph->doff * 4 + payloadlen);
+		psh->placeholder1 = 0;
+		psh->placeholder2 = 0;
+
+		tcph->check = csum_with_header((char *)psh,sizeof(pseudo_header6), (unsigned short*) send_raw_tcp_buf, tcp_totlen);
+	}
+
 
 	if(send_raw_ip(raw_info,send_raw_tcp_buf,tcp_totlen)!=0)
 	{
@@ -1450,6 +1585,7 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 
     //memcpy(recv_raw_udp_buf+ sizeof(struct pseudo_header) , ip_payload , ip_payloadlen);
 
+    /*
     pseudo_header tmp_header={0};
     struct pseudo_header *psh=&tmp_header ;
 
@@ -1461,6 +1597,38 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 
     int csum_len=ip_payloadlen;
     uint16_t udp_chk = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) ip_payload, csum_len);
+    */
+    uint16_t udp_chk;
+	int csum_len=ip_payloadlen;
+	if(raw_ip_version==AF_INET)
+	{
+		pseudo_header tmp_header;
+		struct pseudo_header *psh=&tmp_header ;
+
+		psh->source_address = recv_info.new_src_ip.v4;
+		psh->dest_address = recv_info.new_dst_ip.v4;
+		psh->placeholder = 0;
+		psh->protocol = IPPROTO_UDP;
+		psh->tcp_length = htons(ip_payloadlen);
+
+		udp_chk = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) ip_payload, csum_len);
+	}
+	else
+	{
+		assert(raw_ip_version==AF_INET6);
+
+		pseudo_header6 tmp_header;
+		struct pseudo_header6 *psh=&tmp_header ;
+
+		psh->src = recv_info.new_src_ip.v6;
+		psh->dst = recv_info.new_dst_ip.v6;
+		psh->placeholder1 = 0;
+		psh->placeholder2 = 0;
+		psh->next_header = IPPROTO_UDP;
+		psh->tcp_length = htons(ip_payloadlen);
+
+		udp_chk = csum_with_header((char *)psh,sizeof(pseudo_header6), (unsigned short*) ip_payload, csum_len);
+	}
 
     if(udp_chk!=0)
     {
@@ -1597,19 +1765,37 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
     }
 
    // memcpy(recv_raw_tcp_buf+ sizeof(struct pseudo_header) , ip_payload , ip_payloadlen);
+    uint16_t tcp_chk;
+	int csum_len=ip_payloadlen;
+	if(raw_ip_version==AF_INET)
+	{
+		pseudo_header tmp_header;
+		struct pseudo_header *psh=&tmp_header ;
 
-    pseudo_header tmp_header;
-    struct pseudo_header *psh=&tmp_header ;
+		psh->source_address = recv_info.new_src_ip.v4;
+		psh->dest_address = recv_info.new_dst_ip.v4;
+		psh->placeholder = 0;
+		psh->protocol = IPPROTO_TCP;
+		psh->tcp_length = htons(ip_payloadlen);
 
-    psh->source_address = recv_info.new_src_ip.v4;
-    psh->dest_address = recv_info.new_dst_ip.v4;
-    psh->placeholder = 0;
-    psh->protocol = IPPROTO_TCP;
-    psh->tcp_length = htons(ip_payloadlen);
+		tcp_chk = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) ip_payload, csum_len);
+	}
+	else
+	{
+		assert(raw_ip_version==AF_INET6);
 
-    int csum_len=ip_payloadlen;
-    uint16_t tcp_chk = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) ip_payload, csum_len);
+		pseudo_header6 tmp_header;
+		struct pseudo_header6 *psh=&tmp_header ;
 
+		psh->src = recv_info.new_src_ip.v6;
+		psh->dst = recv_info.new_dst_ip.v6;
+		psh->placeholder1 = 0;
+		psh->placeholder2 = 0;
+		psh->next_header = IPPROTO_TCP;
+		psh->tcp_length = htons(ip_payloadlen);
+
+		tcp_chk = csum_with_header((char *)psh,sizeof(pseudo_header6), (unsigned short*) ip_payload, csum_len);
+	}
     /*for(int i=0;i<csum_len;i++)
     {
     	printf("<%d>",int(ip_payload[i]));
