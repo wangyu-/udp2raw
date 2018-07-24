@@ -919,23 +919,45 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 
 	if(program_mode==client_mode)
 	{
+		tmp_pattern[0]=0;
 		if(raw_mode==mode_faketcp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p tcp -m tcp --sport %d",remote_addr.get_ip(),remote_addr.get_port());
+			sprintf(tmp_pattern,"-s %s -p tcp -m tcp --sport %d",remote_addr.get_ip(),remote_addr.get_port());
 		}
 		if(raw_mode==mode_udp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p udp -m udp --sport %d",remote_addr.get_ip(),remote_addr.get_port());
+			sprintf(tmp_pattern,"-s %s -p udp -m udp --sport %d",remote_addr.get_ip(),remote_addr.get_port());
 		}
 		if(raw_mode==mode_icmp)
 		{
-			sprintf(tmp_pattern,"-s %s/32 -p icmp",remote_addr.get_ip());
+			if(raw_ip_version==AF_INET)
+				sprintf(tmp_pattern,"-s %s -p icmp --icmp-type 0",remote_addr.get_ip());
+			else
+				sprintf(tmp_pattern,"-s %s -p icmpv6 --icmpv6-type 129",remote_addr.get_ip());
 		}
-		pattern=tmp_pattern;
+		pattern+=tmp_pattern;
 	}
 	if(program_mode==server_mode)
 	{
+		tmp_pattern[0]=0;
+		if(raw_ip_version==AF_INET)
+		{
+			if(local_addr.inner.ipv4.sin_addr.s_addr!=0)
+			{
+				sprintf(tmp_pattern,"-d %s ",local_addr.get_ip());
+			}
+		}
+		else
+		{
+			char zero_arr[16]={0};
+			if(memcmp(&local_addr.inner.ipv6.sin6_addr,zero_arr,16)!=0)
+			{
+				sprintf(tmp_pattern,"-d %s ",local_addr.get_ip());
+			}
+		}
+		pattern+=tmp_pattern;
 
+		tmp_pattern[0]=0;
 		if(raw_mode==mode_faketcp)
 		{
 			sprintf(tmp_pattern,"-p tcp -m tcp --dport %d",local_addr.get_port());
@@ -946,16 +968,12 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 		}
 		if(raw_mode==mode_icmp)
 		{
-			if(local_addr.inner.ipv4.sin_addr.s_addr==0)
-			{
-				sprintf(tmp_pattern,"-p icmp");
-			}
+			if(raw_ip_version==AF_INET)
+				sprintf(tmp_pattern,"-p icmp --icmp-type 8");
 			else
-			{
-				sprintf(tmp_pattern,"-d %s/32 -p icmp",local_addr.get_ip());
-			}
+				sprintf(tmp_pattern,"-p icmpv6 --icmpv6-type 128");
 		}
-		pattern=tmp_pattern;
+		pattern+=tmp_pattern;
 	}
 /*
 	if(!simple_rule)

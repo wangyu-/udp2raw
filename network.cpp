@@ -155,6 +155,18 @@ struct sock_filter code_icmp[] = {
 { 0x6, 0, 0, 0x00000000 },
 };
 
+struct sock_filter code_icmp6[] = {
+//		{ 0x28, 0, 0, 0x0000000c },
+//		{ 0x15, 0, 6, 0x000086dd },
+		{ 0x30, 0, 0, 0x00000006 },
+		{ 0x15, 3, 0, 0x0000003a },
+		{ 0x15, 0, 3, 0x0000002c },
+		{ 0x30, 0, 0, 0x00000028 },
+		{ 0x15, 0, 1, 0x0000003a },
+		{ 0x6, 0, 0, 0x00040000 },
+		{ 0x6, 0, 0, 0x00000000 },
+
+};
 /*
 
 tcpdump -i eth1  ip and icmp -d
@@ -227,7 +239,15 @@ packet_info_t::packet_info_t()
 	}
 	else if (raw_mode == mode_icmp)
 	{
-		protocol = IPPROTO_ICMP;
+		if(raw_ip_version==AF_INET)
+		{
+			protocol = IPPROTO_ICMP;
+		}
+		else
+		{
+			assert(raw_ip_version==AF_INET6);
+			protocol = IPPROTO_ICMPV6;
+		}
 		icmp_seq=0;
 	}
 
@@ -399,8 +419,15 @@ void init_filter(int port)
 	}
 	else if(raw_mode==mode_icmp)
 	{
-		bpf.len = sizeof(code_icmp)/sizeof(code_icmp[0]);
-		bpf.filter = code_icmp;
+		if(raw_ip_version==AF_INET)
+		{
+			bpf.len = sizeof(code_icmp)/sizeof(code_icmp[0]);
+			bpf.filter = code_icmp;
+		}else
+		{
+			bpf.len = sizeof(code_icmp6)/sizeof(code_icmp6[0]);
+			bpf.filter = code_icmp6;
+		}
 	}
 
 	int dummy;
@@ -916,12 +943,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 		memcpy(&recv_info.addr_ll,&g_sockaddr.ll,sizeof(recv_info.addr_ll));
 	}
 
-	if(bind_addr_used && !recv_info.new_dst_ip.equal(bind_addr))
-	{
-		mylog(log_trace,"bind adress doenst match, dropped\n");
-		//printf(" bind adress doenst match, dropped\n");
-		return -1;
-	}
+
 
 	unsigned short iphdrlen;
 	int ip_len;
@@ -943,6 +965,12 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 		ip_len=ntohs(ip6h->payload_len)+iphdrlen;
 	}
 
+	if(bind_addr_used && !recv_info.new_dst_ip.equal(bind_addr))
+	{
+		mylog(log_trace,"bind adress doenst match %s %s, dropped\n",recv_info.new_dst_ip.get_str1(), bind_addr.get_str2());
+		//printf(" bind adress doenst match, dropped\n");
+		return -1;
+	}
 
     //if (!(iph->ihl > 0 && iph->ihl <=60)) {
     //	mylog(log_trace,"iph ihl error\n");
@@ -1047,7 +1075,13 @@ int peek_raw(raw_info_t &raw_info)
     	}
     	case mode_icmp:
     	{
-    		if(recv_info.protocol!=IPPROTO_ICMP) return -1;
+    		if(raw_ip_version==AF_INET)
+    		{
+    			if(recv_info.protocol!=IPPROTO_ICMP) return -1;
+    		}else
+    		{
+    			if(recv_info.protocol!=IPPROTO_ICMPV6) return -1;
+    		}
     		struct icmphdr *icmph=(icmphdr *)payload;
     		if(payload_len<int(sizeof(udphdr)))
     			return -1;
@@ -1066,24 +1100,53 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	char send_raw_icmp_buf[buf_len];
 	icmphdr *icmph=(struct icmphdr *) (send_raw_icmp_buf);
 	memset(icmph,0,sizeof(icmphdr));
-	if(program_mode==client_mode)
+	if(raw_ip_version==AF_INET)
 	{
-		icmph->type=8;
+		if(program_mode==client_mode)
+		{
+			icmph->type=8;
+		}
+		else
+		{
+			icmph->type=0;
+		}
 	}
 	else
 	{
-		icmph->type=0;
+		if(program_mode==client_mode)
+		{
+			icmph->type=128;
+		}
+		else
+		{
+			icmph->type=129;
+		}
 	}
 	icmph->code=0;
 	icmph->id=htons(send_info.src_port);
-
 
 	icmph->seq=htons(send_info.icmp_seq);   /////////////modify
 
 	memcpy(send_raw_icmp_buf+sizeof(icmphdr),payload,payloadlen);
 
-	icmph->check_sum = csum( (unsigned short*) send_raw_icmp_buf, sizeof(icmphdr)+payloadlen);
+	if(raw_ip_version==AF_INET)
+	{
+		icmph->check_sum = csum( (unsigned short*) send_raw_icmp_buf, sizeof(icmphdr)+payloadlen);
+	}
+	else
+	{
+		pseudo_header6 v6;
+		struct pseudo_header6 *psh = &v6;
 
+		psh->src=send_info.new_src_ip.v6;
+		psh->dst=send_info.new_dst_ip.v6;
+		psh->next_header=IPPROTO_ICMPV6;
+		psh->tcp_length=htons(sizeof(icmphdr)+payloadlen);
+		psh->placeholder1 = 0;
+		psh->placeholder2 = 0;
+
+		icmph->check_sum = csum_with_header((char *)psh,sizeof(pseudo_header6), (unsigned short*) send_raw_icmp_buf, sizeof(icmphdr)+payloadlen);
+	}
 	if(send_raw_ip(raw_info,send_raw_icmp_buf,sizeof(icmphdr)+payloadlen)!=0)
 	{
 		return -1;
@@ -1276,7 +1339,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		psh->dest_address = send_info.new_dst_ip.v4;
 		psh->placeholder = 0;
 		psh->protocol = IPPROTO_TCP;
-		psh->tcp_length = htons(tcph->doff * 4 + payloadlen);
+		psh->tcp_length = htons(tcp_totlen);
 
 		tcph->check = csum_with_header((char *)psh,sizeof(pseudo_header), (unsigned short*) send_raw_tcp_buf, tcp_totlen);
 	}
@@ -1288,7 +1351,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		psh->src=send_info.new_src_ip.v6;
 		psh->dst=send_info.new_dst_ip.v6;
 		psh->next_header=IPPROTO_TCP;
-		psh->tcp_length=htons(tcph->doff * 4 + payloadlen);
+		psh->tcp_length=htons(tcp_totlen);
 		psh->placeholder1 = 0;
 		psh->placeholder2 = 0;
 
@@ -1489,10 +1552,21 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 		mylog(log_debug,"recv_raw_ip error\n");
 		return -1;
 	}
-	if(recv_info.protocol!=IPPROTO_ICMP)
+	if(raw_ip_version==AF_INET)
 	{
-		//printf("not udp protocol\n");
-		return -1;
+		if(recv_info.protocol!=IPPROTO_ICMP)
+		{
+			//printf("not udp protocol\n");
+			return -1;
+		}
+	}
+	else
+	{
+		if(recv_info.protocol!=IPPROTO_ICMPV6)
+		{
+			//printf("not udp protocol\n");
+			return -1;
+		}
 	}
 
 
@@ -1507,23 +1581,50 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	recv_info.src_port=recv_info.dst_port=ntohs(icmph->id);
 	recv_info.icmp_seq=ntohs(icmph->seq);
 
-
-	if(program_mode==client_mode)
-	{
-		if(icmph->type!=0)
-			return -1;
-	}
-	else
-	{
-		if(icmph->type!=8)
-			return -1;
-
-	}
-
 	if(icmph->code!=0)
 		return -1;
 
-	unsigned short check = csum( (unsigned short*) ip_payload, ip_payloadlen);
+	unsigned short check ;
+	if(raw_ip_version==AF_INET)
+	{
+		if(program_mode==client_mode)
+		{
+			if(icmph->type!=0)
+				return -1;
+		}
+		else
+		{
+			if(icmph->type!=8)
+				return -1;
+		}
+		check= csum( (unsigned short*) ip_payload, ip_payloadlen);
+	}
+	else
+	{
+		if(program_mode==client_mode)
+		{
+			if(icmph->type!=129)
+				return -1;
+		}
+		else
+		{
+			if(icmph->type!=128)
+				return -1;
+		}
+
+		pseudo_header6 tmp_header;
+		struct pseudo_header6 *psh=&tmp_header ;
+
+		psh->src = recv_info.new_src_ip.v6;
+		psh->dst = recv_info.new_dst_ip.v6;
+		psh->placeholder1 = 0;
+		psh->placeholder2 = 0;
+		psh->next_header = IPPROTO_ICMPV6;
+		psh->tcp_length = htons(ip_payloadlen);
+
+		check = csum_with_header((char *)psh,sizeof(pseudo_header6), (unsigned short*) ip_payload, ip_payloadlen);
+	}
+
 
 	if(check!=0)
 	{

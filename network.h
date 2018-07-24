@@ -84,7 +84,8 @@ struct packet_info_t  //todo change this to union
 	uint8_t protocol;
 
 
-
+	//u32_t src_ip;
+	//u32_t dst_ip;
 	my_ip_t new_src_ip;
 	my_ip_t new_dst_ip;
 
