@@ -81,18 +81,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			tmp_addr=source_addr;
 		}
 
-		if(tmp_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET)
-		{
-			send_info.new_src_ip.v4=tmp_addr.inner.ipv4.sin_addr.s_addr;
-		}
-		else if(tmp_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET6)
-		{
-			send_info.new_src_ip.v6=tmp_addr.inner.ipv6.sin6_addr;
-		}
-		else
-		{
-			assert(0==1);
-		}
+		send_info.new_src_ip.from_address_t(tmp_addr);
 
 		if (force_source_port == 0)
 		{
@@ -1390,18 +1379,7 @@ int client_event_loop()
 
 	//init_filter(source_port);
 
-	if(remote_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET)
-	{
-		send_info.new_dst_ip.v4=remote_addr.inner.ipv4.sin_addr.s_addr;
-	}
-	else if(remote_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET6)
-	{
-		send_info.new_dst_ip.v6=remote_addr.inner.ipv6.sin6_addr;
-	}
-	else
-	{
-		assert(0==1);
-	}
+	send_info.new_dst_ip.from_address_t(remote_addr);
 
 	send_info.dst_port=remote_addr.get_port();
 

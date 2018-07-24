@@ -299,6 +299,23 @@ char * my_ip_t::get_str2() const
 	}
 	return res;
 }
+
+int my_ip_t::from_address_t(address_t tmp_addr)
+{
+	if(tmp_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET)
+	{
+		v4=tmp_addr.inner.ipv4.sin_addr.s_addr;
+	}
+	else if(tmp_addr.get_type()==raw_ip_version&&raw_ip_version==AF_INET6)
+	{
+		v6=tmp_addr.inner.ipv6.sin6_addr;
+	}
+	else
+	{
+		assert(0==1);
+	}
+	return 0;
+}
 /*
 int my_ip_t::from_str(char * str)
 {

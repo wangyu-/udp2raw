@@ -248,6 +248,8 @@ union my_ip_t //just a simple version of address_t,stores ip only
     char * get_str1() const;
     char * get_str2() const;
 
+    int from_address_t(address_t a);
+
 };
 
 struct not_copy_able_t
