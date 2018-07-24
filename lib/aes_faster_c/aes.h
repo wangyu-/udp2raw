@@ -37,6 +37,7 @@
 ////////modification begin
 #define POLARSSL_AES_ROM_TABLES
 #define POLARSSL_CIPHER_MODE_CBC
+#define POLARSSL_CIPHER_MODE_CFB
 //#define POLARSSL_SELF_TEST
 #define polarssl_printf printf
 ///////add end
