@@ -143,7 +143,7 @@ struct address_t  //TODO scope id
 		}
 		else if(type==AF_INET6)
 		{
-			inner.ipv6.sin6_family=AF_INET;
+			inner.ipv6.sin6_family=AF_INET6;
 			inner.ipv6.sin6_port=htons(port);
 			inner.ipv6.sin6_addr=*((in6_addr*)ip);
 		}
