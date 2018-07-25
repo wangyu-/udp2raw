@@ -2464,42 +2464,45 @@ int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind 
 }*/
 int try_to_list_and_bind2(int &fd,address_t address)  //try to bind to a port,may fail.
 {
-	 int old_bind_fd=fd;
+	if(fd!=-1)
+	{
+		close(fd);
+	}
+	if(raw_mode==mode_faketcp)
+	{
+		fd=socket(address.get_type(),SOCK_STREAM,0);
+	}
+	else  if(raw_mode==mode_udp||raw_mode==mode_icmp)
+	{
+		fd=socket(address.get_type(),SOCK_DGRAM,0);
+	}
 
-	 if(raw_mode==mode_faketcp)
-	 {
-		 fd=socket(address.get_type(),SOCK_STREAM,0);
-	 }
-	 else  if(raw_mode==mode_udp||raw_mode==mode_icmp)
-	 {
-		 fd=socket(address.get_type(),SOCK_DGRAM,0);
-	 }
-     if(old_bind_fd!=-1)
-     {
-    	 close(old_bind_fd);
-     }
+	if(fd==-1)
+	{
+		mylog(log_debug,"create fd fail\n");
+		return -1;
+	}
+	/*struct sockaddr_in temp_bind_addr={0};
+	//bzero(&temp_bind_addr, sizeof(temp_bind_addr));
 
-	 /*struct sockaddr_in temp_bind_addr={0};
-     //bzero(&temp_bind_addr, sizeof(temp_bind_addr));
+	temp_bind_addr.sin_family = AF_INET;
+	temp_bind_addr.sin_port = htons(port);
+	temp_bind_addr.sin_addr.s_addr = local_ip_uint32;*/
 
-     temp_bind_addr.sin_family = AF_INET;
-     temp_bind_addr.sin_port = htons(port);
-     temp_bind_addr.sin_addr.s_addr = local_ip_uint32;*/
-
-     if (bind(fd, (struct sockaddr*)&address.inner, address.get_len()) !=0)
-     {
-    	 mylog(log_debug,"bind fail\n");
-    	 return -1;
-     }
-	 if(raw_mode==mode_faketcp)
-	 {
+	if (bind(fd, (struct sockaddr*)&address.inner, address.get_len()) !=0)
+	{
+		mylog(log_debug,"bind fail\n");
+		return -1;
+	}
+	if(raw_mode==mode_faketcp)
+	{
 
 		if (listen(fd, SOMAXCONN) != 0) {
 			mylog(log_warn,"listen fail\n");
 			return -1;
 		}
-	 }
-     return 0;
+	}
+	return 0;
 }
 /*
 int client_bind_to_a_new_port(int &fd,u32_t local_ip_uint32)//find a free port and bind to it.
