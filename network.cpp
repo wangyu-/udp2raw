@@ -1771,17 +1771,17 @@ int parse_tcp_option(char * option_begin,char * option_end,packet_info_t &recv_i
     	{
     		if(ptr+1>=option_end)
     		{
-    			mylog(log_debug,"invaild option ptr+1==option_end,for ts\n");
+    			mylog(log_trace,"invaild option ptr+1==option_end,for ts\n");
     			return -1;
     		}
     		if(*(ptr+1)!=10)
     		{
-    			mylog(log_debug,"invaild ts len\n");
+    			mylog(log_trace,"invaild ts len\n");
     			return -1;
     		}
     		if(ptr+10>option_end)
     		{
-    			mylog(log_debug,"ptr+10>option_end for ts\n");
+    			mylog(log_trace,"ptr+10>option_end for ts\n");
     			return -1;
     		}
 
@@ -1799,7 +1799,7 @@ int parse_tcp_option(char * option_begin,char * option_end,packet_info_t &recv_i
     	{
     		if(ptr+1>=option_end)
     		{
-    			mylog(log_debug,"invaild option ptr+1==option_end\n");
+    			mylog(log_trace,"invaild option ptr+1==option_end\n");
     			return -1;
     		}
     		else
@@ -1807,7 +1807,7 @@ int parse_tcp_option(char * option_begin,char * option_end,packet_info_t &recv_i
     			int len=(unsigned char)*(ptr+1);
     			if(len<=1)
     			{
-    				mylog(log_debug,"invaild option len %d\n",len);
+    				mylog(log_trace,"invaild option len %d\n",len);
     				return -1;
     			}
     			//omit check
