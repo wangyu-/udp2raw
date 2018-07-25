@@ -33,18 +33,19 @@ extern int g_packet_buf_cnt;
 struct my_ip6hdr
   {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-    u_int32_t traffic_class_high:4;
-    u_int32_t version:4;
-    u_int32_t traffic_class_low:4;
-    u_int32_t flow_label:20;
+    uint8_t traffic_class_high:4;
+    uint8_t version:4;
+    uint8_t flow_label_high:4;
+    uint8_t traffic_class_low:4;
 #elif __BYTE_ORDER == __BIG_ENDIAN
-    u_int32_t flow_label:20;
-    u_int32_t traffic_class_low:4;
-	u_int32_t version:4;
-    u_int32_t traffic_class_high:4;
+    uint8_t version:4;
+    uint8_t traffic_class_high:4;
+    uint8_t traffic_class_low:4;
+    uint8_t flow_label_high:4;
 #else
 # error	"Please fix this"
 #endif
+    u_int16_t flow_label_low;
     u_int16_t payload_len;
     unsigned char next_header;
     unsigned char hop_limit;
