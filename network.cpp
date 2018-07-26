@@ -765,10 +765,10 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
     uint16_t ip_tot_len;
     if(raw_ip_version==AF_INET)
     {
-    	struct iphdr *iph = (struct iphdr *) send_raw_ip_buf;
-        memset(iph,0,sizeof(iphdr));
+    	struct my_iphdr *iph = (struct my_iphdr *) send_raw_ip_buf;
+        memset(iph,0,sizeof(my_iphdr));
 
-        iph->ihl = sizeof(iphdr)/4;  //we dont use ip options,so the length is just sizeof(iphdr)
+        iph->ihl = sizeof(my_iphdr)/4;  //we dont use ip options,so the length is just sizeof(iphdr)
         iph->version = 4;
         iph->tos = 0;
 
@@ -791,12 +791,12 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 		iph->saddr = send_info.new_src_ip.v4;    //Spoof the source ip address
 		iph->daddr = send_info.new_dst_ip.v4;
 
-		ip_tot_len=sizeof (struct iphdr)+payloadlen;
+		ip_tot_len=sizeof (struct my_iphdr)+payloadlen;
 		if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
 		else
 			iph->tot_len = 0;
 
-		memcpy(send_raw_ip_buf+sizeof(iphdr) , payload, payloadlen);
+		memcpy(send_raw_ip_buf+sizeof(my_iphdr) , payload, payloadlen);
 
 		if(lower_level) iph->check =
 				csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4); //this is not necessary ,kernel will always auto fill this
@@ -895,7 +895,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	packet_info_t &recv_info=raw_info.recv_info;
 
 
-	iphdr *  iph;
+	my_iphdr *  iph;
 	my_ip6hdr * ip6h;
 	int flag=0;
 	//int recv_len = recvfrom(raw_recv_fd, recv_raw_ip_buf, max_data_len+1, flag ,(sockaddr*)&saddr , &saddr_size);
@@ -908,7 +908,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 		mylog(log_trace,"raw_packet_len <1, dropped\n");
 		return -1;
 	}
-	iph = (struct iphdr *) (ip_begin);
+	iph = (struct my_iphdr *) (ip_begin);
 	ip6h= (struct my_ip6hdr *) (ip_begin);
 	if(raw_ip_version==AF_INET)
 	{
@@ -917,7 +917,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 			mylog(log_trace,"expect ipv4 packet, but got something else: %02x\n",iph->version);
 			return -1;
 		}
-		if(raw_packet_len<(int)sizeof(iphdr))
+		if(raw_packet_len<(int)sizeof(my_iphdr))
 		{
 			mylog(log_trace,"raw_packet_len<sizeof(iphdr)\n");
 			return -1;
@@ -1054,8 +1054,8 @@ int peek_raw(raw_info_t &raw_info)
     			mylog(log_trace,"failed here");
     			return -1;
     		}
-    		struct tcphdr *tcph=(tcphdr *)payload;
-    		if(payload_len<int(sizeof(tcphdr) ))
+    		struct my_tcphdr *tcph=(my_tcphdr *)payload;
+    		if(payload_len<int(sizeof(my_tcphdr) ))
     		{
     			mylog(log_trace,"failed here");
     			return -1;
@@ -1067,8 +1067,8 @@ int peek_raw(raw_info_t &raw_info)
     	case mode_udp:
     	{
     		if(recv_info.protocol!=IPPROTO_UDP) return -1;
-    		struct udphdr *udph=(udphdr *)payload;
-    		if(payload_len<int(sizeof(udphdr)))
+    		struct my_udphdr *udph=(my_udphdr *)payload;
+    		if(payload_len<int(sizeof(my_udphdr)))
     			return -1;
     		recv_info.src_port=ntohs(udph->source);
 			break;
@@ -1082,8 +1082,8 @@ int peek_raw(raw_info_t &raw_info)
     		{
     			if(recv_info.protocol!=IPPROTO_ICMPV6) return -1;
     		}
-    		struct icmphdr *icmph=(icmphdr *)payload;
-    		if(payload_len<int(sizeof(udphdr)))
+    		struct my_icmphdr *icmph=(my_icmphdr *)payload;
+    		if(payload_len<int(sizeof(my_udphdr)))
     			return -1;
     		recv_info.src_port=ntohs(icmph->id);
 			break;
@@ -1098,8 +1098,8 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	const packet_info_t &recv_info=raw_info.recv_info;
 
 	char send_raw_icmp_buf[buf_len];
-	icmphdr *icmph=(struct icmphdr *) (send_raw_icmp_buf);
-	memset(icmph,0,sizeof(icmphdr));
+	my_icmphdr *icmph=(struct my_icmphdr *) (send_raw_icmp_buf);
+	memset(icmph,0,sizeof(my_icmphdr));
 	if(raw_ip_version==AF_INET)
 	{
 		if(program_mode==client_mode)
@@ -1127,11 +1127,11 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 
 	icmph->seq=htons(send_info.icmp_seq);   /////////////modify
 
-	memcpy(send_raw_icmp_buf+sizeof(icmphdr),payload,payloadlen);
+	memcpy(send_raw_icmp_buf+sizeof(my_icmphdr),payload,payloadlen);
 
 	if(raw_ip_version==AF_INET)
 	{
-		icmph->check_sum = csum( (unsigned short*) send_raw_icmp_buf, sizeof(icmphdr)+payloadlen);
+		icmph->check_sum = csum( (unsigned short*) send_raw_icmp_buf, sizeof(my_icmphdr)+payloadlen);
 	}
 	else
 	{
@@ -1141,13 +1141,13 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 		psh->src=send_info.new_src_ip.v6;
 		psh->dst=send_info.new_dst_ip.v6;
 		psh->next_header=IPPROTO_ICMPV6;
-		psh->tcp_length=htons(sizeof(icmphdr)+payloadlen);
+		psh->tcp_length=htons(sizeof(my_icmphdr)+payloadlen);
 		psh->placeholder1 = 0;
 		psh->placeholder2 = 0;
 
-		icmph->check_sum = csum_with_header((char *)psh,sizeof(pseudo_header6), (unsigned short*) send_raw_icmp_buf, sizeof(icmphdr)+payloadlen);
+		icmph->check_sum = csum_with_header((char *)psh,sizeof(pseudo_header6), (unsigned short*) send_raw_icmp_buf, sizeof(my_icmphdr)+payloadlen);
 	}
-	if(send_raw_ip(raw_info,send_raw_icmp_buf,sizeof(icmphdr)+payloadlen)!=0)
+	if(send_raw_ip(raw_info,send_raw_icmp_buf,sizeof(my_icmphdr)+payloadlen)!=0)
 	{
 		return -1;
 	}
@@ -1239,9 +1239,9 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 	char send_raw_tcp_buf[buf_len];
 	//char *send_raw_tcp_buf=send_raw_tcp_buf0;
 
-	struct tcphdr *tcph = (struct tcphdr *) (send_raw_tcp_buf);
+	struct my_tcphdr *tcph = (struct my_tcphdr *) (send_raw_tcp_buf);
 
-	memset(tcph,0,sizeof(tcphdr));
+	memset(tcph,0,sizeof(my_tcphdr));
 
 	//TCP Header
 	tcph->source = htons(send_info.src_port);
@@ -1258,7 +1258,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 
 	if (tcph->syn == 1) {
 		tcph->doff = 10;  //tcp header size
-		int i = sizeof(tcphdr);
+		int i = sizeof(my_tcphdr);
 		send_raw_tcp_buf[i++] = 0x02;  //mss
 		send_raw_tcp_buf[i++] = 0x04;
 		send_raw_tcp_buf[i++] = 0x05;
@@ -1294,7 +1294,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 		send_raw_tcp_buf[i++] = wscale;
 	} else {
 		tcph->doff = 8;
-		int i = sizeof(tcphdr);
+		int i = sizeof(my_tcphdr);
 
 		send_raw_tcp_buf[i++] = 0x01;
 		send_raw_tcp_buf[i++] = 0x01;
@@ -1570,7 +1570,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	}
 
 
-	icmphdr *icmph=(struct icmphdr *) (ip_payload);
+	my_icmphdr *icmph=(struct my_icmphdr *) (ip_payload);
 
 	if(ntohs(icmph->id)!=send_info.src_port)
 	{
@@ -1639,8 +1639,8 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 		//mylog(log_info,"send_info.seq=%d\n",send_info.seq);
 	}*/
 
-	payload=ip_payload+sizeof(icmphdr);
-	payloadlen=ip_payloadlen-sizeof(icmphdr);
+	payload=ip_payload+sizeof(my_icmphdr);
+	payloadlen=ip_payloadlen-sizeof(my_icmphdr);
 	mylog(log_trace,"get a packet len=%d\n",payloadlen);
 
     return 0;
@@ -1844,7 +1844,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	}
 
 
-	tcphdr * tcph=(struct tcphdr*)ip_payload;
+	my_tcphdr * tcph=(struct my_tcphdr*)ip_payload;
 
     unsigned short tcphdrlen = tcph->doff*4;
 
@@ -1913,7 +1913,7 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     char *tcp_begin=ip_payload;  //ip packet's data part
 
-    char *tcp_option=ip_payload+sizeof(tcphdr);
+    char *tcp_option=ip_payload+sizeof(my_tcphdr);
     char *option_end=ip_payload+tcphdrlen;
 
     /*

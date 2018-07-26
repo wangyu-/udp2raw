@@ -30,20 +30,125 @@ extern char g_packet_buf[buf_len];
 extern int g_packet_buf_len;
 extern int g_packet_buf_cnt;
 
+
+struct my_iphdr
+  {
+#ifdef UDP2RAW_LITTLE_ENDIAN
+    unsigned char ihl:4;
+    unsigned char version:4;
+#else
+    unsigned char version:4;
+    unsigned char ihl:4;
+#endif
+    u_int8_t tos;
+    u_int16_t tot_len;
+    u_int16_t id;
+    u_int16_t frag_off;
+    u_int8_t ttl;
+    u_int8_t protocol;
+    u_int16_t check;
+    u_int32_t saddr;
+    u_int32_t daddr;
+    /*The options start here. */
+  };
+
+
+struct my_udphdr
+{
+  /*__extension__*/ union
+  {
+    struct
+    {
+      u_int16_t uh_sport;		/* source port */
+      u_int16_t uh_dport;		/* destination port */
+      u_int16_t uh_ulen;		/* udp length */
+      u_int16_t uh_sum;		/* udp checksum */
+    };
+    struct
+    {
+      u_int16_t source;
+      u_int16_t dest;
+      u_int16_t len;
+      u_int16_t check;
+    };
+  };
+};
+
+
+struct my_tcphdr
+  {
+    /*__extension__*/ union
+    {
+      struct
+      {
+	u_int16_t th_sport;		/* source port */
+	u_int16_t th_dport;		/* destination port */
+	u_int32_t th_seq;		/* sequence number */
+	u_int32_t th_ack;		/* acknowledgement number */
+# ifdef UDP2RAW_LITTLE_ENDIAN
+	u_int8_t th_x2:4;		/* (unused) */
+	u_int8_t tc_off:4;		/* data offset */
+# else
+	u_int8_t th_off:4;		/* data offset */
+	u_int8_t th_x2:4;		/* (unused) */
+# endif
+	u_int8_t th_flags;
+# define TH_FIN	0x01
+# define TH_SYN	0x02
+# define TH_RST	0x04
+# define TH_PUSH	0x08
+# define TH_ACK	0x10
+# define TH_URG	0x20
+	u_int16_t th_win;		/* window */
+	u_int16_t th_sum;		/* checksum */
+	u_int16_t th_urp;		/* urgent pointer */
+      };
+      struct
+      {
+	u_int16_t source;
+	u_int16_t dest;
+	u_int32_t seq;
+	u_int32_t ack_seq;
+# ifdef UDP2RAW_LITTLE_ENDIAN
+	u_int16_t res1:4;
+	u_int16_t doff:4;
+	u_int16_t fin:1;
+	u_int16_t syn:1;
+	u_int16_t rst:1;
+	u_int16_t psh:1;
+	u_int16_t ack:1;
+	u_int16_t urg:1;
+	u_int16_t res2:2;
+# else
+	u_int16_t doff:4;
+	u_int16_t res1:4;
+	u_int16_t res2:2;
+	u_int16_t urg:1;
+	u_int16_t ack:1;
+	u_int16_t psh:1;
+	u_int16_t rst:1;
+	u_int16_t syn:1;
+	u_int16_t fin:1;
+# endif
+	u_int16_t window;
+	u_int16_t check;
+	u_int16_t urg_ptr;
+      };
+    };
+};
+
 struct my_ip6hdr
   {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+# ifdef UDP2RAW_LITTLE_ENDIAN
     uint8_t traffic_class_high:4;
     uint8_t version:4;
     uint8_t flow_label_high:4;
     uint8_t traffic_class_low:4;
-#elif __BYTE_ORDER == __BIG_ENDIAN
-    uint8_t version:4;
-    uint8_t traffic_class_high:4;
-    uint8_t traffic_class_low:4;
-    uint8_t flow_label_high:4;
 #else
-# error	"Please fix this"
+    uint8_t version:4;
+    uint8_t traffic_class_high:4;
+    uint8_t traffic_class_low:4;
+    uint8_t flow_label_high:4;
 #endif
     u_int16_t flow_label_low;
     u_int16_t payload_len;
@@ -54,7 +159,7 @@ struct my_ip6hdr
     struct in6_addr dst;
   };
 
-struct icmphdr
+struct my_icmphdr
 {
 	uint8_t type;
 	uint8_t code;

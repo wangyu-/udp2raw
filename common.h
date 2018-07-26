@@ -25,10 +25,10 @@
 #include <stdlib.h> //for exit(0);
 #include <errno.h> //For errno - the error number
 #include <netdb.h> // for gethostbyname()
-#include <netinet/tcp.h>   //Provides declarations for tcp header
+//#include <netinet/tcp.h>   //Provides declarations for tcp header
 #include <netinet/udp.h>
-#include <netinet/ip.h>    //Provides declarations for ip header
-#include <netinet/ip6.h>
+//#include <netinet/ip.h>    //Provides declarations for ip header
+//#include <netinet/ip6.h>
 #include <netinet/if_ether.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -58,6 +58,37 @@
 #include <list>
 #include <type_traits>
 using  namespace std;
+
+
+#if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN || \
+    defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ || \
+    defined(__BIG_ENDIAN__) || \
+    defined(__ARMEB__) || \
+    defined(__THUMBEB__) || \
+    defined(__AARCH64EB__) || \
+    defined(_MIBSEB) || defined(__MIBSEB) || defined(__MIBSEB__)
+#define UDP2RAW_BIG_ENDIAN 1
+#endif
+
+
+#if defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN || \
+    defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ || \
+    defined(__LITTLE_ENDIAN__) || \
+    defined(__ARMEL__) || \
+    defined(__THUMBEL__) || \
+    defined(__AARCH64EL__) || \
+    defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__)
+#define UDP2RAW_LITTLE_ENDIAN 1
+#endif
+
+#if defined(UDP2RAW_BIG_ENDIAN) &&defined(UDP2RAW_LITTLE_ENDIAN)
+#error "endian detection conflicts"
+#endif
+
+
+#if !defined(UDP2RAW_BIG_ENDIAN) && !defined(UDP2RAW_LITTLE_ENDIAN)
+#error "endian detection failed"
+#endif
 
 
 typedef unsigned long long u64_t;   //this works on most platform,avoid using the PRId64
@@ -276,7 +307,7 @@ struct not_copy_able_t
 const int max_data_len=1800;
 const int buf_len=max_data_len+400;
 
-const int max_address_len=512;
+//const int max_address_len=512;
 
 u64_t get_current_time();
 u64_t pack_u64(u32_t a,u32_t b);
@@ -429,6 +460,8 @@ struct lru_collector_t:not_copy_able_t
 		erase(key);
 	}*/
 };
+
+
 
 
 #endif /* COMMON_H_ */

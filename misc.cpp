@@ -743,15 +743,11 @@ void process_arg(int argc, char *argv[])  //process all options
 	 log_bare(log_info,"local_addr=%s ",local_addr.get_str());
 	 log_bare(log_info,"remote_addr=%s ",remote_addr.get_str());
 
-	 if(force_source_ip||force_source_port)
-		 log_bare(log_info,"source_addr=%s ",source_addr.get_str());
-
-	 /*log_bare(log_info,"local_ip=%s ",local_ip);
-	 log_bare(log_info,"local_port=%d ",local_port);
-	 log_bare(log_info,"remote_address=%s ",remote_address);
-	 log_bare(log_info,"remote_port=%d ",remote_port);
-	 log_bare(log_info,"source_ip=%s ",source_ip);
-	 log_bare(log_info,"source_port=%d ",source_port);*/
+	 if(force_source_ip)
+		 log_bare(log_info,"source_addr=%s ",source_addr.get_ip());
+	 
+	 if(force_source_port)
+		 log_bare(log_info,"source_port=%d ",source_port);
 
 	 log_bare(log_info,"socket_buf_size=%d ",socket_buf_size);
 
