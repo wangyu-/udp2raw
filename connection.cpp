@@ -429,7 +429,7 @@ int recv_bare(raw_info_t &raw_info,char* & data,int & len)//recv function with e
 	return reserved_parse_bare(data,len,data,len);
 }
 
-int send_handshake(raw_info_t &raw_info,id_t id1,id_t id2,id_t id3)// a warp for send_bare for sending handshake(this is not tcp handshake) easily
+int send_handshake(raw_info_t &raw_info,my_id_t id1,my_id_t id2,my_id_t id3)// a warp for send_bare for sending handshake(this is not tcp handshake) easily
 {
 	packet_info_t &send_info=raw_info.send_info;
 	packet_info_t &recv_info=raw_info.recv_info;
@@ -470,7 +470,7 @@ int send_safer(conn_info_t &conn_info,char type,const char* data,int len)  //saf
 
 
 
-	id_t n_tmp_id=htonl(conn_info.my_id);
+	my_id_t n_tmp_id=htonl(conn_info.my_id);
 
 	memcpy(send_data_buf,&n_tmp_id,sizeof(n_tmp_id));
 
@@ -532,18 +532,18 @@ int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len
 
 	//char *a=recv_data_buf;
 	//id_t h_oppiste_id= ntohl (  *((id_t * )(recv_data_buf)) );
-	id_t h_oppsite_id;
+	my_id_t h_oppsite_id;
 	memcpy(&h_oppsite_id,recv_data_buf,sizeof(h_oppsite_id));
 	h_oppsite_id=ntohl(h_oppsite_id);
 
 	//id_t h_my_id= ntohl (  *((id_t * )(recv_data_buf+sizeof(id_t)))    );
-	id_t h_my_id;
-	memcpy(&h_my_id,recv_data_buf+sizeof(id_t),sizeof(h_my_id));
+	my_id_t h_my_id;
+	memcpy(&h_my_id,recv_data_buf+sizeof(my_id_t),sizeof(h_my_id));
 	h_my_id=ntohl(h_my_id);
 
 	//anti_replay_seq_t h_seq= ntoh64 (  *((anti_replay_seq_t * )(recv_data_buf  +sizeof(id_t) *2 ))   );
 	anti_replay_seq_t h_seq;
-	memcpy(&h_seq,recv_data_buf  +sizeof(id_t) *2 ,sizeof(h_seq));
+	memcpy(&h_seq,recv_data_buf  +sizeof(my_id_t) *2 ,sizeof(h_seq));
 	h_seq=ntoh64(h_seq);
 
 	if(h_oppsite_id!=conn_info.oppsite_id||h_my_id!=conn_info.my_id)
@@ -558,8 +558,8 @@ int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len
 	}
 
 	//printf("recv _len %d\n ",recv_len);
-	data=recv_data_buf+sizeof(anti_replay_seq_t)+sizeof(id_t)*2;
-	len=input_len-(sizeof(anti_replay_seq_t)+sizeof(id_t)*2  );
+	data=recv_data_buf+sizeof(anti_replay_seq_t)+sizeof(my_id_t)*2;
+	len=input_len-(sizeof(anti_replay_seq_t)+sizeof(my_id_t)*2  );
 
 
 	if(data[0]!='h'&&data[0]!='d')

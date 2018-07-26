@@ -208,7 +208,7 @@ struct packet_info_t  //todo change this to union
 	u32_t ts,ts_ack;
 
 
-	uint16_t icmp_seq;
+	uint16_t my_icmp_seq;
 
 	bool has_ts;
 

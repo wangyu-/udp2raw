@@ -190,7 +190,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 				send_handshake(raw_info,conn_info.my_id,0,const_id);
 				if(raw_mode==mode_icmp)
-					send_info.icmp_seq++;
+					send_info.my_icmp_seq++;
 			}
 
 			conn_info.last_hb_sent_time=get_current_time();
@@ -231,7 +231,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 				send_handshake(raw_info,conn_info.my_id,conn_info.oppsite_id,const_id);
 				if(raw_mode==mode_icmp)
-					send_info.icmp_seq++;
+					send_info.my_icmp_seq++;
 			}
 			conn_info.last_hb_sent_time=get_current_time();
 			mylog(log_info,"(re)sent handshake2\n");
@@ -350,24 +350,24 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			mylog(log_debug,"unexpected adress %s %s %d %d\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);
 			return -1;
 		}
-		if(data_len<int( 3*sizeof(id_t)))
+		if(data_len<int( 3*sizeof(my_id_t)))
 		{
 			mylog(log_debug,"too short to be a handshake\n");
 			return -1;
 		}
 		//id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
-		id_t tmp_oppsite_id;
+		my_id_t tmp_oppsite_id;
 		memcpy(&tmp_oppsite_id,&data[0],sizeof(tmp_oppsite_id));
 		tmp_oppsite_id=ntohl(tmp_oppsite_id);
 
 		//id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
-		id_t tmp_my_id;
-		memcpy(&tmp_my_id,&data[sizeof(id_t)],sizeof(tmp_my_id));
+		my_id_t tmp_my_id;
+		memcpy(&tmp_my_id,&data[sizeof(my_id_t)],sizeof(tmp_my_id));
 		tmp_my_id=ntohl(tmp_my_id);
 
 		//id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
-		id_t tmp_oppsite_const_id;
-		memcpy(&tmp_oppsite_const_id,&data[sizeof(id_t)*2],sizeof(tmp_oppsite_const_id));
+		my_id_t tmp_oppsite_const_id;
+		memcpy(&tmp_oppsite_const_id,&data[sizeof(my_id_t)*2],sizeof(tmp_oppsite_const_id));
 		tmp_oppsite_const_id=ntohl(tmp_oppsite_const_id);
 
 		if(tmp_my_id!=conn_info.my_id)
@@ -670,7 +670,7 @@ int server_on_raw_recv_ready(conn_info_t &conn_info,char * ip_port,char type,cha
 	{
 
 		//u32_t tmp_conv_id = ntohl(*((u32_t *) &data[0]));
-		id_t tmp_conv_id;
+		my_id_t tmp_conv_id;
 		memcpy(&tmp_conv_id,&data[0],sizeof(tmp_conv_id));
 		tmp_conv_id=ntohl(tmp_conv_id);
 
@@ -920,19 +920,19 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 	//char ip_port[40];
 	//sprintf(ip_port,"%s:%d",my_ntoa(ip),port);
 
-	if(data_len<int( 3*sizeof(id_t)))
+	if(data_len<int( 3*sizeof(my_id_t)))
 	{
 		mylog(log_debug,"[%s] data_len=%d too short to be a handshake\n",ip_port,data_len);
 		return -1;
 	}
 	//id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
-	id_t tmp_oppsite_id;
+	my_id_t tmp_oppsite_id;
 	memcpy(&tmp_oppsite_id,(u32_t *)&data[0],sizeof(tmp_oppsite_id));
 	tmp_oppsite_id=ntohl(tmp_oppsite_id);
 
 	//id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
-	id_t tmp_my_id;
-	memcpy(&tmp_my_id,&data[sizeof(id_t)],sizeof(tmp_my_id));
+	my_id_t tmp_my_id;
+	memcpy(&tmp_my_id,&data[sizeof(my_id_t)],sizeof(tmp_my_id));
 	tmp_my_id=ntohl(tmp_my_id);
 
 	if(tmp_my_id==0)  //received  init handshake again
@@ -945,7 +945,7 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 		}
 		if(raw_mode==mode_icmp)
 		{
-			send_info.icmp_seq=recv_info.icmp_seq;
+			send_info.my_icmp_seq=recv_info.my_icmp_seq;
 		}
 		send_handshake(raw_info,conn_info.my_id,tmp_oppsite_id,const_id);  //////////////send
 
@@ -956,8 +956,8 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 		conn_info.oppsite_id=tmp_oppsite_id;
 		//id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
 
-		id_t tmp_oppsite_const_id;
-		memcpy(&tmp_oppsite_const_id,&data[sizeof(id_t)*2],sizeof(tmp_oppsite_const_id));
+		my_id_t tmp_oppsite_const_id;
+		memcpy(&tmp_oppsite_const_id,&data[sizeof(my_id_t)*2],sizeof(tmp_oppsite_const_id));
 		tmp_oppsite_const_id=ntohl(tmp_oppsite_const_id);
 
 
@@ -970,7 +970,7 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 
 		if(raw_mode==mode_icmp)
 		{
-			send_info.icmp_seq=recv_info.icmp_seq;
+			send_info.my_icmp_seq=recv_info.my_icmp_seq;
 		}
 
 		server_on_raw_recv_pre_ready(conn_info,ip_port,tmp_oppsite_const_id);
@@ -1086,15 +1086,15 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 		{
 			return 0;
 		}
-		if(data_len<int( 3*sizeof(id_t)))
+		if(data_len<int( 3*sizeof(my_id_t)))
 		{
 			mylog(log_debug,"[%s]too short to be a handshake\n",ip_port);
 			return -1;
 		}
 
 		//id_t zero=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
-		id_t zero;
-		memcpy(&zero,&data[sizeof(id_t)],sizeof(zero));
+		my_id_t zero;
+		memcpy(&zero,&data[sizeof(my_id_t)],sizeof(zero));
 		zero=ntohl(zero);
 
 		if(zero!=0)

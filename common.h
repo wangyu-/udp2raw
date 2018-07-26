@@ -100,7 +100,7 @@ typedef int i32_t;
 typedef unsigned short u16_t;
 typedef short i16_t;
 
-typedef u32_t id_t;
+typedef u32_t my_id_t;
 
 typedef u64_t iv_t;
 
@@ -344,8 +344,8 @@ void myexit(int a);
 unsigned short csum(const unsigned short *ptr,int nbytes);
 unsigned short csum_with_header(char* header,int hlen,const unsigned short *ptr,int nbytes);
 
-int numbers_to_char(id_t id1,id_t id2,id_t id3,char * &data,int &len);
-int char_to_numbers(const char * data,int len,id_t &id1,id_t &id2,id_t &id3);
+int numbers_to_char(my_id_t id1,my_id_t id2,my_id_t id3,char * &data,int &len);
+int char_to_numbers(const char * data,int len,my_id_t &id1,my_id_t &id2,my_id_t &id3);
 
 const int show_none=0;
 const int show_command=0x1;

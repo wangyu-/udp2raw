@@ -248,7 +248,7 @@ packet_info_t::packet_info_t()
 			assert(raw_ip_version==AF_INET6);
 			protocol = IPPROTO_ICMPV6;
 		}
-		icmp_seq=0;
+		my_icmp_seq=0;
 	}
 
 }
@@ -1125,7 +1125,7 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	icmph->code=0;
 	icmph->id=htons(send_info.src_port);
 
-	icmph->seq=htons(send_info.icmp_seq);   /////////////modify
+	icmph->seq=htons(send_info.my_icmp_seq);   /////////////modify
 
 	memcpy(send_raw_icmp_buf+sizeof(my_icmphdr),payload,payloadlen);
 
@@ -1579,7 +1579,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	}
 
 	recv_info.src_port=recv_info.dst_port=ntohs(icmph->id);
-	recv_info.icmp_seq=ntohs(icmph->seq);
+	recv_info.my_icmp_seq=ntohs(icmph->seq);
 
 	if(icmph->code!=0)
 		return -1;
@@ -2293,7 +2293,7 @@ int after_send_raw0(raw_info_t &raw_info)
 	{
 		if(program_mode==client_mode)
 		{
-			send_info.icmp_seq++;
+			send_info.my_icmp_seq++;
 		}
 	}
 	return 0;
@@ -2328,8 +2328,8 @@ int after_recv_raw0(raw_info_t &raw_info)
 	{
 		if(program_mode==server_mode)
 		{
-			if(larger_than_u16(recv_info.icmp_seq,send_info.icmp_seq))
-				send_info.icmp_seq = recv_info.icmp_seq;  //TODO only update if its larger
+			if(larger_than_u16(recv_info.my_icmp_seq,send_info.my_icmp_seq))
+				send_info.my_icmp_seq = recv_info.my_icmp_seq;  //TODO only update if its larger
 		}
 	}
 	return 0;
