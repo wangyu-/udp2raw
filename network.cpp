@@ -1167,14 +1167,14 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 
 	char send_raw_udp_buf[buf_len];
 
-	udphdr *udph=(struct udphdr *) (send_raw_udp_buf);
+	my_udphdr *udph=(struct my_udphdr *) (send_raw_udp_buf);
 
-	memset(udph,0,sizeof(udphdr));
+	memset(udph,0,sizeof(my_udphdr));
 
 	udph->source = htons(send_info.src_port);
 	udph->dest = htons(send_info.dst_port);
 
-	int udp_tot_len=payloadlen+sizeof(udphdr);
+	int udp_tot_len=payloadlen+sizeof(my_udphdr);
 
 
 	if(udp_tot_len>65535)
@@ -1185,7 +1185,7 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	mylog(log_trace,"udp_len:%d %d\n",udp_tot_len,udph->len);
 	udph->len=htons(uint16_t(udp_tot_len));
 
-	memcpy(send_raw_udp_buf+sizeof(udphdr),payload,payloadlen);
+	memcpy(send_raw_udp_buf+sizeof(my_udphdr),payload,payloadlen);
 
 
 
@@ -1664,12 +1664,12 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 		//printf("not udp protocol\n");
 		return -1;
 	}
-	if(ip_payloadlen<int( sizeof(udphdr) ))
+	if(ip_payloadlen<int( sizeof(my_udphdr) ))
 	{
 		mylog(log_debug,"too short to hold udpheader\n");
 		return -1;
 	}
-	udphdr *udph=(struct udphdr*)ip_payload;
+	my_udphdr *udph=(struct my_udphdr*)ip_payload;
 
 	if(int(ntohs(udph->len))!=ip_payloadlen)
 	{
@@ -1744,9 +1744,9 @@ int recv_raw_udp(raw_info_t &raw_info, char *&payload, int &payloadlen)
     recv_info.src_port=ntohs(udph->source);
     recv_info.dst_port=ntohs(udph->dest);
 
-    payloadlen = ip_payloadlen-sizeof(udphdr);
+    payloadlen = ip_payloadlen-sizeof(my_udphdr);
 
-    payload=udp_begin+sizeof(udphdr);
+    payload=udp_begin+sizeof(my_udphdr);
 
     return 0;
 }

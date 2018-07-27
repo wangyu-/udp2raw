@@ -419,24 +419,24 @@ u32_t get_true_random_number_nz() //nz for non-zero
 	}
 	return ret;
 }
+
 u64_t ntoh64(u64_t a)
 {
-	if(__BYTE_ORDER == __LITTLE_ENDIAN)
-	{
-		return bswap_64( a);
-	}
-	else return a;
+	#ifdef UDP2RAW_LITTLE_ENDIAN
+		u32_t h=get_u64_h(a);
+		u32_t l=get_u64_l(a);
+		return pack_u64(ntohl(l),ntohl(h));
+		//return bswap_64( a);
+	#else
+	return a;
+	#endif
 
 }
 u64_t hton64(u64_t a)
 {
-	if(__BYTE_ORDER == __LITTLE_ENDIAN)
-	{
-		return bswap_64( a);
-	}
-	else return a;
-
+	return ntoh64(a);
 }
+
 
 void write_u16(char * p,u16_t w)
 {
@@ -643,10 +643,9 @@ int hex_to_u32_with_endian(const string & a,u32_t &output)
 	return -1;
 }
 bool larger_than_u32(u32_t a,u32_t b)
-//TODO
-//looks like this can simply be done by return ((i32_t)(a-b) >0)
 {
-
+	return ((i32_t(a-b)) >0);
+/*
 	u32_t smaller,bigger;
 	smaller=min(a,b);//smaller in normal sense
 	bigger=max(a,b);
@@ -673,11 +672,13 @@ bool larger_than_u32(u32_t a,u32_t b)
 			return 1;
 		}
 	}
+*/
 }
 
 bool larger_than_u16(uint16_t a,uint16_t b)
 {
-
+	return ((i16_t(a-b)) >0);
+/*
 	uint16_t smaller,bigger;
 	smaller=min(a,b);//smaller in normal sense
 	bigger=max(a,b);
@@ -703,7 +704,7 @@ bool larger_than_u16(uint16_t a,uint16_t b)
 		{
 			return 1;
 		}
-	}
+	}*/
 }
 
 void myexit(int a)
