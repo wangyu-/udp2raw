@@ -219,12 +219,35 @@ struct conv_manager_t  // manage the udp connections
 
 struct blob_t:not_copy_able_t //used in conn_info_t.
 {
-	struct  //conv_manager_t is here to avoid copying when a connection is recovered
-	//TODO maybe an unconstrained union is better, but struct is okay since conv_manger is small when no data is filled in.
+	union  tmp_union_t//conv_manager_t is here to avoid copying when a connection is recovered
 	{
 		conv_manager_t<address_t> c;
 		conv_manager_t<u64_t> s;
 		//avoid templates here and there, avoid pointer and type cast
+		tmp_union_t()
+		{
+			if(program_mode==client_mode)
+			{
+				new( &c ) conv_manager_t<address_t>();
+			}
+			else
+			{
+				assert(program_mode==server_mode);
+				new( &s ) conv_manager_t<u64_t>();
+			}
+		}
+		~tmp_union_t()
+		{
+			if(program_mode==client_mode)
+			{
+				c.~conv_manager_t<address_t>();
+			}
+			else
+			{
+				assert(program_mode==server_mode);
+				s.~conv_manager_t<u64_t>();
+			}
+		}
 	}conv_manager;
 
 	anti_replay_t anti_replay;//anti_replay_t is here bc its huge,its allocation is delayed.

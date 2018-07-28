@@ -48,7 +48,7 @@
 
 #else
 
-#include <linux/if_ether.h>
+//#include <linux/if_ether.h>
 #include <linux/filter.h>
 #include <linux/if_packet.h>
 #include <sys/epoll.h>

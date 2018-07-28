@@ -131,12 +131,6 @@ conn_manager_t conn_manager;
 	{
 		assert(0==1);
 		//mylog(log_error,"called!!!!!!!!!!!!!\n");
-		*this=b;
-		if(blob!=0)
-		{
-			blob=new blob_t(*b.blob);
-
-		}
 	}
 
 	conn_info_t& conn_info_t::operator=(const conn_info_t& b)
