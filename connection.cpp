@@ -122,9 +122,14 @@ conn_manager_t conn_manager;
 	{
 		assert(blob==0);
 		blob=new blob_t;
-
-		blob->conv_manager.s.additional_clear_function=server_clear_function;
-
+		if(program_mode==server_mode)
+		{
+			blob->conv_manager.s.additional_clear_function=server_clear_function;
+		}
+		else
+		{
+			assert(program_mode==client_mode);
+		}
 	}
 
 	conn_info_t::conn_info_t(const conn_info_t&b)
