@@ -1485,7 +1485,7 @@ int client_event_loop()
 			else if(events[idx].data.u64 ==(u64_t)timer_fd)
 			{
 				u64_t value;
-				read(timer_fd, &value, 8);
+				int unused=read(timer_fd, &value, 8);
 				client_on_timer(conn_info);
 				mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
 				epoll_trigger_counter=0;
@@ -1678,7 +1678,7 @@ int server_event_loop()
 				if(debug_flag)begin_time=get_current_time();
 				conn_manager.clear_inactive();
 				u64_t dummy;
-				read(timer_fd, &dummy, 8);
+				int unused=read(timer_fd, &dummy, 8);
 				//current_time_rough=get_current_time();
 				if(debug_flag)
 				{
@@ -1733,7 +1733,7 @@ int server_event_loop()
 					if(debug_flag)begin_time=get_current_time();
 					int fd=fd_manager.to_fd(fd64);
 					u64_t dummy;
-					read(fd, &dummy, 8);
+					int unused=read(fd, &dummy, 8);
 					assert(conn_info.state.server_current_state == server_ready); //TODO remove this for peformance
 					server_on_timer_multi(conn_info);
 					if(debug_flag)
