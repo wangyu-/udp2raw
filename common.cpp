@@ -280,8 +280,9 @@ char * my_ip_t::get_str1() const
 	{
 		assert(inet_ntop(AF_INET6, &v6, res,max_addr_len)!=0);
 	}
-	else if(raw_ip_version==AF_INET6)
+	else
 	{
+		assert(raw_ip_version==AF_INET);
 		assert(inet_ntop(AF_INET, &v4, res,max_addr_len)!=0);
 	}
 	return res;
@@ -293,8 +294,9 @@ char * my_ip_t::get_str2() const
 	{
 		assert(inet_ntop(AF_INET6, &v6, res,max_addr_len)!=0);
 	}
-	else if(raw_ip_version==AF_INET)
+	else
 	{
+		assert(raw_ip_version==AF_INET);
 		assert(inet_ntop(AF_INET, &v4, res,max_addr_len)!=0);
 	}
 	return res;
