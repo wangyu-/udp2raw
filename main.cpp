@@ -29,7 +29,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
-	conn_info.blob->conv_manager.clear_inactive();
+	conn_info.blob->conv_manager.c.clear_inactive();
 	mylog(log_trace,"timer!\n");
 
 	mylog(log_trace,"roller my %d,oppsite %d,%lld\n",int(conn_info.my_roller),int(conn_info.oppsite_roller),conn_info.last_oppsite_roller_time);
@@ -541,34 +541,34 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			memcpy(&tmp_conv_id,&data[0],sizeof(tmp_conv_id));
 			tmp_conv_id=ntohl(tmp_conv_id);
 
-			if(!conn_info.blob->conv_manager.is_conv_used(tmp_conv_id))
+			if(!conn_info.blob->conv_manager.c.is_conv_used(tmp_conv_id))
 			{
 				mylog(log_info,"unknow conv %d,ignore\n",tmp_conv_id);
 				return 0;
 			}
 
-			conn_info.blob->conv_manager.update_active_time(tmp_conv_id);
+			conn_info.blob->conv_manager.c.update_active_time(tmp_conv_id);
 
-			u64_t u64=conn_info.blob->conv_manager.find_u64_by_conv(tmp_conv_id);
+			//u64_t u64=conn_info.blob->conv_manager.c.find_dat_by_conv(tmp_conv_id);
+			address_t addr=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
+
+			//sockaddr_in tmp_sockaddr={0};
+
+			//tmp_sockaddr.sin_family = AF_INET;
+			//tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
+
+			//tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
 
 
-			sockaddr_in tmp_sockaddr={0};
-
-			tmp_sockaddr.sin_family = AF_INET;
-			tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
-
-			tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
-
-
-			int ret=sendto(udp_fd,data+sizeof(u32_t),data_len -(sizeof(u32_t)),0,(struct sockaddr *)&tmp_sockaddr,sizeof(tmp_sockaddr));
+			int ret=sendto(udp_fd,data+sizeof(u32_t),data_len -(sizeof(u32_t)),0,(struct sockaddr *)&addr.inner,addr.get_len());
 
 			if(ret<0)
 			{
 		    	mylog(log_warn,"sento returned %d\n",ret);
 
 			}
-			mylog(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
-			mylog(log_trace,"%d byte sent\n",ret);
+			//mylog(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
+			//mylog(log_trace,"%d byte sent\n",ret);
 		}
 		else
 		{
@@ -593,13 +593,14 @@ void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 	conn_info_t & conn_info= *((conn_info_t*)watcher->data);;
 
 	int recv_len;
-	struct sockaddr_in udp_new_addr_in={0};
-	socklen_t udp_new_addr_len = sizeof(sockaddr_in);
-	if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
+	address_t addr;
+
+	address_t::storage_t udp_new_addr_in={0};
+	socklen_t udp_new_addr_len = sizeof(address_t::storage_t);
+	if ((recv_len = recvfrom(udp_fd, buf, max_data_len, 0,
 			(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
-		mylog(log_debug,"recv_from error,this shouldnt happen at client,but lets try to continue\n");
-		return ;
-		//myexit(1);
+		mylog(log_debug,"recv_from error,this shouldnt happen,err=%s,but we can try to continue\n",get_sock_error());
+		return;
 	};
 
 	if(recv_len==max_data_len+1)
@@ -612,29 +613,32 @@ void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 	{
 		mylog(log_warn,"huge packet,data len=%d (>=%d).strongly suggested to set a smaller mtu at upper level,to get rid of this warn\n ",recv_len,mtu_warn);
 	}
-	mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
-			ntohs(udp_new_addr_in.sin_port),recv_len);
+	//mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
+			//ntohs(udp_new_addr_in.sin_port),recv_len);
 
-	u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
+	addr.from_sockaddr((struct sockaddr *) &udp_new_addr_in,udp_new_addr_len);
+
+	//u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
 	u32_t conv;
 
-	if(!conn_info.blob->conv_manager.is_u64_used(u64))
+	if(!conn_info.blob->conv_manager.c.is_data_used(addr))
 	{
-		if(conn_info.blob->conv_manager.get_size() >=max_conv_num)
+		if(conn_info.blob->conv_manager.c.get_size() >=max_conv_num)
 		{
 			mylog(log_warn,"ignored new udp connect bc max_conv_num exceed\n");
 			return;
 		}
-		conv=conn_info.blob->conv_manager.get_new_conv();
-		conn_info.blob->conv_manager.insert_conv(conv,u64);
-		mylog(log_info,"new packet from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
+		conv=conn_info.blob->conv_manager.c.get_new_conv();
+		conn_info.blob->conv_manager.c.insert_conv(conv,addr);
+		//mylog(log_info,"new packet from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
+		mylog(log_info,"new packet from %s,conv_id=%x\n",addr.get_str(),conv);
 	}
 	else
 	{
-		conv=conn_info.blob->conv_manager.find_conv_by_u64(u64);
+		conv=conn_info.blob->conv_manager.c.find_conv_by_data(addr);
 	}
 
-	conn_info.blob->conv_manager.update_active_time(conv);
+	conn_info.blob->conv_manager.c.update_active_time(conv);
 
 	if(conn_info.state.client_current_state==client_ready)
 	{
@@ -970,14 +974,6 @@ int client_event_loop()
 	if(fifo_file[0]!=0)
 	{
 		fifo_fd=create_fifo(fifo_file);
-		//ev.events = EPOLLIN;
-		//ev.data.u64 = fifo_fd;
-
-		//ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, fifo_fd, &ev);
-		//if (ret!= 0) {
-		//	mylog(log_fatal,"add fifo_fd to epoll error %s\n",strerror(errno));
-		//	myexit(-1);
-		//}
 
 	    ev_io_init(&fifo_watcher, fifo_cb, fifo_fd, EV_READ);
 	    ev_io_start(loop, &fifo_watcher);
@@ -986,49 +982,6 @@ int client_event_loop()
 	}
 
 	ev_run(loop, 0);
-	/*
-	while(1)////////////////////////
-	{
-		if(about_to_exit) myexit(0);
-		epoll_trigger_counter++;
-		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
-		if (nfds < 0) {  //allow zero
-			if(errno==EINTR  )
-			{
-				mylog(log_info,"epoll interrupted by signal,continue\n");
-			}
-			else
-			{
-				mylog(log_fatal,"epoll_wait return %d,%s\n", nfds,strerror(errno));
-				myexit(-1);
-			}
-		}
-		int idx;
-		for (idx = 0; idx < nfds; ++idx) {
-			if (events[idx].data.u64 == (u64_t)raw_recv_fd)
-			{
-				iphdr *iph;tcphdr *tcph;
-
-			}
-			else if(events[idx].data.u64 ==(u64_t)timer_fd)
-			{
-
-			}
-			else if (events[idx].data.u64 == (u64_t)fifo_fd)
-			{
-			}
-			else if (events[idx].data.u64 == (u64_t)udp_fd)
-			{
-
-			}
-			else
-			{
-				mylog(log_fatal,"unknown fd,this should never happen\n");
-				myexit(-1);
-			}
-		}
-	}*/
-
 	return 0;
 }
 

@@ -401,6 +401,13 @@ void process_arg(int argc, char *argv[])  //process all options
 		switch (opt) {
 		case 'l':
 			no_l = 0;
+			local_addr.from_str(optarg);
+			if(local_addr.get_port()==22)
+			{
+				mylog(log_fatal,"port 22 not allowed\n");
+				myexit(-1);
+			}
+			/*
 			if (strchr(optarg, ':') != 0) {
 				sscanf(optarg, "%[^:]:%d", local_ip, &local_port);
 				if(local_port==22)
@@ -411,11 +418,17 @@ void process_arg(int argc, char *argv[])  //process all options
 			} else {
 				mylog(log_fatal,"invalid parameter for -l ,%s,should be ip:port\n",optarg);
 				myexit(-1);
-
-			}
+			}*/
 			break;
 		case 'r':
 			no_r = 0;
+			remote_addr.from_str(optarg);
+			if(remote_addr.get_port()==22)
+			{
+				mylog(log_fatal,"port 22 not allowed\n");
+				myexit(-1);
+			}
+			/*
 			if (strchr(optarg, ':') != 0) {
 				sscanf(optarg, "%[^:]:%d", remote_address, &remote_port);
 				if(remote_port==22)
@@ -426,7 +439,7 @@ void process_arg(int argc, char *argv[])  //process all options
 			} else {
 				mylog(log_fatal,"invalid parameter for -r ,%s,should be ip:port\n",optarg);
 				myexit(-1);
-			}
+			}*/
 			break;
 		case 's':
 			if(program_mode==0)

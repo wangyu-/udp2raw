@@ -218,6 +218,9 @@ struct packet_info_t  //todo change this to union
 	u32_t src_ip;
 	u32_t dst_ip;
 
+	my_ip_t new_src_ip;
+	my_ip_t new_dst_ip;
+
 	uint16_t src_port;
 	uint16_t dst_port;
 
