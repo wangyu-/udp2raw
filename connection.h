@@ -16,6 +16,7 @@ extern int disable_anti_replay;
 #include "network.h"
 #include "misc.h"
 
+//const int disable_conv_clear=0;//a udp connection in the multiplexer is called conversation in this program,conv for short.
 
 
 struct anti_replay_t  //its for anti replay attack,similar to openvpn/ipsec 's anti replay window
@@ -30,6 +31,9 @@ struct anti_replay_t  //its for anti replay attack,similar to openvpn/ipsec 's a
 	int is_vaild(u64_t seq);
 };//anti_replay;
 
+void server_clear_function(u64_t u64);
+
+#include <type_traits>
 
 struct conv_manager_t  // manage the udp connections
 {

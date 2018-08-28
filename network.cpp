@@ -40,6 +40,10 @@ const u32_t receive_window_lower_bound=40960;
 const u32_t receive_window_random_range=512;
 const unsigned char wscale=0x05;
 
+char g_packet_buf[buf_len]; //looks dirty but works well
+int g_packet_buf_len=-1;
+int g_packet_buf_cnt=0;
+
 #ifndef NO_LIBNET
 libnet_t *libnet_handle;
 libnet_ptag_t g_ptag=0;
@@ -66,9 +70,6 @@ ev_loop* g_default_loop;
 
 pthread_t pcap_recv_thread;
 
-char g_packet_buf[buf_len]; //dirty code, fix it later
-int g_packet_buf_len=-1;
-int g_packet_buf_cnt=0;
 
 
 
