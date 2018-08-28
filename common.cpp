@@ -899,6 +899,7 @@ void myexit(int a)
 {
     if(enable_log_color)
    	printf("%s\n",RESET);
+    /*
     if(keep_thread_running)
     {
 		if(pthread_cancel(keep_thread))
@@ -911,6 +912,7 @@ void myexit(int a)
 		}
     }
 	clear_iptables_rule();
+	*/
 	exit(a);
 }
 
