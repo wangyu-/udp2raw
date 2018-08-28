@@ -73,7 +73,7 @@ union current_state_t
 	client_current_state_t client_current_state;
 };
 
-extern char remote_address[max_address_len];
+extern char remote_address[max_addr_len];
 extern char local_ip[100], remote_ip[100],source_ip[100];//local_ip is for -l option,remote_ip for -r option,source for --source-ip
 extern u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
 extern int local_port , remote_port,source_port;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
@@ -106,6 +106,7 @@ extern char fifo_file[1000];
 
 
 extern raw_mode_t raw_mode;
+extern u32_t raw_ip_version;
 
 extern program_mode_t program_mode;
 extern unordered_map<int, const char*> raw_mode_tostring ;
@@ -113,7 +114,7 @@ extern unordered_map<int, const char*> raw_mode_tostring ;
 extern int about_to_exit;
 
 extern int socket_buf_size;
-extern int force_socket_buf;
+//extern int force_socket_buf;
 
 extern pthread_t keep_thread;
 extern int keep_thread_running;

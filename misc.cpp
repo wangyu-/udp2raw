@@ -28,7 +28,7 @@ int ttl_value=64;
 
 fd_manager_t fd_manager;
 
-char remote_address[max_address_len]="";
+char remote_address[max_addr_len]="";
 char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
 u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
 int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
@@ -71,6 +71,7 @@ int iptables_rule_keep_index=0;
 
 program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 raw_mode_t raw_mode=mode_faketcp;
+u32_t raw_ip_version=(u32_t)-1;
 unordered_map<int, const char*> raw_mode_tostring = {{mode_faketcp, "faketcp"}, {mode_udp, "udp"}, {mode_icmp, "icmp"}};
 
 int about_to_exit=0;
@@ -80,7 +81,7 @@ int about_to_exit=0;
 
 
 int socket_buf_size=1024*1024;
-int force_socket_buf=0;
+//int force_socket_buf=0;
 
 
 

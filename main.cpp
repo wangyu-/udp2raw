@@ -880,7 +880,7 @@ int client_event_loop()
 
 
     udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    set_buf_size(udp_fd,socket_buf_size,force_socket_buf);
+    set_buf_size(udp_fd,socket_buf_size);
 
 	int yes = 1;
 
