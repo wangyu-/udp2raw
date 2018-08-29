@@ -12,6 +12,7 @@
 int raw_recv_fd=-1;
 int raw_send_fd=-1;
 u32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+int use_tcp_dummy_socket=0;
 
 int seq_mode=3;
 int max_seq_mode=4;

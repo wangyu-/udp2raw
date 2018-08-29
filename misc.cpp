@@ -237,6 +237,10 @@ int process_log_level(int argc,char *argv[])//process  --log-level and --disable
 				}
 			}
 		}
+		if(strcmp(argv[i],"--enable-color")==0)
+		{
+			enable_log_color=1;
+		}
 		if(strcmp(argv[i],"--disable-color")==0)
 		{
 			enable_log_color=0;
@@ -266,6 +270,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"cipher-mode", required_argument,    0, 1},
 		{"raw-mode", required_argument,    0, 1},
 		{"disable-color", no_argument,    0, 1},
+		{"enable-color", no_argument,    0, 1},
 		{"log-position", no_argument,    0, 1},
 		{"disable-bpf", no_argument,    0, 1},
 		{"disable-anti-replay", no_argument,    0, 1},
@@ -273,7 +278,6 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"gen-rule", no_argument,    0, 'g'},
 		{"gen-add", no_argument,    0, 1},
 		{"debug", no_argument,    0, 1},
-		{"dev", required_argument,    0, 1},
 		{"retry-on-error", no_argument,    0, 1},
 		{"clear", no_argument,    0, 1},
 		{"simple-rule", no_argument,    0, 1},
@@ -292,7 +296,9 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"max-rst-to-show", required_argument,    0, 1},
 		{"max-rst-allowed", required_argument,    0, 1},
 		{"set-ttl", required_argument,    0, 1},
+		{"dev", required_argument,    0, 1},
 		{"dns-resolve", no_argument,    0, 1},
+		{"easy-tcp", no_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -495,6 +501,7 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"raw-mode")==0)
 			{
+				/*
 				for(i=0;i<mode_end;i++)
 				{
 					if(strcmp(optarg,raw_mode_tostring[i])==0)
@@ -509,6 +516,30 @@ void process_arg(int argc, char *argv[])  //process all options
 				{
 					mylog(log_fatal,"no such raw_mode %s\n",optarg);
 					myexit(-1);
+				}
+				 */
+				if(strcmp(optarg,"easyfaketcp")==0||strcmp(optarg,"easy_faketcp")==0||strcmp(optarg,"easy-faketcp")==0)
+				{
+					raw_mode=mode_faketcp;
+					use_tcp_dummy_socket=1;
+				}
+				else
+				{
+					for(i=0;i<mode_end;i++)
+					{
+						if(strcmp(optarg,raw_mode_tostring[i])==0)
+						{
+							//printf("%d i\n",i);
+							//printf("%s",raw_mode_tostring[i]);
+							raw_mode=(raw_mode_t)i;
+							break;
+						}
+					}
+					if(i==mode_end)
+					{
+						mylog(log_fatal,"no such raw_mode %s\n",optarg);
+						myexit(-1);
+					}
 				}
 			}
 			else if(strcmp(long_options[option_index].name,"auth-mode")==0)
@@ -582,6 +613,7 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				sscanf(optarg,"%s",dev);
 				//enable_log_color=0;
+				mylog(log_info,"dev=[%s]\n",dev);
 			}
 			else if(strcmp(long_options[option_index].name,"debug-resend")==0)
 			{
@@ -699,6 +731,11 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				enable_dns_resolve=1;
 				mylog(log_info,"dns-resolve enabled\n");
+			}
+			else if(strcmp(long_options[option_index].name,"easy-tcp")==0)
+			{
+				use_tcp_dummy_socket=1;
+				mylog(log_info,"--easy-tcp enabled, now a dummy tcp socket will be created for handshake and block rst\n");
 			}
 			else
 			{

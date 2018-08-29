@@ -15,8 +15,6 @@
 #include "encrypt.h"
 #include "fd_manager.h"
 
-int server_easytcp=0;//currently only for test
-
 int server_on_timer_multi(conn_info_t &conn_info)  //for server. called when a timer is ready in epoll.for server,there will be one timer for every connection
 // there is also a global timer for server,but its not handled here
 {
@@ -458,7 +456,7 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 			{
 				return 0;
 			}
-			if(server_easytcp!=0)
+			if(use_tcp_dummy_socket!=0)
 				return 0;
 			raw_info_t &raw_info=tmp_raw_info;
 			packet_info_t &send_info=raw_info.send_info;
