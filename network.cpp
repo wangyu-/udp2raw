@@ -498,7 +498,15 @@ int init_raw_socket()
 #ifndef NO_LIBNET
 	char libnet_errbuf[LIBNET_ERRBUF_SIZE];
 
-	libnet_handle = libnet_init(LIBNET_RAW4, dev, libnet_errbuf);
+	if(raw_ip_version==AF_INET)
+	{
+		libnet_handle = libnet_init(LIBNET_RAW4, dev, libnet_errbuf);
+	}
+	else
+	{
+		assert(raw_ip_version==AF_INET6);
+		libnet_handle = libnet_init(LIBNET_RAW6, dev, libnet_errbuf);
+	}
 
 	if(libnet_handle==0)
 	{
@@ -822,6 +830,8 @@ void init_filter(int port)
 
 	 //pthread_mutex_lock(&filter_mutex);//not sure if mutex is needed here
 
+	pcap_setdirection(pcap_handle,PCAP_D_IN);
+
 	 pcap_freecode(&g_filter);
 
 	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
@@ -834,6 +844,7 @@ void init_filter(int port)
 		 mylog(log_fatal,"Error setting filter - %s\n", pcap_geterr(pcap_handle));
 		 myexit(-1);
 	 }
+
 
 	 //pthread_mutex_unlock(&filter_mutex);
 	/*
