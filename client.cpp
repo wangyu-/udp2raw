@@ -10,7 +10,6 @@
 
 int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is ready in epoll
 {
-	//keep_iptables_rule();
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 	raw_info_t &raw_info=conn_info.raw_info;
@@ -116,7 +115,6 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 				conn_info.state.client_current_state=client_tcp_handshake;
 				mylog(log_info,"state changed from client_idle to client_tcp_handshake\n");
 			}
-
 
 		}
 		conn_info.last_state_time=get_current_time();
@@ -321,7 +319,6 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 	if(conn_info.state.client_current_state==client_idle )
 	{
-
 		discard_raw_packet();
 		//recv(raw_recv_fd, 0,0, 0  );
 	}
@@ -354,7 +351,6 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 				mylog(log_info,"state changed from client_tcp_dummy to client_handshake1\n");
 				//send_info.ack_seq=recv_info.seq+1;
 			}
-
 			conn_info.state.client_current_state = client_handshake1;
 
 			conn_info.last_state_time = get_current_time();
@@ -385,17 +381,14 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			mylog(log_debug,"too short to be a handshake\n");
 			return -1;
 		}
-		//id_t tmp_oppsite_id=  ntohl(* ((u32_t *)&data[0]));
 		my_id_t tmp_oppsite_id;
 		memcpy(&tmp_oppsite_id,&data[0],sizeof(tmp_oppsite_id));
 		tmp_oppsite_id=ntohl(tmp_oppsite_id);
 
-		//id_t tmp_my_id=ntohl(* ((u32_t *)&data[sizeof(id_t)]));
 		my_id_t tmp_my_id;
 		memcpy(&tmp_my_id,&data[sizeof(my_id_t)],sizeof(tmp_my_id));
 		tmp_my_id=ntohl(tmp_my_id);
 
-		//id_t tmp_oppsite_const_id=ntohl(* ((u32_t *)&data[sizeof(id_t)*2]));
 		my_id_t tmp_oppsite_const_id;
 		memcpy(&tmp_oppsite_const_id,&data[sizeof(my_id_t)*2],sizeof(tmp_oppsite_const_id));
 		tmp_oppsite_const_id=ntohl(tmp_oppsite_const_id);
@@ -424,7 +417,6 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 		mylog(log_info,"changed state from to client_handshake1 to client_handshake2,my_id is %x,oppsite id is %x\n",conn_info.my_id,conn_info.oppsite_id);
 
-		//send_handshake(raw_info,conn_info.my_id,conn_info.oppsite_id,const_id);  //////////////send
 		conn_info.state.client_current_state = client_handshake2;
 		conn_info.last_state_time = get_current_time();
 		conn_info.last_hb_sent_time=0;
@@ -467,7 +459,6 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			if(hb_mode==0)
 				conn_info.last_hb_recv_time=get_current_time();
 
-			//u32_t tmp_conv_id= ntohl(* ((u32_t *)&data[0]));
 			u32_t tmp_conv_id;
 			memcpy(&tmp_conv_id,&data[0],sizeof(tmp_conv_id));
 			tmp_conv_id=ntohl(tmp_conv_id);
@@ -481,7 +472,6 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			conn_info.blob->conv_manager.c.update_active_time(tmp_conv_id);
 
 			//u64_t u64=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
-
 			address_t tmp_addr=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
 
 			//sockaddr_in tmp_sockaddr={0};
@@ -542,7 +532,6 @@ int client_on_udp_recv(conn_info_t &conn_info)
 	tmp_addr.from_sockaddr((sockaddr *)&udp_new_addr_in,udp_new_addr_len);
 	u32_t conv;
 
-	//u64_t u64;//////todo
 	if(!conn_info.blob->conv_manager.c.is_data_used(tmp_addr))
 	{
 		if(conn_info.blob->conv_manager.c.get_size() >=max_conv_num)
@@ -788,6 +777,5 @@ int client_event_loop()
 	}
 
 	ev_run(loop, 0);
-
 	return 0;
 }

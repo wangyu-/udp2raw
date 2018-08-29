@@ -26,23 +26,9 @@ void sigint_cb(struct ev_loop *l, ev_signal *w, int revents)
 
 int client_event_loop();
 int server_event_loop();
-/*
-int test()
-{
 
-	char ip_str[100]="8.8.8.8";
-	u32_t ip=inet_addr(ip_str);
-	u32_t dest_ip;
-	string if_name;
-	string hw;
-	find_lower_level_info(ip,dest_ip,if_name,hw);
-	printf("%s %s %s\n",my_ntoa(dest_ip),if_name.c_str(),hw.c_str());
-	exit(0);
-	return 0;
-}*/
 int main(int argc, char *argv[])
 {
-
 	assert(sizeof(unsigned short)==2);
 	assert(sizeof(unsigned int)==4);
 	assert(sizeof(unsigned long long)==8);
@@ -79,7 +65,6 @@ int main(int argc, char *argv[])
 		signal(SIGTERM, signal_handler);
 		signal(SIGQUIT, signal_handler);
 	}
-
 #if !defined(__MINGW32__)
 	if(geteuid() != 0)
 	{
@@ -90,7 +75,6 @@ int main(int argc, char *argv[])
 		mylog(log_warn,"you can run udp2raw with non-root account for better security. check README.md in repo for more info.\n");
 	}
 #endif
-
 
 	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_addr.get_ip());
 

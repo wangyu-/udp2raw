@@ -9,9 +9,10 @@
 #include "log.h"
 #include "misc.h"
 
+#include <random>
+#include <cmath>
 
 //static int random_number_fd=-1;
-
 int force_socket_buf=0;
 
 int address_t::from_str(char *str)
@@ -322,15 +323,12 @@ int my_ip_t::from_address_t(address_t tmp_addr)
 int my_ip_t::from_str(char * str)
 {
 	u32_t type;
-
 	if(strchr(str,':')==NULL)
 		type=AF_INET;
 	else
 		type=AF_INET6;
-
 	int ret;
 	ret=inet_pton(type, str,this);
-
 	if(ret==0)  // 0 if address type doesnt match
 	{
 		mylog(log_error,"confusion in parsing %s, %d\n",str,ret);
@@ -454,7 +452,6 @@ u64_t get_true_random_number_64()
 		mylog(log_fatal,"get random number failed %d\n",size);
 		myexit(-1);
 	}
-
 	return ret;
 }
 u32_t get_true_random_number()
@@ -478,6 +475,11 @@ u32_t get_true_random_number_nz() //nz for non-zero
 	return ret;
 }
 
+inline int is_big_endian()
+{
+    int i=1;
+    return ! *((char *)&i);
+}
 u64_t ntoh64(u64_t a)
 {
 	#ifdef UDP2RAW_LITTLE_ENDIAN
@@ -494,7 +496,6 @@ u64_t hton64(u64_t a)
 {
 	return ntoh64(a);
 }
-
 
 void write_u16(char * p,u16_t w)
 {
@@ -561,7 +562,6 @@ void setnonblocking(int sock) {
 
 #endif
 }
-
 
 /*
     Generic checksum calculation function
@@ -641,12 +641,12 @@ int set_buf_size(int fd,int socket_buf_size)
 	{
 		if(setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
-			mylog(log_fatal,"SO_SNDBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			mylog(log_fatal,"SO_SNDBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,get_sock_error());
 			myexit(1);
 		}
 		if(setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
-			mylog(log_fatal,"SO_RCVBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			mylog(log_fatal,"SO_RCVBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,get_sock_error());
 			myexit(1);
 		}
 	}
@@ -1096,7 +1096,6 @@ void print_binary_chars(const char * a,int len)
 	log_bare(log_debug,"\n");
 }
 
-
 u32_t djb2(unsigned char *str,int len)
 {
 	 u32_t hash = 5381;
@@ -1123,6 +1122,3 @@ u32_t sdbm(unsigned char *str,int len)
      //hash=htonl(hash);
      return hash;
  }
-
-
-

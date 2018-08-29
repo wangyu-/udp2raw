@@ -9,7 +9,6 @@
 #include "encrypt.h"
 #include "fd_manager.h"
 
-
 int disable_anti_replay=0;//if anti_replay windows is diabled
 
 
@@ -346,7 +345,6 @@ int conn_manager_t::clear_inactive0()
 
 
 
-
 int send_bare(raw_info_t &raw_info,const char* data,int len)//send function with encryption but no anti replay,this is used when client and server verifys each other
 //you have to design the protocol carefully, so that you wont be affect by relay attack
 {
@@ -594,7 +592,8 @@ int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len
 	}
 	else
 	{
-		assert(0==1);
+		mylog(log_fatal,"unknow hb_mode\n");
+		myexit(-1);
 	}
 
 

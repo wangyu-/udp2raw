@@ -15,9 +15,7 @@
 
 int hb_mode=1;
 int hb_len=1200;
-
 char hb_buf[buf_len];
-
 
 int mtu_warn=1375;//if a packet larger than mtu warn is receviced,there will be a warning
 
@@ -91,6 +89,8 @@ int about_to_exit=0;
 
 
 int socket_buf_size=1024*1024;
+//int force_socket_buf=0;
+
 
 
 //char lower_level_arg[1000];
@@ -129,7 +129,6 @@ void print_help()
 	printf("udp2raw-tunnel\n");
 	printf("git version:%s    ",git_version_buf);
 	printf("build date:%s %s\n",__DATE__,__TIME__);
-
 	printf("repository: https://github.com/wangyu-/udp2raw-tunnel\n");
 	printf("\n");
 	printf("usage:\n");
@@ -199,7 +198,7 @@ int load_config(char *file_name, int &argc, vector<string> &argv) //load conf fi
 	std::string line;
 	if(conf_file.fail())
 	{
-		mylog(log_fatal,"conf_file %s open failed,reason :%s\n",file_name,strerror(errno));
+		mylog(log_fatal,"conf_file %s open failed,reason :%s\n",file_name,get_sock_error());
 		myexit(-1);
 	}
 	while(std::getline(conf_file,line))
@@ -419,7 +418,6 @@ void process_arg(int argc, char *argv[])  //process all options
 			} else {
 				mylog(log_fatal,"invalid parameter for -l ,%s,should be ip:port\n",optarg);
 				myexit(-1);
-
 			}*/
 			break;
 		case 'r':
@@ -483,7 +481,6 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				clear_iptables=1;
 			}
-
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
 			{
 				mylog(log_debug,"parsing long option :source-ip\n");
@@ -601,6 +598,10 @@ void process_arg(int argc, char *argv[])  //process all options
 				generate_iptables_rule_add=1;
 			}
 			else if(strcmp(long_options[option_index].name,"disable-color")==0)
+			{
+				//enable_log_color=0;
+			}
+			else if(strcmp(long_options[option_index].name,"enable-color")==0)
 			{
 				//enable_log_color=0;
 			}
@@ -768,9 +769,6 @@ void process_arg(int argc, char *argv[])  //process all options
 		raw_ip_version=local_addr.get_type();
 	}
 
-	//if(lower_level)
-		//process_lower_level_arg();
-
 	 mylog(log_info,"important variables: ");
 
 	 log_bare(log_info,"log_level=%d:%s ",log_level,log_text[log_level]);
@@ -785,7 +783,7 @@ void process_arg(int argc, char *argv[])  //process all options
 
 	 if(force_source_ip)
 		 log_bare(log_info,"source_addr=%s ",source_addr.get_ip());
-	 
+
 	 if(force_source_port)
 		 log_bare(log_info,"source_port=%d ",source_port);
 
@@ -1191,7 +1189,6 @@ int set_timer_server(int epollfd,int &timer_fd,fd64_t &fd64)//only for server
 	return 0;
 }
 
-
 int handle_lower_level(raw_info_t &raw_info)//fill lower_level info,when --lower-level is enabled,only for server
 {
 	packet_info_t &send_info=raw_info.send_info;
@@ -1363,6 +1360,3 @@ void  signal_handler(int sig)
 	about_to_exit=1;
     // myexit(0);
 }
-
-
-
