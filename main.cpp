@@ -48,26 +48,37 @@ int main(int argc, char *argv[])
 	assert(sizeof(unsigned long long)==8);
 
 	dup2(1, 2);//redirect stderr to stdout
-
-	struct ev_loop* loop=ev_default_loop(0);
-
-#if !defined(__MINGW32__)
-    ev_signal signal_watcher_sigpipe;
-    ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
-    ev_signal_start(loop, &signal_watcher_sigpipe);
-#else
-     enable_log_color=0;
+#if defined(__MINGW32__)
+    enable_log_color=0;
 #endif
 
-    ev_signal signal_watcher_sigterm;
-    ev_signal_init(&signal_watcher_sigterm, sigterm_cb, SIGTERM);
-    ev_signal_start(loop, &signal_watcher_sigterm);
-
-    ev_signal signal_watcher_sigint;
-    ev_signal_init(&signal_watcher_sigint, sigint_cb, SIGINT);
-    ev_signal_start(loop, &signal_watcher_sigint);
-
 	pre_process_arg(argc,argv);
+	if(program_mode==client_mode)
+	{
+		struct ev_loop* loop=ev_default_loop(0);
+#if !defined(__MINGW32__)
+		ev_signal signal_watcher_sigpipe;
+		ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
+		ev_signal_start(loop, &signal_watcher_sigpipe);
+#endif
+
+		ev_signal signal_watcher_sigterm;
+		ev_signal_init(&signal_watcher_sigterm, sigterm_cb, SIGTERM);
+		ev_signal_start(loop, &signal_watcher_sigterm);
+
+		ev_signal signal_watcher_sigint;
+		ev_signal_init(&signal_watcher_sigint, sigint_cb, SIGINT);
+		ev_signal_start(loop, &signal_watcher_sigint);
+	}
+	else
+	{
+		signal(SIGINT, signal_handler);
+		signal(SIGHUP, signal_handler);
+		signal(SIGKILL, signal_handler);
+		signal(SIGTERM, signal_handler);
+		signal(SIGQUIT, signal_handler);
+	}
+
 #if !defined(__MINGW32__)
 	if(geteuid() != 0)
 	{

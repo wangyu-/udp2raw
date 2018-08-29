@@ -347,11 +347,48 @@ int my_ip_t::from_str(char * str)
 	}
 	return 0;
 }*/
+
+#if defined(__MINGW32__)
+char *get_sock_error()
+{
+	static char buf[1000];
+	int e=WSAGetLastError();
+	wchar_t *s = NULL;
+	FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, e,
+			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+			(LPWSTR)&s, 0, NULL);
+	sprintf(buf, "%d:%S", e,s);
+	int len=strlen(buf);
+	if(len>0&&buf[len-1]=='\n') buf[len-1]=0;
+	LocalFree(s);
+	return buf;
+}
+int get_sock_errno()
+{
+	return WSAGetLastError();
+}
+#else
+char *get_sock_error()
+{
+	static char buf[1000];
+	sprintf(buf, "%d:%s", errno,strerror(errno));
+	return buf;
+}
+int get_sock_errno()
+{
+	return errno;
+}
+#endif
+
+
 u64_t get_current_time()
 {
 	timespec tmp_time;
 	clock_gettime(CLOCK_MONOTONIC, &tmp_time);
 	return ((u64_t)tmp_time.tv_sec)*1000llu+((u64_t)tmp_time.tv_nsec)/(1000*1000llu);
+
+	//return (u64_t)(ev_time()*1000); //todo change to this later
 }
 
 u64_t pack_u64(u32_t a,u32_t b)

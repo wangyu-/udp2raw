@@ -50,11 +50,11 @@
 //#include <linux/if_ether.h>
 #include <linux/filter.h>
 #include <linux/if_packet.h>
-//#include <sys/epoll.h>
+#include <sys/epoll.h>
 //#include <sys/wait.h> //signal
 #include <netinet/if_ether.h>
 #include <net/if.h>
-//#include <sys/timerfd.h>
+#include <sys/timerfd.h>
 
 #endif
 
