@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
 #endif
 
 	pre_process_arg(argc,argv);
+
 	if(program_mode==client_mode)
 	{
 		struct ev_loop* loop=ev_default_loop(0);
@@ -93,7 +94,7 @@ int main(int argc, char *argv[])
 
 	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_addr.get_ip());
 
-	init_random_number_fd();
+	//init_random_number_fd();
 	srand(get_true_random_number_nz());
 	const_id=get_true_random_number_nz();
 

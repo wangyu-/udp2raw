@@ -247,10 +247,10 @@ int init_ifindex(const char * if_name,int fd,int &index);
 int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw);
 
 int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port);  //a trick to get src adress for a dest adress,so that we can use the src address in raw socket as source ip
-
 int get_src_adress2(address_t &output_addr,address_t remote_addr);
 
 int try_to_list_and_bind(int & bind_fd,u32_t local_ip_uint32,int port);  //try to bind to a port,may fail.
+int try_to_list_and_bind2(int &fd,address_t address);
 
 int client_bind_to_a_new_port(int & bind_fd,u32_t local_ip_uint32);//find a free port and bind to it.
 int client_bind_to_a_new_port2(int &fd,const address_t& address);

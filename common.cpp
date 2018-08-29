@@ -10,7 +10,7 @@
 #include "misc.h"
 
 
-static int random_number_fd=-1;
+//static int random_number_fd=-1;
 
 int force_socket_buf=0;
 
@@ -413,7 +413,7 @@ char * my_ntoa(u32_t ip)
 	a.s_addr=ip;
 	return inet_ntoa(a);
 }
-
+/*
 void init_random_number_fd()
 {
 
@@ -425,11 +425,30 @@ void init_random_number_fd()
 		myexit(-1);
 	}
 	setnonblocking(random_number_fd);
-}
+}*/
+struct random_fd_t
+{
+	int random_number_fd;
+	random_fd_t()
+	{
+			random_number_fd=open("/dev/urandom",O_RDONLY);
+
+			if(random_number_fd==-1)
+			{
+				mylog(log_fatal,"error open /dev/urandom\n");
+				myexit(-1);
+			}
+			setnonblocking(random_number_fd);
+	}
+	int get_fd()
+	{
+		return random_number_fd;
+	}
+}random_fd;
 u64_t get_true_random_number_64()
 {
 	u64_t ret;
-	int size=read(random_number_fd,&ret,sizeof(ret));
+	int size=read(random_fd.get_fd(),&ret,sizeof(ret));
 	if(size!=sizeof(ret))
 	{
 		mylog(log_fatal,"get random number failed %d\n",size);
@@ -441,7 +460,7 @@ u64_t get_true_random_number_64()
 u32_t get_true_random_number()
 {
 	u32_t ret;
-	int size=read(random_number_fd,&ret,sizeof(ret));
+	int size=read(random_fd.get_fd(),&ret,sizeof(ret));
 	if(size!=sizeof(ret))
 	{
 		mylog(log_fatal,"get random number failed %d\n",size);
@@ -518,6 +537,7 @@ u64_t read_u64(char * s)
 }
 
 void setnonblocking(int sock) {
+#if !defined(__MINGW32__)
 	int opts;
 	opts = fcntl(sock, F_GETFL);
 
@@ -532,8 +552,16 @@ void setnonblocking(int sock) {
 		//perror("fcntl(sock,SETFL,opts)");
 		myexit(1);
 	}
+#else
+	int iResult;
+	u_long iMode = 1;
+	iResult = ioctlsocket(sock, FIONBIO, &iMode);
+	if (iResult != NO_ERROR)
+		printf("ioctlsocket failed with error: %d\n", iResult);
 
+#endif
 }
+
 
 /*
     Generic checksum calculation function

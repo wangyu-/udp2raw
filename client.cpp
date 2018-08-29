@@ -496,11 +496,9 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 			if(ret<0)
 			{
-		    	mylog(log_warn,"sento returned %d,%s,%02x,%s\n",ret,strerror(errno),int(tmp_addr.get_type()),tmp_addr.get_str());
+		    	mylog(log_warn,"sento returned %d,%s,%02x,%s\n",ret,get_sock_error(),int(tmp_addr.get_type()),tmp_addr.get_str());
 				//perror("ret<0");
 			}
-			//mylog(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
-			mylog(log_trace,"%d byte sent\n",ret);
 		}
 		else
 		{
@@ -525,7 +523,7 @@ int client_on_udp_recv(conn_info_t &conn_info)
 	socklen_t udp_new_addr_len = sizeof(address_t::storage_t);
 	if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 			(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
-		mylog(log_warn,"recv_from error,%s\n",strerror(errno));
+		mylog(log_warn,"recv_from error,%s\n",get_sock_error());
 		//myexit(1);
 	};
 
@@ -539,34 +537,9 @@ int client_on_udp_recv(conn_info_t &conn_info)
 	{
 		mylog(log_warn,"huge packet,data len=%d (>=%d).strongly suggested to set a smaller mtu at upper level,to get rid of this warn\n ",recv_len,mtu_warn);
 	}
-	//mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
-		//	ntohs(udp_new_addr_in.sin_port),recv_len);
 
-	/*
-	if(udp_old_addr_in.sin_addr.s_addr==0&&udp_old_addr_in.sin_port==0)
-	{
-		memcpy(&udp_old_addr_in,&udp_new_addr_in,sizeof(udp_new_addr_in));
-	}
-	else if(udp_new_addr_in.sin_addr.s_addr!=udp_old_addr_in.sin_addr.s_addr
-			||udp_new_addr_in.sin_port!=udp_old_addr_in.sin_port)
-	{
-		if(get_current_time()- last_udp_recv_time <udp_timeout)
-		{
-			printf("new <ip,port> connected in,ignored,bc last connection is still active\n");
-			continue;
-		}
-		else
-		{
-			printf("new <ip,port> connected in,accpeted\n");
-			memcpy(&udp_old_addr_in,&udp_new_addr_in,sizeof(udp_new_addr_in));
-			conv_id++;
-		}
-	}*/
-
-	//last_udp_recv_time=get_current_time();
 	address_t tmp_addr;
 	tmp_addr.from_sockaddr((sockaddr *)&udp_new_addr_in,udp_new_addr_len);
-	//u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
 	u32_t conv;
 
 	//u64_t u64;//////todo
@@ -590,14 +563,6 @@ int client_on_udp_recv(conn_info_t &conn_info)
 
 	if(conn_info.state.client_current_state==client_ready)
 	{
-		/*
-		char buf2[6000];
-		int ret1=send_raw(conn_info.raw_info,buf2,40);
-		int ret2=send_raw(conn_info.raw_info,buf2,500);
-		int ret3=send_raw(conn_info.raw_info,buf2,1000);
-		int ret4=send_raw(conn_info.raw_info,buf2,2000);
-		mylog(log_warn,"ret= %d %d %d %d\n",ret1,ret2,ret3,ret4);*/
-
 		send_data_safer(conn_info,buf,recv_len,conv);
 	}
 	return 0;
@@ -741,7 +706,6 @@ int client_event_loop()
 
 
 	send_info.new_dst_ip.from_address_t(remote_addr);
-
 	send_info.dst_port=remote_addr.get_port();
 
 
@@ -749,7 +713,7 @@ int client_event_loop()
     set_buf_size(udp_fd,socket_buf_size);
 
 
-	if (bind(udp_fd, (struct sockaddr*) &local_addr.inner, local_addr.get_len()) == -1) {
+	if (::bind(udp_fd, (struct sockaddr*) &local_addr.inner, local_addr.get_len()) == -1) {
 		mylog(log_fatal,"socket bind error\n");
 		//perror("socket bind error");
 		myexit(1);
@@ -798,13 +762,6 @@ int client_event_loop()
 	raw_recv_watcher.data=&conn_info;
     ev_io_init(&raw_recv_watcher, raw_recv_cb, raw_recv_fd, EV_READ);
     ev_io_start(loop, &raw_recv_watcher);
-
-	////add_timer for fake_tcp_keep_connection_client
-
-	//sleep(10);
-
-	//memset(&udp_old_addr_in,0,sizeof(sockaddr_in));
-	int unbind=1;
 
 	//set_timer(epollfd,timer_fd);
 	struct ev_timer clear_timer;
