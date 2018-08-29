@@ -832,7 +832,7 @@ int client_event_loop()
 	}
 	*/
 
-	/*
+#ifdef fixthis
 	if(strcmp(dev,"")==0)
 	{
 		mylog(log_info,"--dev have not been set, trying to detect automatically, avaliable deives:\n");
@@ -905,7 +905,8 @@ int client_event_loop()
 	else
 	{
 		mylog(log_info,"--dev has been manually set, using device:[%s]\n",dev);
-	}*/
+	}
+#endif
 
 
 	send_info.src_port=0;
