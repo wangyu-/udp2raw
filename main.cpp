@@ -34,41 +34,42 @@ int main(int argc, char *argv[])
 
 	init_ws();
 
-	int i=0;
-
-	//libnet_t *l;	/* the libnet context */
-	//char errbuf[LIBNET_ERRBUF_SIZE];
-
-	//l = libnet_init(LIBNET_RAW4, NULL, errbuf);
-
 	dup2(1, 2);//redirect stderr to stdout
-	//signal(SIGINT, signal_handler);
-	//signal(SIGHUP, signal_handler);
-	//signal(SIGKILL, signal_handler);
-	//signal(SIGTERM, signal_handler);
-	//signal(SIGQUIT, signal_handler);
-
-	struct ev_loop* loop=ev_default_loop(0);
-        //printf("%x %x\n",ev_supported_backends(),ev_backend(loop));
-
-#if !defined(__MINGW32__)
-    ev_signal signal_watcher_sigpipe;
-    ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
-    ev_signal_start(loop, &signal_watcher_sigpipe);
-#else
-     enable_log_color=0;
+#if defined(__MINGW32__)
+    enable_log_color=0;
 #endif
 
-    ev_signal signal_watcher_sigterm;
-    ev_signal_init(&signal_watcher_sigterm, sigterm_cb, SIGTERM);
-    ev_signal_start(loop, &signal_watcher_sigterm);
-
-    ev_signal signal_watcher_sigint;
-    ev_signal_init(&signal_watcher_sigint, sigint_cb, SIGINT);
-    ev_signal_start(loop, &signal_watcher_sigint);
-
-
 	pre_process_arg(argc,argv);
+
+	if(program_mode==client_mode)
+	{
+		struct ev_loop* loop=ev_default_loop(0);
+#if !defined(__MINGW32__)
+		ev_signal signal_watcher_sigpipe;
+		ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
+		ev_signal_start(loop, &signal_watcher_sigpipe);
+#endif
+
+		ev_signal signal_watcher_sigterm;
+		ev_signal_init(&signal_watcher_sigterm, sigterm_cb, SIGTERM);
+		ev_signal_start(loop, &signal_watcher_sigterm);
+
+		ev_signal signal_watcher_sigint;
+		ev_signal_init(&signal_watcher_sigint, sigint_cb, SIGINT);
+		ev_signal_start(loop, &signal_watcher_sigint);
+	}
+	else
+	{
+		mylog(log_fatal,"server mode not supported in multi-platform version\n");
+		myexit(-1);
+		/*
+		signal(SIGINT, signal_handler);
+		signal(SIGHUP, signal_handler);
+		signal(SIGKILL, signal_handler);
+		signal(SIGTERM, signal_handler);
+		signal(SIGQUIT, signal_handler);
+		 */
+	}
 #if !defined(__MINGW32__)
 	if(geteuid() != 0)
 	{
@@ -79,12 +80,8 @@ int main(int argc, char *argv[])
 		mylog(log_warn,"you can run udp2raw with non-root account for better security. check README.md in repo for more info.\n");
 	}
 #endif
-	local_ip_uint32=inet_addr(local_ip);
-	source_ip_uint32=inet_addr(source_ip);
 
-	strcpy(remote_ip,remote_address);
-	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_ip);
-	remote_ip_uint32=inet_addr(remote_ip);
+	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_addr.get_ip());
 
 	//init_random_number_fd();
 	srand(get_true_random_number_nz());
@@ -104,7 +101,9 @@ int main(int argc, char *argv[])
 	{
 		mylog(log_fatal,"server mode not supported in multi-platform version\n");
 		myexit(-1);
-		//server_event_loop();
+		/*
+		server_event_loop();
+		*/
 	}
 
 	return 0;

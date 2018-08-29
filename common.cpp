@@ -12,7 +12,7 @@
 #include <random>
 #include <cmath>
 
-static int random_number_fd=-1;
+//static int random_number_fd=-1;
 int force_socket_buf=0;
 
 int address_t::from_str(char *str)

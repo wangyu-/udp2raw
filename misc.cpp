@@ -29,17 +29,17 @@ int ttl_value=64;
 
 fd_manager_t fd_manager;
 
-char remote_address[max_addr_len]="";
+//char remote_address[max_addr_len]="";
 //char remote_address[max_address_len]="";
-char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
-u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
-int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
+//char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
+//u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
+//int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
 
 address_t local_addr,remote_addr,source_addr;
 
 my_ip_t bind_addr;
 
-//int source_port=-1;
+int source_port=-1;
 
 int bind_addr_used=0;
 int force_source_ip=0; //if --source-ip is enabled
@@ -490,8 +490,9 @@ void process_arg(int argc, char *argv[])  //process all options
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
 			{
 				mylog(log_debug,"parsing long option :source-ip\n");
-				sscanf(optarg, "%s", source_ip);
-				mylog(log_debug,"source: %s\n",source_ip);
+				//sscanf(optarg, "%s", source_ip);
+				source_addr.from_str_ip_only(optarg);
+				mylog(log_debug,"source: %s\n",source_addr.get_ip());
 				force_source_ip=1;
 			}
 			else if(strcmp(long_options[option_index].name,"source-port")==0)
@@ -499,6 +500,7 @@ void process_arg(int argc, char *argv[])  //process all options
 				mylog(log_debug,"parsing long option :source-port\n");
 				sscanf(optarg, "%d", &source_port);
 				mylog(log_info,"source: %d\n",source_port);
+				force_source_port=1;
 			}
 			else if(strcmp(long_options[option_index].name,"raw-mode")==0)
 			{
@@ -785,7 +787,7 @@ void process_arg(int argc, char *argv[])  //process all options
 
 	//if(lower_level)
 		//process_lower_level_arg();
-
+/*
 	 mylog(log_info,"important variables: ");
 
 	 log_bare(log_info,"log_level=%d:%s ",log_level,log_text[log_level]);
@@ -801,6 +803,37 @@ void process_arg(int argc, char *argv[])  //process all options
 	 log_bare(log_info,"remote_port=%d ",remote_port);
 	 log_bare(log_info,"source_ip=%s ",source_ip);
 	 log_bare(log_info,"source_port=%d ",source_port);
+
+	 log_bare(log_info,"socket_buf_size=%d ",socket_buf_size);
+
+	 log_bare(log_info,"\n");
+	 */
+	if(program_mode==client_mode)
+	{
+		raw_ip_version=remote_addr.get_type();
+	}
+	else
+	{
+		raw_ip_version=local_addr.get_type();
+	}
+
+	 mylog(log_info,"important variables: ");
+
+	 log_bare(log_info,"log_level=%d:%s ",log_level,log_text[log_level]);
+	 log_bare(log_info,"raw_mode=%s ",raw_mode_tostring[raw_mode]);
+	 log_bare(log_info,"cipher_mode=%s ",cipher_mode_tostring[cipher_mode]);
+	 log_bare(log_info,"auth_mode=%s ",auth_mode_tostring[auth_mode]);
+
+	 log_bare(log_info,"key=%s ",key_string);
+
+	 log_bare(log_info,"local_addr=%s ",local_addr.get_str());
+	 log_bare(log_info,"remote_addr=%s ",remote_addr.get_str());
+
+	 if(force_source_ip)
+		 log_bare(log_info,"source_addr=%s ",source_addr.get_ip());
+
+	 if(force_source_port)
+		 log_bare(log_info,"source_port=%d ",source_port);
 
 	 log_bare(log_info,"socket_buf_size=%d ",socket_buf_size);
 
@@ -1340,8 +1373,10 @@ int clear_iptables_rule()
 
 void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-lock
 {
+
 	if(generate_iptables_rule)
 	{
+#ifdef fixthis
 		if(raw_mode==mode_faketcp && use_tcp_dummy_socket==1)
 		{
 			mylog(log_fatal, "failed,-g doesnt work with easy-faketcp mode\n");
@@ -1372,6 +1407,7 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 		printf("\n");
 
 		log_bare(log_warn,"for windows vista and above use:\n");
+
 		if(raw_mode==mode_faketcp)
 		{
 			printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=in remoteip=%s/32 remoteport=%d action=block\n",remote_ip,remote_port);
@@ -1389,6 +1425,7 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 			printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV4 dir=out remoteip=%s/32 action=block\n",remote_ip);
 
 		}
+#endif
 
 		myexit(0);
 

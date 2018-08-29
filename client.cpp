@@ -44,19 +44,21 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 		{
 			return 0;
 		}
-
+/*
 		struct sockaddr_in remote_addr_in={0};
 
 		socklen_t slen = sizeof(sockaddr_in);
-		//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
 		int port=get_true_random_number()%65534+1;
 		remote_addr_in.sin_family = AF_INET;
 		remote_addr_in.sin_port = htons(port);
-		remote_addr_in.sin_addr.s_addr = remote_ip_uint32;
+		remote_addr_in.sin_addr.s_addr = remote_ip_uint32;*/
+		int port=get_true_random_number()%65534+1;
+		address_t tmp_addr=remote_addr;
+		tmp_addr.set_port(port);
 
 		if(use_udp_for_detection)
 		{
-			int new_udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+			int new_udp_fd=socket(tmp_addr.get_type(), SOCK_DGRAM, IPPROTO_UDP);
 			if(new_udp_fd<0)
 			{
 				mylog(log_warn,"create new_udp_fd error\n");
@@ -65,7 +67,7 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			setnonblocking(new_udp_fd);
 			u64_t tmp=get_true_random_number();
 
-			int ret=sendto(new_udp_fd,(char*)(&tmp),sizeof(tmp),0,(struct sockaddr *)&remote_addr_in,sizeof(remote_addr_in));
+			int ret=sendto(new_udp_fd,(char*)(&tmp),sizeof(tmp),0,(struct sockaddr *)&tmp_addr.inner,tmp_addr.get_len());
 			if(ret==-1)
 			{
 				mylog(log_warn,"sendto() failed\n");
@@ -77,14 +79,14 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 		{
 			static int last_tcp_fd=-1;
 
-			int new_tcp_fd=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			int new_tcp_fd=socket(tmp_addr.get_type(), SOCK_STREAM, IPPROTO_TCP);
 			if(new_tcp_fd<0)
 			{
 				mylog(log_warn,"create new_tcp_fd error\n");
 				return -1;
 			}
 			setnonblocking(new_tcp_fd);
-			connect(new_tcp_fd,(struct sockaddr *)&remote_addr_in,sizeof(remote_addr_in));
+			connect(new_tcp_fd,(struct sockaddr *)&tmp_addr.inner,tmp_addr.get_len());
 			if(last_tcp_fd!=-1)
 				sock_close(last_tcp_fd);
 			last_tcp_fd=new_tcp_fd;
@@ -123,27 +125,46 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 
 
 
-		u32_t new_ip=0;
-		if(!force_source_ip&&get_src_adress(new_ip,remote_ip_uint32,remote_port)==0)
+		address_t tmp_addr;
+		//u32_t new_ip=0;
+		if(!force_source_ip)
 		{
+			if(get_src_adress2(tmp_addr,remote_addr)!=0)
+			{
+				mylog(log_warn,"get_src_adress() failed\n");
+				return -1;
+			}
+			//source_addr=new_addr;
+			//source_addr.set_port(0);
+
+			mylog(log_info,"source_addr is now %s\n",tmp_addr.get_ip());
+
+			/*
 			if(new_ip!=source_ip_uint32)
 			{
 				mylog(log_info,"source ip changed from %s to ",my_ntoa(source_ip_uint32));
 				log_bare(log_info,"%s\n",my_ntoa(new_ip));
 				source_ip_uint32=new_ip;
 				send_info.src_ip=new_ip;
-			}
+			}*/
+
+		}
+		else
+		{
+			tmp_addr=source_addr;
 		}
 
-		if (source_port == 0)
+		send_info.new_src_ip.from_address_t(tmp_addr);
+
+		if (force_source_port == 0)
 		{
-			send_info.src_port = client_bind_to_a_new_port(bind_fd,0);
+			send_info.src_port = client_bind_to_a_new_port2(bind_fd,tmp_addr);
 		}
 		else
 		{
 			send_info.src_port = source_port;
-			assert(try_to_list_and_bind(bind_fd,0,source_port)==0);
 		}
+
 
 
 		if (raw_mode == mode_icmp)
@@ -165,18 +186,9 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			if(use_tcp_dummy_socket)
 			{
 
-				struct sockaddr_in remote_addr_in={0};
-				socklen_t slen = sizeof(sockaddr_in);
-				//memset(&remote_addr_in, 0, sizeof(remote_addr_in));
-				remote_addr_in.sin_family = AF_INET;
-				remote_addr_in.sin_port = htons(remote_port);
-				remote_addr_in.sin_addr.s_addr = remote_ip_uint32;
-
-				//int new_tcp_fd=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
 				setnonblocking(bind_fd);
-				int ret=connect(bind_fd,(struct sockaddr *)&remote_addr_in,sizeof(remote_addr_in));
-				mylog(log_info,"ret=%d,errno=%s,%d %d\n",ret,get_sock_error(),bind_fd,remote_port);
+				int ret=connect(bind_fd,(struct sockaddr *)&remote_addr.inner,remote_addr.get_len());
+				mylog(log_info,"ret=%d,errno=%s,%d %s\n",ret,get_sock_error(),bind_fd,remote_addr.get_str());
 				conn_info.state.client_current_state=client_tcp_handshake_dummy;
 				mylog(log_info,"state changed from client_idle to client_tcp_handshake_dummy\n");
 			}
@@ -389,11 +401,8 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 	if(conn_info.state.client_current_state==client_idle )
 	{
-		g_packet_buf_cnt--;
+		discard_raw_packet();
 		//recv(raw_recv_fd, 0,0, 0  );
-		//pthread_mutex_lock(&queue_mutex);
-		//my_queue.pop_front();
-		//pthread_mutex_unlock(&queue_mutex);
 	}
 	else if(conn_info.state.client_current_state==client_tcp_handshake||conn_info.state.client_current_state==client_tcp_handshake_dummy)//received syn ack
 	{
@@ -402,9 +411,9 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 		{
 			return -1;
 		}
-		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
+		if(!recv_info.new_src_ip.equal(send_info.new_dst_ip)||recv_info.src_port!=send_info.dst_port)
 		{
-			mylog(log_debug,"unexpected adress %x %x %d %d\n",recv_info.src_ip,send_info.dst_ip,recv_info.src_port,send_info.dst_port);
+			mylog(log_debug,"unexpected adress %s %s %d %d\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);
 			return -1;
 		}
 		if(data_len==0&&raw_info.recv_info.syn==1&&raw_info.recv_info.ack==1)
@@ -444,9 +453,9 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			mylog(log_debug,"recv_bare failed!\n");
 			return -1;
 		}
-		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
+		if(!recv_info.new_src_ip.equal(send_info.new_dst_ip)||recv_info.src_port!=send_info.dst_port)
 		{
-			mylog(log_debug,"unexpected adress %x %x %d %d\n",recv_info.src_ip,send_info.dst_ip,recv_info.src_port,send_info.dst_port);
+			mylog(log_debug,"unexpected adress %s %s %d %d\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);
 			return -1;
 		}
 		if(data_len<int( 3*sizeof(my_id_t)))
@@ -505,9 +514,9 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			mylog(log_debug,"recv_safer failed!\n");
 			return -1;
 		}
-		if(recv_info.src_ip!=send_info.dst_ip||recv_info.src_port!=send_info.dst_port)
+		if(!recv_info.new_src_ip.equal(send_info.new_dst_ip)||recv_info.src_port!=send_info.dst_port)
 		{
-			mylog(log_warn,"unexpected adress %x %x %d %d,this shouldnt happen.\n",recv_info.src_ip,send_info.dst_ip,recv_info.src_port,send_info.dst_port);
+			mylog(log_warn,"unexpected adress %s %s %d %d,this shouldnt happen.\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);
 			return -1;
 		}
 		if(conn_info.state.client_current_state==client_handshake2)
@@ -544,8 +553,8 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 
 			conn_info.blob->conv_manager.c.update_active_time(tmp_conv_id);
 
-			//u64_t u64=conn_info.blob->conv_manager.c.find_dat_by_conv(tmp_conv_id);
-			address_t addr=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
+			//u64_t u64=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
+			address_t tmp_addr=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
 
 			//sockaddr_in tmp_sockaddr={0};
 
@@ -555,15 +564,13 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 			//tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
 
 
-			int ret=sendto(udp_fd,data+sizeof(u32_t),data_len -(sizeof(u32_t)),0,(struct sockaddr *)&addr.inner,addr.get_len());
+			int ret=sendto(udp_fd,data+sizeof(u32_t),data_len -(sizeof(u32_t)),0,(struct sockaddr *)&tmp_addr.inner,tmp_addr.get_len());
 
 			if(ret<0)
 			{
-		    	mylog(log_warn,"sento returned %d\n",ret);
-
+		    	mylog(log_warn,"sento returned %d,%s,%02x,%s\n",ret,get_sock_error(),int(tmp_addr.get_type()),tmp_addr.get_str());
+				//perror("ret<0");
 			}
-			//mylog(log_trace,"%s :%d\n",inet_ntoa(tmp_sockaddr.sin_addr),ntohs(tmp_sockaddr.sin_port));
-			//mylog(log_trace,"%d byte sent\n",ret);
 		}
 		else
 		{
@@ -580,28 +587,22 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 	}
 	return 0;
 }
-
-void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+int client_on_udp_recv(conn_info_t &conn_info)
 {
-	char buf[buf_len];
-
-	conn_info_t & conn_info= *((conn_info_t*)watcher->data);;
-
 	int recv_len;
-	address_t addr;
-
+	char buf[buf_len];
 	address_t::storage_t udp_new_addr_in={0};
 	socklen_t udp_new_addr_len = sizeof(address_t::storage_t);
-	if ((recv_len = recvfrom(udp_fd, buf, max_data_len, 0,
+	if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 			(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
-		mylog(log_debug,"recv_from error,this shouldnt happen,err=%s,but we can try to continue\n",get_sock_error());
-		return;
+		mylog(log_warn,"recv_from error,%s\n",get_sock_error());
+		//myexit(1);
 	};
 
 	if(recv_len==max_data_len+1)
 	{
 		mylog(log_warn,"huge packet, data_len > %d,dropped\n",max_data_len);
-		return;
+		return -1;
 	}
 
 	if(recv_len>=mtu_warn)
@@ -611,26 +612,25 @@ void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 	//mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
 			//ntohs(udp_new_addr_in.sin_port),recv_len);
 
-	addr.from_sockaddr((struct sockaddr *) &udp_new_addr_in,udp_new_addr_len);
-
-	//u64_t u64=((u64_t(udp_new_addr_in.sin_addr.s_addr))<<32u)+ntohs(udp_new_addr_in.sin_port);
+	address_t tmp_addr;
+	tmp_addr.from_sockaddr((sockaddr *)&udp_new_addr_in,udp_new_addr_len);
 	u32_t conv;
 
-	if(!conn_info.blob->conv_manager.c.is_data_used(addr))
+	if(!conn_info.blob->conv_manager.c.is_data_used(tmp_addr))
 	{
 		if(conn_info.blob->conv_manager.c.get_size() >=max_conv_num)
 		{
 			mylog(log_warn,"ignored new udp connect bc max_conv_num exceed\n");
-			return;
+			return -1;
 		}
 		conv=conn_info.blob->conv_manager.c.get_new_conv();
-		conn_info.blob->conv_manager.c.insert_conv(conv,addr);
+		conn_info.blob->conv_manager.c.insert_conv(conv,tmp_addr);
 		//mylog(log_info,"new packet from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
-		mylog(log_info,"new packet from %s,conv_id=%x\n",addr.get_str(),conv);
+		mylog(log_info,"new packet from %s,conv_id=%x\n",tmp_addr.get_str(),conv);
 	}
 	else
 	{
-		conv=conn_info.blob->conv_manager.c.find_conv_by_data(addr);
+		conv=conn_info.blob->conv_manager.c.find_conv_by_data(tmp_addr);
 	}
 
 	conn_info.blob->conv_manager.c.update_active_time(conv);
@@ -639,7 +639,12 @@ void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 	{
 		send_data_safer(conn_info,buf,recv_len,conv);
 	}
-
+	return 0;
+}
+void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+{
+	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
+	client_on_udp_recv(conn_info);
 }
 
 void raw_recv_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
@@ -705,11 +710,7 @@ void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents)
 void clear_timer_cb(struct ev_loop *loop, struct ev_timer *watcher, int revents)
 {
 	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
-	//u64_t value;
-	//read(timer_fd, &value, 8);
 	client_on_timer(conn_info);
-	mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
-	epoll_trigger_counter=0;
 }
 
 void fifo_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
@@ -753,41 +754,85 @@ int client_event_loop()
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
-	if(source_ip_uint32==0)
+	/*
+	if(lower_level)
 	{
-		mylog(log_info,"get_src_adress called\n");
-		if(retry_on_error==0)
+		if(lower_level_manual)
 		{
-			if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
-			{
-				mylog(log_fatal,"the trick to auto get source ip failed, maybe you dont have internet access\n");
-				myexit(-1);
-			}
+			int index;
+			init_ifindex(if_name,raw_send_fd,index);
+			//init_ifindex(if_name);
+			memset(&send_info.addr_ll, 0, sizeof(send_info.addr_ll));
+			send_info.addr_ll.sll_family = AF_PACKET;
+			send_info.addr_ll.sll_ifindex =index;
+			send_info.addr_ll.sll_halen = ETHER_ADDR_LEN;
+			send_info.addr_ll.sll_protocol = htons(ETH_P_IP);
+			memcpy(&send_info.addr_ll.sll_addr, dest_hw_addr, ETHER_ADDR_LEN);
+			mylog(log_info,"we are running at lower-level (manual) mode\n");
 		}
 		else
 		{
-			int ok=0;
-			while(!ok)
-			{
-				if(get_src_adress(source_ip_uint32,remote_ip_uint32,remote_port)!=0)
-				{
-					mylog(log_warn,"the trick to auto get source ip failed, maybe you dont have internet access, retry in %d seconds\n",retry_on_error_interval);
-					sleep(retry_on_error_interval);
-				}
-				else
-				{
-					ok=1;
-				}
+			u32_t dest_ip;
+			string if_name_string;
+			string hw_string;
+			assert(remote_addr.get_type()==AF_INET);
 
+			if(retry_on_error==0)
+			{
+				if(find_lower_level_info(remote_addr.inner.ipv4.sin_addr.s_addr,dest_ip,if_name_string,hw_string)!=0)
+				{
+					mylog(log_fatal,"auto detect lower-level info failed for %s,specific it manually\n",remote_addr.get_ip());
+					myexit(-1);
+				}
 			}
+			else
+			{
+				int ok=0;
+				while(!ok)
+				{
+					if(find_lower_level_info(remote_addr.inner.ipv4.sin_addr.s_addr,dest_ip,if_name_string,hw_string)!=0)
+					{
+						mylog(log_warn,"auto detect lower-level info failed for %s,retry in %d seconds\n",remote_addr.get_ip(),retry_on_error_interval);
+						sleep(retry_on_error_interval);
+					}
+					else
+					{
+						ok=1;
+					}
+
+				}
+			}
+			mylog(log_info,"we are running at lower-level (auto) mode,%s %s %s\n",my_ntoa(dest_ip),if_name_string.c_str(),hw_string.c_str());
+
+			u32_t hw[6];
+			memset(hw, 0, sizeof(hw));
+			sscanf(hw_string.c_str(), "%x:%x:%x:%x:%x:%x",&hw[0], &hw[1], &hw[2],
+					&hw[3], &hw[4], &hw[5]);
+
+			mylog(log_warn,
+					"make sure this is correct:   if_name=<%s>  dest_mac_adress=<%02x:%02x:%02x:%02x:%02x:%02x>  \n",
+					if_name_string.c_str(), hw[0], hw[1], hw[2], hw[3], hw[4], hw[5]);
+			for (int i = 0; i < 6; i++) {
+				dest_hw_addr[i] = uint8_t(hw[i]);
+			}
+
+			//mylog(log_fatal,"--lower-level auto for client hasnt been implemented\n");
+			int index;
+			init_ifindex(if_name_string.c_str(),raw_send_fd,index);
+
+			memset(&send_info.addr_ll, 0, sizeof(send_info.addr_ll));
+			send_info.addr_ll.sll_family = AF_PACKET;
+			send_info.addr_ll.sll_ifindex = index;
+			send_info.addr_ll.sll_halen = ETHER_ADDR_LEN;
+			send_info.addr_ll.sll_protocol = htons(ETH_P_IP);
+			memcpy(&send_info.addr_ll.sll_addr, dest_hw_addr, ETHER_ADDR_LEN);
+			//mylog(log_info,"we are running at lower-level (manual) mode\n");
 		}
 
 	}
-	//in_addr tmp;
-	//tmp.s_addr=source_ip_uint32;
-	mylog(log_info,"source ip = %s\n",my_ntoa(source_ip_uint32));
-	//printf("done\n");
+	*/
 
+	/*
 	if(strcmp(dev,"")==0)
 	{
 		mylog(log_info,"--dev have not been set, trying to detect automatically, avaliable deives:\n");
@@ -814,7 +859,7 @@ int client_event_loop()
 					log_bare(log_debug," [a->addr==NULL]");
 					continue;
 				}
-				if(a->addr->sa_family == AF_INET)
+				if(a->addr->sa_family == remote_addr.get_type())
 				{
 					cnt++;
 					log_bare(log_warn," [%s]", inet_ntoa(((struct sockaddr_in*)a->addr)->sin_addr));
@@ -860,42 +905,30 @@ int client_event_loop()
 	else
 	{
 		mylog(log_info,"--dev has been manually set, using device:[%s]\n",dev);
-	}
+	}*/
 
 
-	if(try_to_list_and_bind(bind_fd,local_ip_uint32,source_port)!=0)
-	{
-		mylog(log_fatal,"bind to source_port:%d fail\n ",source_port);
-		myexit(-1);
-	}
-	send_info.src_port=source_port;
-	send_info.src_ip = source_ip_uint32;
+	send_info.src_port=0;
+	memset(&send_info.new_src_ip,0,sizeof(send_info.new_src_ip));
 
 	int i, j, k;int ret;
 
 
-	send_info.dst_ip=remote_ip_uint32;
-	send_info.dst_port=remote_port;
+	send_info.new_dst_ip.from_address_t(remote_addr);
+	send_info.dst_port=remote_addr.get_port();
 
 
-    udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    udp_fd=socket(local_addr.get_type(), SOCK_DGRAM, IPPROTO_UDP);
     set_buf_size(udp_fd,socket_buf_size);
 
-	int yes = 1;
 
-	struct sockaddr_in local_me={0};
-
-	socklen_t slen = sizeof(sockaddr_in);
-	local_me.sin_family = AF_INET;
-	local_me.sin_port = htons(local_port);
-	local_me.sin_addr.s_addr = local_ip_uint32;
-
-
-	if (::bind(udp_fd, (struct sockaddr*) &local_me, slen) == -1) {
+	if (::bind(udp_fd, (struct sockaddr*) &local_addr.inner, local_addr.get_len()) == -1) {
 		mylog(log_fatal,"socket bind error\n");
+		//perror("socket bind error");
 		myexit(1);
 	}
 	setnonblocking(udp_fd);
+
 
 	//epollfd = epoll_create1(0);
 
@@ -934,32 +967,29 @@ int client_event_loop()
 	//	myexit(-1);
 	//}
 
-	//struct ev_io raw_watcher;
+    /*
+	struct ev_io raw_recv_watcher;
 
-	//raw_watcher.data=&conn_info;
-   // ev_io_init(&raw_watcher, raw_recv_cb, raw_recv_fd, EV_READ);
-    //ev_io_start(loop, &raw_watcher);
+	raw_recv_watcher.data=&conn_info;
+    ev_io_init(&raw_recv_watcher, raw_recv_cb, raw_recv_fd, EV_READ);
+    ev_io_start(loop, &raw_recv_watcher);
+     */
 
 	g_default_loop=loop;
 	async_watcher.data=&conn_info;
 	ev_async_init(&async_watcher,async_cb);
 	ev_async_start(loop,&async_watcher);
 
-	init_raw_socket();
-
-
-
-	int unbind=1;
+	init_raw_socket();//must be put after dev detection
 
 	//set_timer(epollfd,timer_fd);
-
 	struct ev_timer clear_timer;
 
 	clear_timer.data=&conn_info;
 	ev_timer_init(&clear_timer, clear_timer_cb, 0, timer_interval/1000.0);
 	ev_timer_start(loop, &clear_timer);
 
-	mylog(log_debug,"send_raw : from %x %d  to %x %d\n",send_info.src_ip,send_info.src_port,send_info.dst_ip,send_info.dst_port);
+	mylog(log_debug,"send_raw : from %s %d  to %s %d\n",send_info.new_src_ip.get_str1(),send_info.src_port,send_info.new_dst_ip.get_str2(),send_info.dst_port);
 
 	int fifo_fd=-1;
 

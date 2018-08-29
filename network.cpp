@@ -12,6 +12,7 @@
 int raw_recv_fd=-1;
 int raw_send_fd=-1;
 u32_t link_level_header_len=0;//set it to 14 if SOCK_RAW is used in socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+int use_tcp_dummy_socket=0;
 
 int seq_mode=3;
 int max_seq_mode=4;
@@ -79,14 +80,8 @@ ev_loop* g_default_loop;
 
 pthread_t pcap_recv_thread;
 
-
-
-
 struct bpf_program g_filter;
 
-
-
-int use_tcp_dummy_socket=0;
 
 #if 0
 struct sock_filter code_tcp_old[] = {
@@ -567,9 +562,26 @@ int init_raw_socket()
 
 	char filter_exp[1000];
 
-	assert(source_ip_uint32!=0);
+	address_t tmp_addr;
+	if(get_src_adress2(tmp_addr,remote_addr)!=0)
+	{
+		mylog(log_error,"get_src_adress() failed, maybe you dont have internet\n");
+		myexit(-1);
+	}
 
-	sprintf(filter_exp,"src %s and dst %s and (tcp or udp or icmp)",my_ntoa(source_ip_uint32),remote_ip);
+	string src=tmp_addr.get_ip();
+	string dst=remote_addr.get_ip();
+	if(raw_ip_version==AF_INET)
+	{
+		//sprintf(filter_exp,"ip and src %s and dst %s and (tcp or udp or icmp)",my_ntoa(source_ip_uint32),dst.c_str());
+		sprintf(filter_exp,"ip and src %s and dst %s and (tcp or udp or icmp)",src.c_str(),dst.c_str());
+	}
+	else
+	{
+		assert(raw_ip_version==AF_INET6);
+		sprintf(filter_exp,"ip6 and src %s and dst %s and (tcp or udp or icmp6)",src.c_str(),dst.c_str());
+
+	}
 
 	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
 		 printf("Bad filter - %s\n", pcap_geterr(pcap_handle));
@@ -587,8 +599,6 @@ int init_raw_socket()
 			mylog(log_fatal, "Error creating thread\n");
 			myexit(-1);
 		}
-
-
 
 
 	g_ip_id_counter=get_true_random_number()%65535;
@@ -766,22 +776,46 @@ void init_filter(int port)
 
 	 char filter_exp[1000];
 
-	if(raw_mode==mode_faketcp)
+	if(raw_ip_version==AF_INET)
 	{
-		sprintf(filter_exp,"tcp and src %s and src port %d and dst port %d",remote_ip,remote_port,port);
-	}
-	else if(raw_mode==mode_udp)
-	{
-		sprintf(filter_exp,"udp and src %s and src port %d and dst port %d",remote_ip,remote_port,port);
-	}
-	else if(raw_mode==mode_icmp)
-	{
-		sprintf(filter_exp,"icmp and src %s",remote_ip);
+		if(raw_mode==mode_faketcp)
+		{
+			sprintf(filter_exp,"ip and tcp and src %s and src port %d and dst port %d",remote_addr.get_ip(),remote_addr.get_port(),port);
+		}
+		else if(raw_mode==mode_udp)
+		{
+			sprintf(filter_exp,"ip and udp and src %s and src port %d and dst port %d",remote_addr.get_ip(),remote_addr.get_port(),port);
+		}
+		else if(raw_mode==mode_icmp)
+		{
+			sprintf(filter_exp,"ip and icmp and src %s",remote_addr.get_ip());
+		}
+		else
+		{
+			mylog(log_fatal,"unknow raw mode\n");
+			myexit(-1);
+		}
 	}
 	else
 	{
-		mylog(log_fatal,"unknow raw mode\n");
-		myexit(-1);
+		assert(raw_ip_version==AF_INET6);
+		if(raw_mode==mode_faketcp)
+		{
+			sprintf(filter_exp,"ip6 and tcp and src %s and src port %d and dst port %d",remote_addr.get_ip(),remote_addr.get_port(),port);
+		}
+		else if(raw_mode==mode_udp)
+		{
+			sprintf(filter_exp,"ip6 and udp and src %s and src port %d and dst port %d",remote_addr.get_ip(),remote_addr.get_port(),port);
+		}
+		else if(raw_mode==mode_icmp)
+		{
+			sprintf(filter_exp,"ip6 and icmp6 and src %s",remote_addr.get_ip());
+		}
+		else
+		{
+			mylog(log_fatal,"unknow raw mode\n");
+			myexit(-1);
+		}
 	}
 
 	mylog(log_info,"filter expression is [%s]\n",filter_exp);
@@ -1263,10 +1297,12 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 		iph->daddr = send_info.new_dst_ip.v4;
 
 		ip_tot_len=sizeof (struct my_iphdr)+payloadlen;
+		/*
 		if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
 		else
 			iph->tot_len = 0;
-
+		*/
+		iph->tot_len = htons(ip_tot_len);//always fill for mp version
 		memcpy(send_raw_ip_buf+sizeof(my_iphdr) , payload, payloadlen);
 
 		/*
@@ -1276,7 +1312,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 			iph->check=0;
 			*/
 
-		csum((unsigned short *) send_raw_ip_buf, iph->ihl*4);//always cal checksum for mp version
+		iph->check =csum((unsigned short *) send_raw_ip_buf, iph->ihl*4);//always cal checksum for mp version
     }
     else
     {
@@ -1450,6 +1486,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	else
 	{
 		//todo flow id
+		assert(raw_ip_version==AF_INET6);
 		recv_info.new_src_ip.v6=ip6h->src;
 		recv_info.new_dst_ip.v6=ip6h->dst;
 		iphdrlen=40;
@@ -1491,7 +1528,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	}
 	else
 	{
-
+		//do nothing
 	}
 
     payload=ip_begin+iphdrlen;
@@ -1572,6 +1609,7 @@ int peek_raw(raw_info_t &raw_info)
     			if(recv_info.protocol!=IPPROTO_ICMP) return -1;
     		}else
     		{
+    			assert(raw_ip_version==AF_INET6);
     			if(recv_info.protocol!=IPPROTO_ICMPV6) return -1;
     		}
     		struct my_icmphdr *icmph=(my_icmphdr *)payload;
@@ -1605,6 +1643,7 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
 		if(program_mode==client_mode)
 		{
 			icmph->type=128;
@@ -1627,6 +1666,8 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
+
 		pseudo_header6 v6;
 		struct pseudo_header6 *psh = &v6;
 
@@ -1697,6 +1738,7 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
 		pseudo_header6 v6;
 		struct pseudo_header6 *psh = &v6;
 
@@ -1837,6 +1879,8 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
+
 		pseudo_header6 v6;
 		struct pseudo_header6 *psh = &v6;
 
@@ -2054,6 +2098,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
 		if(recv_info.protocol!=IPPROTO_ICMPV6)
 		{
 			//printf("not udp protocol\n");
@@ -2093,6 +2138,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
 		if(program_mode==client_mode)
 		{
 			if(icmph->type!=129)
@@ -2854,7 +2900,7 @@ int recv_raw(raw_info_t &raw_info,char *& payload,int & payloadlen)
 	}
 }*/
 
-
+/*
 int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick to get src adress for a dest adress,so that we can use the src address in raw socket as source ip
 {
 	struct sockaddr_in remote_addr_in={0};
@@ -2893,7 +2939,7 @@ int get_src_adress(u32_t &ip,u32_t remote_ip_uint32,int remote_port)  //a trick 
     close(new_udp_fd);
 
     return 0;
-}
+}*/
 
 int get_src_adress2(address_t &output_addr,address_t remote_addr)
 {
@@ -2914,7 +2960,7 @@ int get_src_adress2(address_t &output_addr,address_t remote_addr)
 
 	return 0;
 }
-
+/*
 int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind to a port,may fail.
 {
 	 int old_bind_fd=fd;
@@ -2953,7 +2999,7 @@ int try_to_list_and_bind(int &fd,u32_t local_ip_uint32,int port)  //try to bind 
 		}
 	 }
      return 0;
-}
+}*/
 int try_to_list_and_bind2(int &fd,address_t address)  //try to bind to a port,may fail.
 {
 	if(fd!=-1)
@@ -2986,7 +3032,7 @@ int try_to_list_and_bind2(int &fd,address_t address)  //try to bind to a port,ma
 		mylog(log_debug,"bind fail\n");
 		return -1;
 	}
-	if(raw_mode==mode_faketcp)
+	if(raw_mode==mode_faketcp&&!use_tcp_dummy_socket)
 	{
 
 		if (listen(fd, SOMAXCONN) != 0) {
@@ -2996,7 +3042,7 @@ int try_to_list_and_bind2(int &fd,address_t address)  //try to bind to a port,ma
 	}
 	return 0;
 }
-
+/*
 int client_bind_to_a_new_port(int &fd,u32_t local_ip_uint32)//find a free port and bind to it.
 {
 	int raw_send_port=10000+get_true_random_number()%(65535-10000);
@@ -3011,7 +3057,7 @@ int client_bind_to_a_new_port(int &fd,u32_t local_ip_uint32)//find a free port a
 	myexit(-1);
 	return -1;////for compiler check
 }
-
+*/
 int client_bind_to_a_new_port2(int &fd,const address_t& address)//find a free port and bind to it.
 {
 	address_t tmp=address;
@@ -3019,7 +3065,7 @@ int client_bind_to_a_new_port2(int &fd,const address_t& address)//find a free po
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
 	{
 		tmp.set_port(raw_send_port);
-		if (try_to_list_and_bind2(fd,address)==0)
+		if (try_to_list_and_bind2(fd,tmp)==0)
 		{
 			return raw_send_port;
 		}
