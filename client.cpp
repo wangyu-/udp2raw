@@ -620,6 +620,31 @@ void clear_timer_cb(struct ev_loop *loop, struct ev_timer *watcher, int revents)
 }
 void fifo_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
+	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
+
+	char buf[buf_len];
+	int fifo_fd=watcher->fd;
+
+	int len=read (fifo_fd, buf, sizeof (buf));
+	if(len<0)
+	{
+		mylog(log_warn,"fifo read failed len=%d,errno=%s\n",len,get_sock_error());
+		return;
+	}
+	buf[len]=0;
+	while(len>=1&&buf[len-1]=='\n')
+		buf[len-1]=0;
+	mylog(log_info,"got data from fifo,len=%d,s=[%s]\n",len,buf);
+	if(strcmp(buf,"reconnect")==0)
+	{
+		mylog(log_info,"received command: reconnect\n");
+		conn_info.state.client_current_state=client_idle;
+		conn_info.my_id=get_true_random_number_nz();
+	}
+	else
+	{
+		mylog(log_info,"unknown command\n");
+	}
 
 }
 int client_event_loop()

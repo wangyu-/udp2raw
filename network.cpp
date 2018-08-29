@@ -2528,7 +2528,7 @@ int client_bind_to_a_new_port2(int &fd,const address_t& address)//find a free po
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
 	{
 		tmp.set_port(raw_send_port);
-		printf("<%s>\n",tmp.get_str());
+		//printf("<%s>\n",tmp.get_str());
 		if (try_to_list_and_bind2(fd,tmp)==0)
 		{
 			return raw_send_port;
