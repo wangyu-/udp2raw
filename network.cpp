@@ -959,6 +959,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	else
 	{
 		//todo flow id
+		assert(raw_ip_version==AF_INET6);
 		recv_info.new_src_ip.v6=ip6h->src;
 		recv_info.new_dst_ip.v6=ip6h->dst;
 		iphdrlen=40;
@@ -1000,7 +1001,7 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 	}
 	else
 	{
-
+		//do nothing
 	}
 
     payload=ip_begin+iphdrlen;
@@ -1081,6 +1082,7 @@ int peek_raw(raw_info_t &raw_info)
     			if(recv_info.protocol!=IPPROTO_ICMP) return -1;
     		}else
     		{
+    			assert(raw_ip_version==AF_INET6);
     			if(recv_info.protocol!=IPPROTO_ICMPV6) return -1;
     		}
     		struct my_icmphdr *icmph=(my_icmphdr *)payload;
@@ -1114,6 +1116,7 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
 		if(program_mode==client_mode)
 		{
 			icmph->type=128;
@@ -1136,6 +1139,8 @@ int send_raw_icmp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
+
 		pseudo_header6 v6;
 		struct pseudo_header6 *psh = &v6;
 
@@ -1206,6 +1211,7 @@ int send_raw_udp(raw_info_t &raw_info, const char * payload, int payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
 		pseudo_header6 v6;
 		struct pseudo_header6 *psh = &v6;
 
@@ -1346,6 +1352,8 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
+
 		pseudo_header6 v6;
 		struct pseudo_header6 *psh = &v6;
 
@@ -1563,6 +1571,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
 		if(recv_info.protocol!=IPPROTO_ICMPV6)
 		{
 			//printf("not udp protocol\n");
@@ -1602,6 +1611,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 	}
 	else
 	{
+		assert(raw_ip_version==AF_INET6);
 		if(program_mode==client_mode)
 		{
 			if(icmph->type!=129)
@@ -2528,7 +2538,6 @@ int client_bind_to_a_new_port2(int &fd,const address_t& address)//find a free po
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
 	{
 		tmp.set_port(raw_send_port);
-		//printf("<%s>\n",tmp.get_str());
 		if (try_to_list_and_bind2(fd,tmp)==0)
 		{
 			return raw_send_port;
