@@ -15,6 +15,8 @@
 
 extern int hb_mode;
 extern int hb_len;
+extern char hb_buf[buf_len];
+
 extern int mtu_warn;
 
 extern int max_rst_allowed;
