@@ -319,7 +319,6 @@ int my_ip_t::from_address_t(address_t tmp_addr)
 	}
 	return 0;
 }
-
 /*
 int my_ip_t::from_str(char * str)
 {
@@ -459,7 +458,6 @@ char * my_ntoa(u32_t ip)
 	a.s_addr=ip;
 	return inet_ntoa(a);
 }
-
 /*
 void init_random_number_fd()
 {
@@ -553,7 +551,6 @@ u64_t get_true_random_number_64()
 	if(size!=sizeof(ret))
 	{
 		mylog(log_fatal,"get random number failed %d\n",size);
-
 		myexit(-1);
 	}
 	return ret;
@@ -647,8 +644,6 @@ u64_t read_u64(char * s)
 	assert(0==1);
 	return 0;
 }
-
-
 
 void setnonblocking(int sock) {
 #if !defined(__MINGW32__)
@@ -769,7 +764,6 @@ int set_buf_size(int fd,int socket_buf_size)
 			myexit(1);
 		}
 	}
-
 	return 0;
 }
 
@@ -981,7 +975,6 @@ int read_file(const char * file,string &output)
 	}
 	return 0;
 }
-
 int run_command(string command0,char * &output,int flag) {
     mylog(log_fatal,"run_command not supported in this version\n");
     myexit(-1);

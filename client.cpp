@@ -165,8 +165,6 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			send_info.src_port = source_port;
 		}
 
-
-
 		if (raw_mode == mode_icmp)
 		{
 			send_info.dst_port = send_info.src_port;
@@ -185,7 +183,6 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 		{
 			if(use_tcp_dummy_socket)
 			{
-
 				setnonblocking(bind_fd);
 				int ret=connect(bind_fd,(struct sockaddr *)&remote_addr.inner,remote_addr.get_len());
 				mylog(log_info,"ret=%d,errno=%s,%d %s\n",ret,get_sock_error(),bind_fd,remote_addr.get_str());
@@ -398,6 +395,8 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 	raw_info_t &raw_info=conn_info.raw_info;
 
 	mylog(log_trace,"<client_on_raw_recv,send_info.ts_ack= %u>\n",send_info.ts_ack);
+	//if(pre_recv_raw_packet()<0) return -1;
+	//no pre_recv_raw_packet() in mp version
 
 	if(conn_info.state.client_current_state==client_idle )
 	{
@@ -609,8 +608,6 @@ int client_on_udp_recv(conn_info_t &conn_info)
 	{
 		mylog(log_warn,"huge packet,data len=%d (>=%d).strongly suggested to set a smaller mtu at upper level,to get rid of this warn\n ",recv_len,mtu_warn);
 	}
-	//mylog(log_trace,"Received packet from %s:%d,len: %d\n", inet_ntoa(udp_new_addr_in.sin_addr),
-			//ntohs(udp_new_addr_in.sin_port),recv_len);
 
 	address_t tmp_addr;
 	tmp_addr.from_sockaddr((sockaddr *)&udp_new_addr_in,udp_new_addr_len);
@@ -625,7 +622,6 @@ int client_on_udp_recv(conn_info_t &conn_info)
 		}
 		conv=conn_info.blob->conv_manager.c.get_new_conv();
 		conn_info.blob->conv_manager.c.insert_conv(conv,tmp_addr);
-		//mylog(log_info,"new packet from %s:%d,conv_id=%x\n",inet_ntoa(udp_new_addr_in.sin_addr),ntohs(udp_new_addr_in.sin_port),conv);
 		mylog(log_info,"new packet from %s,conv_id=%x\n",tmp_addr.get_str(),conv);
 	}
 	else
@@ -646,7 +642,6 @@ void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
 	client_on_udp_recv(conn_info);
 }
-
 void raw_recv_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
 	assert(0==1);
@@ -712,7 +707,6 @@ void clear_timer_cb(struct ev_loop *loop, struct ev_timer *watcher, int revents)
 	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
 	client_on_timer(conn_info);
 }
-
 void fifo_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
 	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
@@ -742,7 +736,6 @@ void fifo_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 	}
 
 }
-
 int client_event_loop()
 {
 	char buf[buf_len];
@@ -929,7 +922,6 @@ int client_event_loop()
 		myexit(1);
 	}
 	setnonblocking(udp_fd);
-
 
 	//epollfd = epoll_create1(0);
 

@@ -1353,10 +1353,8 @@ int pre_recv_raw_packet()
 	/*
 	assert(g_packet_buf_cnt==0);
 
-
 	g_sockaddr_len=sizeof(g_sockaddr.ll);
 	g_packet_buf_len = recvfrom(raw_recv_fd, g_packet_buf, max_data_len+1, 0 ,(sockaddr*)&g_sockaddr , &g_sockaddr_len);
-
 	//assert(g_sockaddr_len==sizeof(g_sockaddr.ll)); //g_sockaddr_len=18, sizeof(g_sockaddr.ll)=20, why its not equal? maybe its bc sll_halen is 6?
 
 	//assert(g_addr_ll_size==sizeof(g_addr_ll));

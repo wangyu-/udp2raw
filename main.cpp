@@ -92,6 +92,8 @@ int main(int argc, char *argv[])
 	my_init_keys(key_string,program_mode==client_mode?1:0);
 
 	iptables_rule();
+	//init_raw_socket();
+	//init_raw_socket() has to be done after dev dectection in mp version
 
 	if(program_mode==client_mode)
 	{

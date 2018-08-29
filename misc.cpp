@@ -29,12 +29,10 @@ int ttl_value=64;
 
 fd_manager_t fd_manager;
 
-//char remote_address[max_addr_len]="";
 //char remote_address[max_address_len]="";
 //char local_ip[100]="0.0.0.0", remote_ip[100]="255.255.255.255",source_ip[100]="0.0.0.0";//local_ip is for -l option,remote_ip for -r option,source for --source-ip
 //u32_t local_ip_uint32,remote_ip_uint32,source_ip_uint32;//convert from last line.
 //int local_port = -1, remote_port=-1,source_port=0;//similiar to local_ip  remote_ip,buf for port.source_port=0 indicates --source-port is not enabled
-
 address_t local_addr,remote_addr,source_addr;
 
 my_ip_t bind_addr;
@@ -578,6 +576,7 @@ void process_arg(int argc, char *argv[])  //process all options
 				if(i==cipher_end)
 				{
 
+					mylog(log_fatal,"no such cipher_mode %s\n",optarg);
 					myexit(-1);
 				}
 			}
@@ -784,30 +783,6 @@ void process_arg(int argc, char *argv[])  //process all options
 		print_help();
 		myexit(-1);
 	}
-
-	//if(lower_level)
-		//process_lower_level_arg();
-/*
-	 mylog(log_info,"important variables: ");
-
-	 log_bare(log_info,"log_level=%d:%s ",log_level,log_text[log_level]);
-	 log_bare(log_info,"raw_mode=%s ",raw_mode_tostring[raw_mode]);
-	 log_bare(log_info,"cipher_mode=%s ",cipher_mode_tostring[cipher_mode]);
-	 log_bare(log_info,"auth_mode=%s ",auth_mode_tostring[auth_mode]);
-
-	 log_bare(log_info,"key=%s ",key_string);
-
-	 log_bare(log_info,"local_ip=%s ",local_ip);
-	 log_bare(log_info,"local_port=%d ",local_port);
-	 log_bare(log_info,"remote_address=%s ",remote_address);
-	 log_bare(log_info,"remote_port=%d ",remote_port);
-	 log_bare(log_info,"source_ip=%s ",source_ip);
-	 log_bare(log_info,"source_port=%d ",source_port);
-
-	 log_bare(log_info,"socket_buf_size=%d ",socket_buf_size);
-
-	 log_bare(log_info,"\n");
-	 */
 	if(program_mode==client_mode)
 	{
 		raw_ip_version=remote_addr.get_type();
