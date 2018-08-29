@@ -10,7 +10,7 @@ cc_arm= /toolchains/arm-2014.05/bin/arm-none-linux-gnueabi-g++
 #cc_bcm2708=/home/wangyu/raspberry/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/arm-linux-gnueabihf-g++ 
 FLAGS= -std=c++11 -Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers ${OPT}
 
-COMMON=main.cpp lib/md5.cpp encrypt.cpp log.cpp network.cpp common.cpp  connection.cpp misc.cpp fd_manager.cpp -lpthread my_ev.cpp -isystem libev
+COMMON=main.cpp lib/md5.cpp encrypt.cpp log.cpp network.cpp common.cpp  connection.cpp misc.cpp fd_manager.cpp client.cpp -lpthread my_ev.cpp -isystem libev
 
 PCAP="-lpcap"
 
