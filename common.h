@@ -408,6 +408,7 @@ int set_buf_size(int fd,int socket_buf_size);
 void myexit(int a);
 
 unsigned short csum(const unsigned short *ptr,int nbytes);
+unsigned short csum_with_header(char* header,int hlen,const unsigned short *ptr,int nbytes);
 
 int numbers_to_char(my_id_t id1,my_id_t id2,my_id_t id3,char * &data,int &len);
 int char_to_numbers(const char * data,int len,my_id_t &id1,my_id_t &id2,my_id_t &id3);
