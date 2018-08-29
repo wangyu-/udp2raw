@@ -64,7 +64,7 @@ const uint32_t server_conn_timeout=conv_timeout+60000;//ms. this should be 60s+ 
 const u32_t iptables_rule_keep_interval=20;//unit: second;
 
 enum server_current_state_t {server_idle=0,server_handshake1,server_ready};  //server state machine
-enum client_current_state_t {client_idle=0,client_tcp_handshake,client_handshake1,client_handshake2,client_ready};//client state machine
+enum client_current_state_t {client_idle=0,client_tcp_handshake,client_handshake1,client_handshake2,client_ready,client_tcp_handshake_dummy};//client state machine
 
 enum raw_mode_t{mode_faketcp=0,mode_udp,mode_icmp,mode_end};
 enum program_mode_t {unset_mode=0,client_mode,server_mode};

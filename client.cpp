@@ -102,8 +102,21 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 		}
 		if(raw_mode==mode_faketcp)
 		{
-			conn_info.state.client_current_state=client_tcp_handshake;
-			mylog(log_info,"state changed from client_idle to client_tcp_handshake\n");
+			if(use_tcp_dummy_socket)
+			{
+				setnonblocking(bind_fd);
+				int ret=connect(bind_fd,(struct sockaddr *)&remote_addr.inner,remote_addr.get_len());
+				mylog(log_info,"ret=%d,errno=%s,%d %s\n",ret,get_sock_error(),bind_fd,remote_addr.get_str());
+				conn_info.state.client_current_state=client_tcp_handshake_dummy;
+				mylog(log_info,"state changed from client_idle to client_tcp_handshake_dummy\n");
+			}
+			else
+			{
+
+				conn_info.state.client_current_state=client_tcp_handshake;
+				mylog(log_info,"state changed from client_idle to client_tcp_handshake\n");
+			}
+
 
 		}
 		conn_info.last_state_time=get_current_time();
@@ -148,6 +161,17 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 		}
 		return 0;
 	}
+	else if(conn_info.state.client_current_state==client_tcp_handshake_dummy)
+	{
+		assert(raw_mode==mode_faketcp);
+		if (get_current_time() - conn_info.last_state_time > client_handshake_timeout)
+		{
+			conn_info.state.client_current_state = client_idle;
+			mylog(log_info, "state back to client_idle from client_tcp_handshake_dummy\n");
+			return 0;
+
+		}
+	}
 	else if(conn_info.state.client_current_state==client_handshake1)//send and resend handshake1
 	{
 		if(get_current_time()-conn_info.last_state_time>client_handshake_timeout)
@@ -173,7 +197,9 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 				send_info.psh = 0;
 				send_info.syn = 0;
 				send_info.ack = 1;
-				send_raw0(raw_info, 0, 0);
+
+				if(!use_tcp_dummy_socket)
+					send_raw0(raw_info, 0, 0);
 
 				send_handshake(raw_info,conn_info.my_id,0,const_id);
 
@@ -299,7 +325,7 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 		discard_raw_packet();
 		//recv(raw_recv_fd, 0,0, 0  );
 	}
-	else if(conn_info.state.client_current_state==client_tcp_handshake)//received syn ack
+	else if(conn_info.state.client_current_state==client_tcp_handshake||conn_info.state.client_current_state==client_tcp_handshake_dummy)//received syn ack
 	{
 		assert(raw_mode==mode_faketcp);
 		if(recv_raw0(raw_info,data,data_len)<0)
@@ -313,14 +339,24 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 		}
 		if(data_len==0&&raw_info.recv_info.syn==1&&raw_info.recv_info.ack==1)
 		{
-			if(recv_info.ack_seq!=send_info.seq+1)
+			if(conn_info.state.client_current_state==client_tcp_handshake)
 			{
-				mylog(log_debug,"seq ack_seq mis match\n");
-							return -1;
+				if(recv_info.ack_seq!=send_info.seq+1)
+				{
+					mylog(log_debug,"seq ack_seq mis match\n");
+								return -1;
+				}
+				mylog(log_info,"state changed from client_tcp_handshake to client_handshake1\n");
+			}
+			else
+			{
+				send_info.seq=recv_info.ack_seq-1;
+				mylog(log_info,"state changed from client_tcp_dummy to client_handshake1\n");
+				//send_info.ack_seq=recv_info.seq+1;
 			}
 
 			conn_info.state.client_current_state = client_handshake1;
-			mylog(log_info,"state changed from client_tcp_handshake to client_handshake1\n");
+
 			conn_info.last_state_time = get_current_time();
 			conn_info.last_hb_sent_time=0;
 			client_on_timer(conn_info);
