@@ -15,6 +15,7 @@
 #include "encrypt.h"
 #include "fd_manager.h"
 
+#if 0
 int server_easytcp=0;//currently only for test
 
 int server_on_timer_multi(conn_info_t &conn_info)  //for server. called when a timer is ready in epoll.for server,there will be one timer for every connection
@@ -897,5 +898,10 @@ int server_event_loop()
 
 		}
 	}
+	return 0;
+}
+#endif
+int server_event_loop()
+{
 	return 0;
 }

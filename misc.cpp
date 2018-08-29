@@ -1091,7 +1091,7 @@ int unit_test()
 	return 0;
 }
 
-
+/*
 int set_timer(int epollfd,int &timer_fd)//put a timer_fd into epoll,general function,used both in client and server
 {
 	int ret;
@@ -1154,6 +1154,7 @@ int set_timer_server(int epollfd,int &timer_fd,fd64_t &fd64)//only for server
 	}
 	return 0;
 }
+*/
 
 int handle_lower_level(raw_info_t &raw_info)//fill lower_level info,when --lower-level is enabled,only for server
 {

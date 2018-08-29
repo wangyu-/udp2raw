@@ -44,20 +44,21 @@
 #ifndef NO_LIBNET
 #include <libnet.h>
 #endif
-#include <my_ev.h>
 
 #else
 
 //#include <linux/if_ether.h>
 #include <linux/filter.h>
 #include <linux/if_packet.h>
-#include <sys/epoll.h>
-#include <sys/wait.h>
+//#include <sys/epoll.h>
+//#include <sys/wait.h> //signal
 #include <netinet/if_ether.h>
 #include <net/if.h>
-#include <sys/timerfd.h>
+//#include <sys/timerfd.h>
 
 #endif
+
+#include <my_ev.h>
 
 #if defined(__MINGW32__)
 #include <winsock2.h>

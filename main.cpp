@@ -7,6 +7,23 @@
 #include "encrypt.h"
 #include "fd_manager.h"
 
+void sigpipe_cb(struct ev_loop *l, ev_signal *w, int revents)
+{
+	mylog(log_info, "got sigpipe, ignored");
+}
+
+void sigterm_cb(struct ev_loop *l, ev_signal *w, int revents)
+{
+	mylog(log_info, "got sigterm, exit");
+	myexit(0);
+}
+
+void sigint_cb(struct ev_loop *l, ev_signal *w, int revents)
+{
+	mylog(log_info, "got sigint, exit");
+	myexit(0);
+}
+
 int client_event_loop();
 int server_event_loop();
 /*
@@ -25,22 +42,33 @@ int test()
 }*/
 int main(int argc, char *argv[])
 {
-	//printf("%llu\n",u64_t(-1));
-	//test();
-	//printf("%s\n",my_ntoa(0x00ffffff));
-	//auto a=string_to_vec("a b c d ");
-	//printf("%d\n",(int)a.size());
-	//printf("%d %d %d %d",larger_than_u32(1,2),larger_than_u32(2,1),larger_than_u32(0xeeaaeebb,2),larger_than_u32(2,0xeeaaeebb));
-	//assert(0==1);
+
+	assert(sizeof(unsigned short)==2);
+	assert(sizeof(unsigned int)==4);
+	assert(sizeof(unsigned long long)==8);
+
 	dup2(1, 2);//redirect stderr to stdout
-	signal(SIGINT, signal_handler);
-	signal(SIGHUP, signal_handler);
-	signal(SIGKILL, signal_handler);
-	signal(SIGTERM, signal_handler);
-	signal(SIGQUIT, signal_handler);
+
+	struct ev_loop* loop=ev_default_loop(0);
+
+#if !defined(__MINGW32__)
+    ev_signal signal_watcher_sigpipe;
+    ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
+    ev_signal_start(loop, &signal_watcher_sigpipe);
+#else
+     enable_log_color=0;
+#endif
+
+    ev_signal signal_watcher_sigterm;
+    ev_signal_init(&signal_watcher_sigterm, sigterm_cb, SIGTERM);
+    ev_signal_start(loop, &signal_watcher_sigterm);
+
+    ev_signal signal_watcher_sigint;
+    ev_signal_init(&signal_watcher_sigint, sigint_cb, SIGINT);
+    ev_signal_start(loop, &signal_watcher_sigint);
 
 	pre_process_arg(argc,argv);
-
+#if !defined(__MINGW32__)
 	if(geteuid() != 0)
 	{
 		mylog(log_warn,"root check failed, it seems like you are using a non-root account. we can try to continue, but it may fail. If you want to run udp2raw as non-root, you have to add iptables rule manually, and grant udp2raw CAP_NET_RAW capability, check README.md in repo for more info.\n");
@@ -49,39 +77,10 @@ int main(int argc, char *argv[])
 	{
 		mylog(log_warn,"you can run udp2raw with non-root account for better security. check README.md in repo for more info.\n");
 	}
-
-	//local_ip_uint32=inet_addr(local_ip);
-	//source_ip_uint32=inet_addr(source_ip);
-
-	
-#if ENABLE_DNS_RESOLVE
-
-	//if(enable_dns_resolve)
-	//{
-
-	struct hostent        *he;
-	if ( (he = gethostbyname(remote_address) ) == NULL ) {
-		mylog(log_error,"Unable to resolve hostname: %s, error:%s \n",remote_address,hstrerror(h_errno) );
-		myexit(1); /* error */
-	}
-	struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
-	assert( he->h_addrtype ==AF_INET);
-	assert(addr_list!=NULL);
-
-	remote_ip_uint32=(*addr_list[0]).s_addr;
-	mylog(log_info,"remote_address[%s] has been resolved to [%s]\n",remote_address, my_ntoa(remote_ip_uint32));
-
-
-	strcpy(remote_ip,my_ntoa(remote_ip_uint32));
-
-	//}
-	//else
-
 #endif
 
-	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_addr.get_ip());
 
-	//current_time_rough=get_current_time();
+	mylog(log_info,"remote_ip=[%s], make sure this is a vaild IP address\n",remote_addr.get_ip());
 
 	init_random_number_fd();
 	srand(get_true_random_number_nz());

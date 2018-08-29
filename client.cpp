@@ -566,11 +566,28 @@ int client_on_udp_recv(conn_info_t &conn_info)
 	}
 	return 0;
 }
-
-int client_event_loop()
+void udp_accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+{
+	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
+	client_on_udp_recv(conn_info);
+}
+void raw_recv_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
+{
+	//assert(0==1);
+	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
+	client_on_raw_recv(conn_info);
+}
+void clear_timer_cb(struct ev_loop *loop, struct ev_timer *watcher, int revents)
+{
+	conn_info_t & conn_info= *((conn_info_t*)watcher->data);
+	client_on_timer(conn_info);
+}
+void fifo_cb(struct ev_loop *loop, struct ev_io *watcher, int revents)
 {
 
-
+}
+int client_event_loop()
+{
 	char buf[buf_len];
 
 	conn_info_t conn_info;
@@ -656,84 +673,19 @@ int client_event_loop()
 
 	}
 
-	/*
-
-	address_t new_addr;
-
-	if(!force_source_ip)
-	{
-		mylog(log_info,"get_src_adress called\n");
-		if(retry_on_error==0)
-		{
-			if(get_src_adress2(new_addr,remote_addr)!=0)
-			{
-				mylog(log_fatal,"the trick to auto get source ip failed, maybe you dont have internet access\n");
-				myexit(-1);
-			}
-		}
-		else
-		{
-			int ok=0;
-			while(!ok)
-			{
-				if(get_src_adress2(new_addr,remote_addr)!=0)
-				{
-					mylog(log_warn,"the trick to auto get source ip failed, maybe you dont have internet access, retry in %d seconds\n",retry_on_error_interval);
-					sleep(retry_on_error_interval);
-				}
-				else
-				{
-					ok=1;
-				}
-
-			}
-		}
-
-	}
-	else
-	{
-		new_addr=source_addr;
-	}
-	//in_addr tmp;
-	//tmp.s_addr=source_ip_uint32;
-	mylog(log_info,"source ip = %s\n",new_addr.get_ip());*/
-	//printf("done\n");
-
-
-	/*
-	if(try_to_list_and_bind(bind_fd,local_ip_uint32,source_port)!=0)
-	{
-		mylog(log_fatal,"bind to source_port:%d fail\n ",source_port);
-		myexit(-1);
-	}*/
 	send_info.src_port=0;
 	memset(&send_info.new_src_ip,0,sizeof(send_info.new_src_ip));
 
 	int i, j, k;int ret;
 
 
-	//init_filter(source_port);
-
 	send_info.new_dst_ip.from_address_t(remote_addr);
 
 	send_info.dst_port=remote_addr.get_port();
 
-	//g_packet_info.src_ip=source_address_uint32;
-	//g_packet_info.src_port=source_port;
 
     udp_fd=socket(local_addr.get_type(), SOCK_DGRAM, IPPROTO_UDP);
     set_buf_size(udp_fd,socket_buf_size);
-
-	int yes = 1;
-	//setsockopt(udp_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-
-	//struct sockaddr_in local_me={0};
-
-	//socklen_t slen = sizeof(sockaddr_in);
-	//memset(&local_me, 0, sizeof(local_me));
-	//local_me.sin_family = AF_INET;
-	//local_me.sin_port = local_addr.get_type();
-	//local_me.sin_addr.s_addr = local_addr.inner.ipv4.sin_addr.s_addr;
 
 
 	if (bind(udp_fd, (struct sockaddr*) &local_addr.inner, local_addr.get_len()) == -1) {
@@ -742,30 +694,49 @@ int client_event_loop()
 		myexit(1);
 	}
 	setnonblocking(udp_fd);
-	epollfd = epoll_create1(0);
 
-	const int max_events = 4096;
-	struct epoll_event ev, events[max_events];
-	if (epollfd < 0) {
-		mylog(log_fatal,"epoll return %d\n", epollfd);
-		myexit(-1);
-	}
+	//epollfd = epoll_create1(0);
 
-	ev.events = EPOLLIN;
-	ev.data.u64 = udp_fd;
-	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
-	if (ret!=0) {
-		mylog(log_fatal,"add  udp_listen_fd error\n");
-		myexit(-1);
-	}
-	ev.events = EPOLLIN;
-	ev.data.u64 = raw_recv_fd;
+	//const int max_events = 4096;
+	//struct epoll_event ev, events[max_events];
+	//if (epollfd < 0) {
+	//	mylog(log_fatal,"epoll return %d\n", epollfd);
+	//	myexit(-1);
+	//}
 
-	ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
-	if (ret!= 0) {
-		mylog(log_fatal,"add raw_fd error\n");
-		myexit(-1);
-	}
+	struct ev_loop * loop= ev_default_loop(0);
+	assert(loop != NULL);
+
+	//ev.events = EPOLLIN;
+	//ev.data.u64 = udp_fd;
+	//ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, udp_fd, &ev);
+	//if (ret!=0) {
+	//	mylog(log_fatal,"add  udp_listen_fd error\n");
+	//	myexit(-1);
+	//}
+
+
+	struct ev_io udp_accept_watcher;
+
+	udp_accept_watcher.data=&conn_info;
+    ev_io_init(&udp_accept_watcher, udp_accept_cb, udp_fd, EV_READ);
+    ev_io_start(loop, &udp_accept_watcher);
+
+
+	//ev.events = EPOLLIN;
+	//ev.data.u64 = raw_recv_fd;
+
+	//ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_recv_fd, &ev);
+	//if (ret!= 0) {
+	//	mylog(log_fatal,"add raw_fd error\n");
+	//	myexit(-1);
+	//}
+
+	struct ev_io raw_recv_watcher;
+
+	raw_recv_watcher.data=&conn_info;
+    ev_io_init(&raw_recv_watcher, raw_recv_cb, raw_recv_fd, EV_READ);
+    ev_io_start(loop, &raw_recv_watcher);
 
 	////add_timer for fake_tcp_keep_connection_client
 
@@ -774,92 +745,31 @@ int client_event_loop()
 	//memset(&udp_old_addr_in,0,sizeof(sockaddr_in));
 	int unbind=1;
 
-	set_timer(epollfd,timer_fd);
+	//set_timer(epollfd,timer_fd);
+	struct ev_timer clear_timer;
+
+	clear_timer.data=&conn_info;
+	ev_timer_init(&clear_timer, clear_timer_cb, 0, timer_interval/1000.0);
+	ev_timer_start(loop, &clear_timer);
 
 	mylog(log_debug,"send_raw : from %s %d  to %s %d\n",send_info.new_src_ip.get_str1(),send_info.src_port,send_info.new_dst_ip.get_str2(),send_info.dst_port);
+
 	int fifo_fd=-1;
+
+	struct ev_io fifo_watcher;
+	fifo_watcher.data=&conn_info;
 
 	if(fifo_file[0]!=0)
 	{
 		fifo_fd=create_fifo(fifo_file);
-		ev.events = EPOLLIN;
-		ev.data.u64 = fifo_fd;
 
-		ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, fifo_fd, &ev);
-		if (ret!= 0) {
-			mylog(log_fatal,"add fifo_fd to epoll error %s\n",strerror(errno));
-			myexit(-1);
-		}
+	    ev_io_init(&fifo_watcher, fifo_cb, fifo_fd, EV_READ);
+	    ev_io_start(loop, &fifo_watcher);
+
 		mylog(log_info,"fifo_file=%s\n",fifo_file);
 	}
-	while(1)////////////////////////
-	{
-		if(about_to_exit) myexit(0);
-		epoll_trigger_counter++;
-		int nfds = epoll_wait(epollfd, events, max_events, 180 * 1000);
-		if (nfds < 0) {  //allow zero
-			if(errno==EINTR  )
-			{
-				mylog(log_info,"epoll interrupted by signal,continue\n");
-				//close(fifo_fd);
-				//myexit(0);
-			}
-			else
-			{
-				mylog(log_fatal,"epoll_wait return %d,%s\n", nfds,strerror(errno));
-				myexit(-1);
-			}
-		}
-		int idx;
-		for (idx = 0; idx < nfds; ++idx) {
-			if (events[idx].data.u64 == (u64_t)raw_recv_fd)
-			{
-				//iphdr *iph;tcphdr *tcph;
-				client_on_raw_recv(conn_info);
-			}
-			else if(events[idx].data.u64 ==(u64_t)timer_fd)
-			{
-				u64_t value;
-				int unused=read(timer_fd, &value, 8);
-				client_on_timer(conn_info);
-				mylog(log_trace,"epoll_trigger_counter:  %d \n",epoll_trigger_counter);
-				epoll_trigger_counter=0;
-			}
-			else if (events[idx].data.u64 == (u64_t)udp_fd)
-			{
-				client_on_udp_recv(conn_info);
-			}
-			else if (events[idx].data.u64 == (u64_t)fifo_fd)
-			{
-				int len=read (fifo_fd, buf, sizeof (buf));
-				//assert(len>=0);
-				if(len<0)
-				{
-					mylog(log_warn,"fifo read failed len=%d,errno=%s\n",len,strerror(errno));
-					continue;
-				}
-				buf[len]=0;
-				while(len>=1&&buf[len-1]=='\n')
-					buf[len-1]=0;
-				mylog(log_info,"got data from fifo,len=%d,s=[%s]\n",len,buf);
-				if(strcmp(buf,"reconnect")==0)
-				{
-					mylog(log_info,"received command: reconnect\n");
-					conn_info.state.client_current_state=client_idle;
-					conn_info.my_id=get_true_random_number_nz();
-				}
-				else
-				{
-					mylog(log_info,"unknown command\n");
-				}
 
-			}
-			else
-			{
-				mylog(log_fatal,"unknown fd,this should never happen\n");
-				myexit(-1);
-			}
-		}
-	}
+	ev_run(loop, 0);
+
 	return 0;
 }
