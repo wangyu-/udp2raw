@@ -39,7 +39,6 @@
 #endif
 
 #include <my_ev.h>
-#include <netinet/in.h>
 
 #if defined(__MINGW32__)
 #include <winsock2.h>
@@ -54,6 +53,7 @@ typedef int socklen_t;
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #endif
 
 
