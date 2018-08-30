@@ -22,7 +22,7 @@ int filter_port=-1;
 
 int disable_bpf_filter=0;  //for test only,most time no need to disable this
 
-u32_t bind_address_uint32=0;
+//u32_t bind_address_uint32=0;
 
 int lower_level=0;
 int lower_level_manual=0;

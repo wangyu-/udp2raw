@@ -43,7 +43,6 @@
 #if defined(__MINGW32__)
 #include <winsock2.h>
 #include <ws2ipdef.h>
-
 typedef unsigned char u_int8_t;
 typedef unsigned short u_int16_t;
 typedef unsigned int u_int32_t;
