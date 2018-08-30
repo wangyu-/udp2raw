@@ -460,6 +460,7 @@ void remove_filter()
 		//exit(-1);
 	}
 }
+
 int init_ifindex(const char * if_name,int fd,int &index)
 {
 	struct ifreq ifr;
@@ -1327,7 +1328,7 @@ int send_raw_tcp(raw_info_t &raw_info,const char * payload, int payloadlen) {  	
 
 	tcph->urg = 0;
 	//tcph->window = htons((uint16_t)(1024));
-	tcph->window = htons((uint16_t) (receive_window_lower_bound + random() % receive_window_random_range));
+	tcph->window = htons((uint16_t) (receive_window_lower_bound + get_true_random_number() % receive_window_random_range));
 
 	tcph->check = 0; //leave checksum 0 now, filled later by pseudo header
 	tcph->urg_ptr = 0;
@@ -2266,7 +2267,7 @@ int after_send_raw0(raw_info_t &raw_info)
 				send_info.seq += raw_info.send_info.data_len;    //////////////////modify
 			} else if (seq_mode == 2)
 			{
-				if (random() % 5 == 3)
+				if (get_true_random_number() % 5 == 3)
 					send_info.seq += raw_info.send_info.data_len; //////////////////modify
 			}
 			else if(seq_mode==3||seq_mode==4)

@@ -17,20 +17,14 @@
 
 #include<unistd.h>
 #include<errno.h>
-//#include <sys/epoll.h>
-//#include <sys/wait.h>
-
 #include <sys/stat.h>
 #include <stdlib.h> //for exit(0);
 #include <errno.h> //For errno - the error number
 #include <fcntl.h>
 #include <sys/time.h>
 #include <time.h>
-
 #include <stdarg.h>
 #include <assert.h>
-
-
 #include <pthread.h>
 
 #if defined(UDP2RAW_MP)
@@ -41,6 +35,7 @@
 #include <pcap_wrapper.h>
 #define NO_LIBNET
 #endif
+
 #ifndef NO_LIBNET
 #include <libnet.h>
 #endif
@@ -70,8 +65,8 @@ typedef int socklen_t;
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #endif
 
 
@@ -83,7 +78,6 @@ typedef int socklen_t;
 #include <set>
 #include <list>
 using  namespace std;
-
 
 #if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN || \
     defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ || \
@@ -115,7 +109,10 @@ using  namespace std;
 #error "endian detection failed"
 #endif
 
+
 #if defined(__MINGW32__)
+int inet_pton(int af, const char *src, void *dst);
+const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
 #define setsockopt(a,b,c,d,e) setsockopt(a,b,c,(const char *)(d),e)
 #endif
 
@@ -136,6 +133,7 @@ inline int sock_close(my_fd_t fd)
 }
 
 #endif
+
 
 typedef unsigned long long u64_t;   //this works on most platform,avoid using the PRId64
 typedef long long i64_t;
@@ -370,12 +368,10 @@ u64_t hton64(u64_t a);
 
 void write_u16(char *,u16_t a);// network order
 u16_t read_u16(char *);
-
 void write_u32(char *,u32_t a);// network order
 u32_t read_u32(char *);
-
 void write_u64(char *,u64_t a);
-u64_t read_uu64(char *);
+u64_t read_u64(char *);
 
 bool larger_than_u16(uint16_t a,uint16_t b);
 bool larger_than_u32(u32_t a,u32_t b);
@@ -415,7 +411,6 @@ int hex_to_u32(const string & a,u32_t &output);
 int create_fifo(char * file);
 
 void print_binary_chars(const char * a,int len);
-
 
 template <class key_t>
 struct lru_collector_t:not_copy_able_t
@@ -503,8 +498,6 @@ struct lru_collector_t:not_copy_able_t
 		erase(key);
 	}*/
 };
-
-
 
 
 #endif /* COMMON_H_ */
