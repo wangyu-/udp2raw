@@ -42,6 +42,7 @@
 
 #if defined(__MINGW32__)
 #include <winsock2.h>
+#include <ws2ipdef.h>
 typedef unsigned char u_int8_t;
 typedef unsigned short u_int16_t;
 typedef unsigned int u_int32_t;
@@ -96,6 +97,8 @@ using  namespace std;
 
 
 #if defined(__MINGW32__)
+int inet_pton(int af, const char *src, void *dst);
+const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
 #define setsockopt(a,b,c,d,e) setsockopt(a,b,c,(const char *)(d),e)
 #endif
 
