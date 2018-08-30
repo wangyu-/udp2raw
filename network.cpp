@@ -3036,7 +3036,7 @@ int try_to_list_and_bind2(int &fd,address_t address)  //try to bind to a port,ma
 	temp_bind_addr.sin_port = htons(port);
 	temp_bind_addr.sin_addr.s_addr = local_ip_uint32;*/
 
-	if (bind(fd, (struct sockaddr*)&address.inner, address.get_len()) !=0)
+	if (::bind(fd, (struct sockaddr*)&address.inner, address.get_len()) !=0)
 	{
 		mylog(log_debug,"bind fail\n");
 		return -1;
