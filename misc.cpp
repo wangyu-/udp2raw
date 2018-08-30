@@ -1351,7 +1351,6 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 
 	if(generate_iptables_rule)
 	{
-#ifdef fixthis
 		if(raw_mode==mode_faketcp && use_tcp_dummy_socket==1)
 		{
 			mylog(log_fatal, "failed,-g doesnt work with easy-faketcp mode\n");
@@ -1361,46 +1360,93 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 		{
 			mylog(log_warn, "It not necessary to use iptables/firewall rule in udp mode\n");
 		}
-		log_bare(log_warn,"for linux, use:\n");
-		if(raw_mode==mode_faketcp)
-			printf("iptables -I INPUT -s %s/32 -p tcp -m tcp --sport %d -j DROP\n",remote_ip,remote_port);
-		if(raw_mode==mode_udp)
-			printf("iptables -I INPUT -s %s/32 -p udp -m udp --sport %d -j DROP\n",remote_ip,remote_port);
-		if(raw_mode==mode_icmp)
-			printf("iptables -I INPUT -s %s/32 -p icmp -j DROP\n",remote_ip);
-		printf("\n");
+		log_bare(log_warn,"for linux, ipv 4, use:\n");
+		if(raw_ip_version==AF_INET)
+		{
+			if(raw_mode==mode_faketcp)
+				printf("iptables -I INPUT -s %s -p tcp -m tcp --sport %d -j DROP\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_udp)
+				printf("iptables -I INPUT -s %s -p udp -m udp --sport %d -j DROP\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_icmp)
+				printf("iptables -I INPUT -s %s -p icmp --icmp-type 0 -j DROP\n",remote_addr.get_ip());
+			printf("\n");
+		}
+		else
+		{
+			assert(raw_ip_version==AF_INET6);
+			if(raw_mode==mode_faketcp)
+				printf("ip6tables -I INPUT -s %s -p tcp -m tcp --sport %d -j DROP\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_udp)
+				printf("ip6tables -I INPUT -s %s -p udp -m udp --sport %d -j DROP\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_icmp)
+				printf("ip6tables -I INPUT -s %s -p -p icmpv6 --icmpv6-type 129 -j DROP\n",remote_addr.get_ip());
+			printf("\n");
+		}
 
 		log_bare(log_warn,"for mac/bsd use:\n");
-		if(raw_mode==mode_faketcp)
-			printf("echo 'block drop proto tcp from %s port %d to any' > ./1.conf\n",remote_ip,remote_port);
-		if(raw_mode==mode_udp)
-			printf("echo 'block drop proto udp from %s port %d to any' > ./1.conf\n",remote_ip,remote_port);
-		if(raw_mode==mode_icmp)
-			printf("echo 'block drop proto icmp from %s to any' > ./1.conf\n",remote_ip);
+		if(raw_ip_version==AF_INET)
+		{
+			if(raw_mode==mode_faketcp)
+				printf("echo 'block drop inet proto tcp from %s port %d to any' > ./1.conf\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_udp)
+				printf("echo 'block drop inet proto udp from %s port %d to any' > ./1.conf\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_icmp)
+				printf("echo 'block drop inet proto icmp from %s to any' > ./1.conf\n",remote_addr.get_ip());
+		}
+		else
+		{
+			assert(raw_ip_version==AF_INET6);
+			if(raw_mode==mode_faketcp)
+				printf("echo 'block drop inet6 proto tcp from %s port %d to any' > ./1.conf\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_udp)
+				printf("echo 'block drop inet6 proto udp from %s port %d to any' > ./1.conf\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_icmp)
+				printf("echo 'block drop inet6 proto icmp6 from %s to any' > ./1.conf\n",remote_addr.get_ip());
+		}
 		printf("pfctl -f ./1.conf\n");
 		printf("pfctl -e\n");
 		printf("\n");
 
 		log_bare(log_warn,"for windows vista and above use:\n");
-
-		if(raw_mode==mode_faketcp)
+		if(raw_ip_version==AF_INET)
 		{
-			printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=in remoteip=%s/32 remoteport=%d action=block\n",remote_ip,remote_port);
-			printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=out remoteip=%s/32 remoteport=%d action=block\n",remote_ip,remote_port);
-		}
-		if(raw_mode==mode_udp)
-		{
-			printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=in remoteip=%s/32 remoteport=%d action=block\n",remote_ip,remote_port);
-			printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=out remoteip=%s/32 remoteport=%d action=block\n",remote_ip,remote_port);
-		}
+			if(raw_mode==mode_faketcp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=in remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=out remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+			}
+			if(raw_mode==mode_udp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=in remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=out remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+			}
 
-		if(raw_mode==mode_icmp)
-		{
-			printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV4 dir=in remoteip=%s/32 action=block\n",remote_ip);
-			printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV4 dir=out remoteip=%s/32 action=block\n",remote_ip);
-
+			if(raw_mode==mode_icmp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV4 dir=in remoteip=%s action=block\n",remote_addr.get_ip());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV4 dir=out remoteip=%s action=block\n",remote_addr.get_ip());
+			}
 		}
-#endif
+		else
+		{
+			assert(raw_ip_version==AF_INET6);
+			if(raw_mode==mode_faketcp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=in remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=out remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+			}
+			if(raw_mode==mode_udp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=in remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=out remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+			}
+
+			if(raw_mode==mode_icmp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV6 dir=in remoteip=%s action=block\n",remote_addr.get_ip());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV6 dir=out remoteip=%s action=block\n",remote_addr.get_ip());
+			}
+		}
 
 		myexit(0);
 

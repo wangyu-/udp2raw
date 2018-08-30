@@ -824,8 +824,12 @@ int client_event_loop()
 
 	}
 	*/
-
-#ifdef fixthis
+	address_t tmp_addr;
+	if(get_src_adress2(tmp_addr,remote_addr)!=0)
+	{
+		mylog(log_error,"get_src_adress() failed\n");
+		myexit(-1);
+	}
 	if(strcmp(dev,"")==0)
 	{
 		mylog(log_info,"--dev have not been set, trying to detect automatically, avaliable deives:\n");
@@ -852,15 +856,41 @@ int client_event_loop()
 					log_bare(log_debug," [a->addr==NULL]");
 					continue;
 				}
-				if(a->addr->sa_family == remote_addr.get_type())
+				if(a->addr->sa_family == AF_INET||a->addr->sa_family == AF_INET6)
 				{
 					cnt++;
-					log_bare(log_warn," [%s]", inet_ntoa(((struct sockaddr_in*)a->addr)->sin_addr));
 
-					if(((struct sockaddr_in*)a->addr)->sin_addr.s_addr ==source_ip_uint32)
+					if(a->addr->sa_family ==AF_INET)
 					{
-						found++;
-						strcpy(dev,d->name);
+						char s[max_addr_len];
+						inet_ntop(AF_INET, &((struct sockaddr_in*)a->addr)->sin_addr, s,max_addr_len);
+						log_bare(log_warn," [%s]", s);
+
+						if(a->addr->sa_family==raw_ip_version)
+						{
+							if(((struct sockaddr_in*)a->addr)->sin_addr.s_addr ==tmp_addr.inner.ipv4.sin_addr.s_addr)
+							{
+								found++;
+								strcpy(dev,d->name);
+							}
+						}
+					}
+					else
+					{
+						assert(a->addr->sa_family ==AF_INET6);
+
+						char s[max_addr_len];
+						inet_ntop(AF_INET6, &((struct sockaddr_in6*)a->addr)->sin6_addr, s,max_addr_len);
+						log_bare(log_warn," [%s]", s);
+
+						if(a->addr->sa_family==raw_ip_version)
+						{
+							if(  memcmp( &((struct sockaddr_in6*)a->addr)->sin6_addr,&tmp_addr.inner.ipv6.sin6_addr,sizeof(struct in6_addr))==0 )
+							{
+								found++;
+								strcpy(dev,d->name);
+							}
+						}
 					}
 				}
 				else
@@ -882,16 +912,16 @@ int client_event_loop()
 
 		if(found==0)
 		{
-			mylog(log_fatal,"no matched device found for ip: [%s]\n",my_ntoa(source_ip_uint32));
+			mylog(log_fatal,"no matched device found for ip: [%s]\n",tmp_addr.get_ip());
 			myexit(-1);
 		}
 		else if(found==1)
 		{
-			mylog(log_info,"using device:[%s], ip: [%s]\n",dev,my_ntoa(source_ip_uint32));
+			mylog(log_info,"using device:[%s], ip: [%s]\n",dev,tmp_addr.get_ip());
 		}
 		else
 		{
-			mylog(log_fatal,"more than one devices found for ip: [%s] , you need to use --dev manually\n",my_ntoa(source_ip_uint32));
+			mylog(log_fatal,"more than one devices found for ip: [%s] , you need to use --dev manually\n",tmp_addr.get_ip());
 			myexit(-1);
 		}
 	}
@@ -899,7 +929,6 @@ int client_event_loop()
 	{
 		mylog(log_info,"--dev has been manually set, using device:[%s]\n",dev);
 	}
-#endif
 
 
 	send_info.src_port=0;
