@@ -769,6 +769,16 @@ void process_arg(int argc, char *argv[])  //process all options
 		raw_ip_version=local_addr.get_type();
 	}
 
+	 if(auto_add_iptables_rule&& use_tcp_dummy_socket)
+	 {
+		mylog(log_error,"-a,--auto-rule is not supposed to be used with easyfaketcp mode, you are likely making a mistake, but we can try to continue\n"); 
+	 }
+
+	 if(keep_rule&& use_tcp_dummy_socket)
+	 {
+		mylog(log_error,"--keep-rule is not supposed to be used with easyfaketcp mode, you are likely making a mistake, but we can try to continue\n"); 
+	 }
+
 	 mylog(log_info,"important variables: ");
 
 	 log_bare(log_info,"log_level=%d:%s ",log_level,log_text[log_level]);
@@ -791,15 +801,6 @@ void process_arg(int argc, char *argv[])  //process all options
 
 	 log_bare(log_info,"\n");
 
-	 if(auto_add_iptables_rule&& use_tcp_dummy_socket)
-	 {
-		mylog(log_error,"-a,--auto-rule is not supposed to be used with easyfaketcp mode, you are likely making a mistake, but we can try to continue\n"); 
-	 }
-
-	 if(keep_rule&& use_tcp_dummy_socket)
-	 {
-		mylog(log_error,"--keep-rule is not supposed to be used with easyfaketcp mode, you are likely making a mistake, but we can try to continue\n"); 
-	 }
 }
 
 void pre_process_arg(int argc, char *argv[])//mainly for load conf file
