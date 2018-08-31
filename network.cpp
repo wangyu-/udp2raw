@@ -1562,6 +1562,7 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 		mylog(log_debug,"recv_raw_ip error\n");
 		return -1;
 	}
+	mylog(log_trace,"ip_payloadlen=%d\n",ip_payloadlen);
 	if(raw_ip_version==AF_INET)
 	{
 		if(recv_info.protocol!=IPPROTO_ICMP)
@@ -1579,6 +1580,13 @@ int recv_raw_icmp(raw_info_t &raw_info, char *&payload, int &payloadlen)
 			return -1;
 		}
 	}
+
+	if(ip_payloadlen<int( sizeof(my_icmphdr) ))
+	{
+		mylog(log_debug,"too short to hold icmp header\n");
+		return -1;
+	}
+
 
 
 	my_icmphdr *icmph=(struct my_icmphdr *) (ip_payload);

@@ -418,6 +418,7 @@ int recv_bare(raw_info_t &raw_info,char* & data,int & len)//recv function with e
 		//printf("recv_raw_fail in recv bare\n");
 		return -1;
 	}
+	mylog(log_trace,"data len=%d\n",len);
 	if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1)))
 	{
 		mylog(log_debug,"unexpect packet type recv_info.syn=%d recv_info.ack=%d \n",recv_info.syn,recv_info.ack);
