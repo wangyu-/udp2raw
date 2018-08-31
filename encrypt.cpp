@@ -294,28 +294,17 @@ int de_padding(const char *data ,int &data_len,int padding_num)
 int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 {
 	static int first_time=1;
+
+	char buf[buf_len];
+	memcpy(buf,data,len);//TODO inefficient code
+
+	if(padding(buf,len,16)<0) return -1;
+
 	if(aes_key_optimize)
 	{
 		if(first_time==0) key=0;
 		else first_time=0;
 	}
-
-	char buf[buf_len];
-	memcpy(buf,data,len);//TODO inefficient code
-
-
-	/*
-	int ori_len=len;
-	len+=2;//length
-	if(len%16!=0)
-	{
-		len= (len/16)*16+16;
-	}
-	//if(len>max_data_len) return -1;
-
-	buf[len-2]= (unsigned char)( (uint16_t(ori_len))>>8);
-	buf[len-1]=(unsigned char)( ((uint16_t(ori_len))<<8)>>8) ;*/
-	if(padding(buf,len,16)<0) return -1;
 
 	AES_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	return 0;
@@ -323,16 +312,14 @@ int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 int cipher_aes128cfb_encrypt(const char *data,char *output,int &len,char * key)
 {
 	static int first_time=1;
+
+	char buf[buf_len];
+	memcpy(buf,data,len);//TODO inefficient code
 	if(aes_key_optimize)
 	{
 		if(first_time==0) key=0;
 		else first_time=0;
 	}
-
-	char buf[buf_len];
-	memcpy(buf,data,len);//TODO inefficient code
-
-	//if(padding(buf,len,16)<0) return -1;
 
 	AES_CFB_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	return 0;
@@ -363,13 +350,12 @@ int cipher_none_encrypt(const char *data,char *output,int &len,char * key)
 int cipher_aes128cbc_decrypt(const char *data,char *output,int &len,char * key)
 {
 	static int first_time=1;
+	if(len%16 !=0) {mylog(log_debug,"len%%16!=0\n");return -1;}
 	if(aes_key_optimize)
 	{
 		if(first_time==0) key=0;
 		else first_time=0;
 	}
-	if(len%16 !=0) {mylog(log_debug,"len%%16!=0\n");return -1;}
-	//if(len<0) {mylog(log_debug,"len <0\n");return -1;}
 	AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	if(de_padding(output,len,16)<0) return -1;
 	return 0;
@@ -382,8 +368,6 @@ int cipher_aes128cfb_decrypt(const char *data,char *output,int &len,char * key)
 		if(first_time==0) key=0;
 		else first_time=0;
 	}
-	//if(len%16 !=0) {mylog(log_debug,"len%%16!=0\n");return -1;}
-	//if(len<0) {mylog(log_debug,"len <0\n");return -1;}
 	AES_CFB_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	//if(de_padding(output,len,16)<0) return -1;
 	return 0;
