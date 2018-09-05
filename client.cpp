@@ -513,7 +513,7 @@ int client_on_udp_recv(conn_info_t &conn_info)
 	socklen_t udp_new_addr_len = sizeof(address_t::storage_t);
 	if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 			(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
-		mylog(log_warn,"recv_from error,%s\n",get_sock_error());
+		mylog(log_debug,"recv_from error,%s\n",get_sock_error());
 		return -1;
 		//myexit(1);
 	};
