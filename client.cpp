@@ -514,6 +514,7 @@ int client_on_udp_recv(conn_info_t &conn_info)
 	if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 			(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
 		mylog(log_warn,"recv_from error,%s\n",get_sock_error());
+		return -1;
 		//myexit(1);
 	};
 
