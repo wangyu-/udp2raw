@@ -1371,7 +1371,7 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 		{
 			mylog(log_warn, "It not necessary to use iptables/firewall rule in udp mode\n");
 		}
-		log_bare(log_warn,"for linux, ipv 4, use:\n");
+		log_bare(log_warn,"for linux, use:\n");
 		if(raw_ip_version==AF_INET)
 		{
 			if(raw_mode==mode_faketcp)
