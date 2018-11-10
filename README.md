@@ -31,7 +31,7 @@ UDP headers are also supported. In UDP header mode, it behaves just like a norma
 ### Simulated TCP with Real-time/Out-of-Order Delivery
 In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a connection,simulates seq and ack_seq while data transferring. It also simulates following TCP options: `MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`.Firewalls will regard FakeTCP as a TCP connection, but its essentially UDP: it supports real-time/out-of-order delivery(just as normal UDP does), no congestion control or re-transmission. So there wont be any TCP over TCP problem when using OpenVPN.
 
-### Encrpytion, Anti-Replay
+### Encryption, Anti-Replay
 * Encrypt your traffic with AES-128-CBC.
 * Protect data integrity by HMAC-SHA1 (or weaker MD5/CRC32).
 * Defense replay attack with an anti-replay window, smiliar to IPSec and OpenVPN. 
