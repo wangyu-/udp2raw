@@ -759,7 +759,7 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"no-pcap-mutex")==0)
 			{
-				use_pcap_mutex=9;
+				use_pcap_mutex=0;
 				mylog(log_warn,"--no-pcap-mutex enabled, we will assume the underlying pcap calls are threadsafe\n");
 			}
 			else if(strcmp(long_options[option_index].name,"easy-tcp")==0)

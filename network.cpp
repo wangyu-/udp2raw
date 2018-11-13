@@ -866,9 +866,8 @@ void init_filter(int port)
 			}
 			ev_sleep(0.001);
 		}
+		mylog(log_info,"breakloop() succeed after %lld attempt(s)\n", tmp_cnt);
 	}
-
-	mylog(log_info,"breakloop() succeed after %lld attempt(s)\n", tmp_cnt);
 
 	if(1)
 	{
