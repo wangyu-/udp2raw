@@ -2543,9 +2543,9 @@ int client_bind_to_a_new_port(int &fd,u32_t local_ip_uint32)//find a free port a
 int client_bind_to_a_new_port2(int &fd,const address_t& address)//find a free port and bind to it.
 {
 	address_t tmp=address;
-	int raw_send_port=10000+get_true_random_number()%(65535-10000);
 	for(int i=0;i<1000;i++)//try 1000 times at max,this should be enough
 	{
+		int raw_send_port=10000+get_true_random_number()%(65535-10000);
 		tmp.set_port(raw_send_port);
 		if (try_to_list_and_bind2(fd,tmp)==0)
 		{
