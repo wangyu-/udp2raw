@@ -135,7 +135,7 @@ void print_help()
 	printf("    run as server : ./this_program -s -l server_listen_ip:server_port -r remote_address:remote_port  [options]\n");
 	printf("\n");
 	printf("common options,these options must be same on both side:\n");
-	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp and easy-faketcp in client mode\n");
+	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp and easy-faketcp\n");
 	printf("    -k,--key              <string>        password to gen symetric key,default:\"secret key\"\n");
 	printf("    --cipher-mode         <string>        avaliable values:aes128cfb,aes128cbc(default),xor,none\n");
 	printf("    --auth-mode           <string>        avaliable values:hmac_sha1,md5(default),crc32,simple,none\n");
