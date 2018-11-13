@@ -335,7 +335,7 @@ void *pcap_recv_thread_entry(void *none)
 		{
 			mylog(log_debug,"pcap_loop exited with value %d\n",ret);
 		}
-		sleep(1);
+		ev_sleep(1.0);
 		//myexit(-1);
 	}
 	/*
@@ -541,16 +541,22 @@ int init_raw_socket()
 	assert( pcap_set_timeout(pcap_handle, 1) ==0);
 	assert( pcap_set_immediate_mode(pcap_handle,1) ==0);
 
-	if(send_with_pcap)
-	{
-		pcap_setdirection(pcap_handle,PCAP_D_INOUT);
-	}
-
 	int ret = pcap_activate( pcap_handle );
 	if( ret < 0 )
 	{
 		 printf("pcap_activate failed  %s\n", pcap_geterr(pcap_handle));
 		 myexit(-1);
+	}
+
+	if(send_with_pcap)
+	{
+		int ret=pcap_setdirection(pcap_handle,PCAP_D_INOUT);//must be used after being actived
+		if(ret!=0) mylog(log_warn,"pcap_setdirection(pcap_handle,PCAP_D_INOUT) failed with value %d, %s\n",ret,pcap_geterr(pcap_handle));
+	}
+	else
+	{
+		int ret=pcap_setdirection(pcap_handle,PCAP_D_IN);
+		if(ret!=0) mylog(log_warn,"pcap_setdirection(pcap_handle,PCAP_D_IN) failed with value %d, %s\n",ret,pcap_geterr(pcap_handle));
 	}
 
 
@@ -846,7 +852,6 @@ void init_filter(int port)
 		if(tmp_cnt%500==0)
 		{
 			mylog(log_warn,"%lld attempts of pcap_breakloop()\n", tmp_cnt);
-
 			if(tmp_cnt>5000)
 			{
 				 mylog(log_fatal,"we might have already run into a deadlock\n");
@@ -855,13 +860,16 @@ void init_filter(int port)
 		ev_sleep(0.001);
 	}
 
-	mylog(log_warn,"breakloop() succeed after %lld attempt(s)\n", tmp_cnt);
+	mylog(log_info,"breakloop() succeed after %lld attempt(s)\n", tmp_cnt);
 
-	pcap_setdirection(pcap_handle,PCAP_D_IN);
+	if(1)
+	{
+		int ret=pcap_setdirection(pcap_handle,PCAP_D_IN);
+		if(ret!=0) mylog(log_warn,"pcap_setdirection(pcap_handle,PCAP_D_IN) failed with value %d, %s",ret,pcap_geterr(pcap_handle));
+	}
 
-	if(g_filter_compile_cnt!=0)// not necessary here, since we always compile a filter before calling pcap_freecode().
-								//Keep this code here to avoid further mistakes
-		pcap_freecode(&g_filter);
+	assert(g_filter_compile_cnt!=0);
+	pcap_freecode(&g_filter);
 
 	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
 		 mylog(log_fatal,"Bad filter - %s\n", pcap_geterr(pcap_handle));
