@@ -404,7 +404,11 @@ char *get_sock_error()
 			(LPWSTR)&s, 0, NULL);
 	sprintf(buf, "%d:%S", e,s);
 	int len=strlen(buf);
-	if(len>0&&buf[len-1]=='\n') buf[len-1]=0;
+	while(len>0 && (buf[len-1]=='\r'||buf[len-1]=='\n' ))
+	{
+		len--;
+		buf[len]=0;
+	}
 	LocalFree(s);
 	return buf;
 }
