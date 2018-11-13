@@ -327,10 +327,15 @@ void *pcap_recv_thread_entry(void *none)
 	while(1)
 	{
 		pthread_mutex_lock(&pcap_mutex);
-		int ret=pcap_loop(pcap_handle, 0, my_packet_handler, NULL);
+		int ret=pcap_loop(pcap_handle, -1, my_packet_handler, NULL); //use -1 instead of 0 as cnt, since 0 is undefined in old versions
 		pthread_mutex_unlock(&pcap_mutex);
-		mylog(log_warn,"pcap_loop exited with value %d\n",ret);
-		sleep(5);
+		if(ret==-1)
+			mylog(log_warn,"pcap_loop exited with value %d\n",ret);
+		else
+		{
+			mylog(log_debug,"pcap_loop exited with value %d\n",ret);
+		}
+		sleep(1);
 		//myexit(-1);
 	}
 	/*
@@ -831,7 +836,26 @@ void init_filter(int port)
 
 	mylog(log_info,"filter expression is [%s]\n",filter_exp);
 
-	pthread_mutex_lock(&pcap_mutex);//not sure if mutex is needed here
+	//pthread_mutex_lock(&pcap_mutex);//not sure if mutex is needed here
+
+	long long tmp_cnt=0;
+	while(pthread_mutex_trylock(&pcap_mutex)!=0)
+	{
+		tmp_cnt++;
+		pcap_breakloop(pcap_handle);
+		if(tmp_cnt%500==0)
+		{
+			mylog(log_warn,"%lld attempts of pcap_breakloop()\n", tmp_cnt);
+
+			if(tmp_cnt>5000)
+			{
+				 mylog(log_fatal,"we might have already run into a deadlock\n");
+			}
+		}
+		ev_sleep(0.001);
+	}
+
+	mylog(log_warn,"breakloop() succeed after %lld attempt(s)\n", tmp_cnt);
 
 	pcap_setdirection(pcap_handle,PCAP_D_IN);
 
@@ -1250,15 +1274,15 @@ int send_raw_packet(raw_info_t &raw_info,const char * packet,int len)
     	assert(pcap_link_header_len!=-1);
     	memcpy(buf,pcap_header_buf,pcap_link_header_len);
     	memcpy(buf+pcap_link_header_len,packet,len);
-    	pthread_mutex_lock(&pcap_mutex);
+    	//pthread_mutex_lock(&pcap_mutex); looks like this is not necessary, and it harms performance
     	int ret=pcap_sendpacket(pcap_handle,(const unsigned char *)buf,len+pcap_link_header_len);
 		if(ret!=0)
 		{
 			mylog(log_fatal,"pcap_sendpcaket failed with vaule %d,%s\n",ret,pcap_geterr(pcap_handle));
-			pthread_mutex_unlock(&pcap_mutex);
+			//pthread_mutex_unlock(&pcap_mutex);
 			myexit(-1);
 		}
-    	pthread_mutex_unlock(&pcap_mutex);
+    	//pthread_mutex_unlock(&pcap_mutex);
 		/*
 	unsigned char *p=(unsigned char *)send_raw_ip_buf0;
 	for(int i=0;i<ip_tot_len+pcap_link_header_len;i++)
