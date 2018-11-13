@@ -872,7 +872,7 @@ void init_filter(int port)
 	if(1)
 	{
 		int ret=pcap_setdirection(pcap_handle,PCAP_D_IN);
-		if(ret!=0) mylog(log_debug,"pcap_setdirection(pcap_handle,PCAP_D_IN) failed with value %d, %s",ret,pcap_geterr(pcap_handle));
+		if(ret!=0) mylog(log_debug,"pcap_setdirection(pcap_handle,PCAP_D_IN) failed with value %d, %s\n",ret,pcap_geterr(pcap_handle));
 	}
 
 	assert(g_filter_compile_cnt!=0);
