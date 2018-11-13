@@ -185,7 +185,8 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 			{
 				setnonblocking(bind_fd);
 				int ret=connect(bind_fd,(struct sockaddr *)&remote_addr.inner,remote_addr.get_len());
-				mylog(log_info,"ret=%d,errno=%s,%d %s\n",ret,get_sock_error(),bind_fd,remote_addr.get_str());
+				mylog(log_debug,"ret=%d,errno=%s, %d %s\n",ret,get_sock_error(),bind_fd,remote_addr.get_str());
+				//mylog(log_info,"ret=%d,errno=,%d %s\n",ret,bind_fd,remote_addr.get_str());
 				conn_info.state.client_current_state=client_tcp_handshake_dummy;
 				mylog(log_info,"state changed from client_idle to client_tcp_handshake_dummy\n");
 			}
