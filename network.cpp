@@ -72,7 +72,7 @@ int pcap_link_header_len=-1;
 queue_t my_queue;
 
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t filter_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pcap_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 ev_async async_watcher;
 
@@ -81,7 +81,7 @@ ev_loop* g_default_loop;
 pthread_t pcap_recv_thread;
 
 struct bpf_program g_filter;
-
+long long g_filter_compile_cnt=0;
 
 #if 0
 struct sock_filter code_tcp_old[] = {
@@ -326,8 +326,9 @@ void *pcap_recv_thread_entry(void *none)
 
 	while(1)
 	{
+		pthread_mutex_lock(&pcap_mutex);
 		int ret=pcap_loop(pcap_handle, 0, my_packet_handler, NULL);
-
+		pthread_mutex_unlock(&pcap_mutex);
 		mylog(log_warn,"pcap_loop exited with value %d\n",ret);
 		sleep(5);
 		//myexit(-1);
@@ -336,9 +337,9 @@ void *pcap_recv_thread_entry(void *none)
 	while(1)
 	{
 		//printf("!!!\n");
-		//pthread_mutex_lock(&filter_mutex);
+		pthread_mutex_lock(&pcap_mutex);
 		int ret=pcap_next_ex(pcap_handle,&packet_header,&pkt_data);
-		//pthread_mutex_unlock(&filter_mutex);
+		pthread_mutex_unlock(&pcap_mutex);
 
 		switch (ret)
 		{
@@ -595,6 +596,7 @@ int init_raw_socket()
 		 printf("Bad filter - %s\n", pcap_geterr(pcap_handle));
 		 myexit(-1);
 	 }
+	 g_filter_compile_cnt++;
 
 
 	 if (pcap_setfilter(pcap_handle, &g_filter) == -1) {
@@ -602,11 +604,12 @@ int init_raw_socket()
 		 myexit(-1);
 	 }
 
-
+///////////////////////////////////////////////////////////////new thread created here
 		if(pthread_create(&pcap_recv_thread, NULL, pcap_recv_thread_entry, 0)) {
 			mylog(log_fatal, "Error creating thread\n");
 			myexit(-1);
 		}
+////////////////////////////////////////////////////////////////////////////////
 
 
 	g_ip_id_counter=get_true_random_number()%65535;
@@ -828,16 +831,19 @@ void init_filter(int port)
 
 	mylog(log_info,"filter expression is [%s]\n",filter_exp);
 
-	 //pthread_mutex_lock(&filter_mutex);//not sure if mutex is needed here
+	pthread_mutex_lock(&pcap_mutex);//not sure if mutex is needed here
 
 	pcap_setdirection(pcap_handle,PCAP_D_IN);
 
-	 pcap_freecode(&g_filter);
+	if(g_filter_compile_cnt!=0)// not necessary here, since we always compile a filter before calling pcap_freecode().
+								//Keep this code here to avoid further mistakes
+		pcap_freecode(&g_filter);
 
 	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
 		 mylog(log_fatal,"Bad filter - %s\n", pcap_geterr(pcap_handle));
 		 myexit(-1);
 	 }
+	 g_filter_compile_cnt++;
 
 	 if (pcap_setfilter(pcap_handle, &g_filter) == -1)
 	 {
@@ -846,7 +852,7 @@ void init_filter(int port)
 	 }
 
 
-	 //pthread_mutex_unlock(&filter_mutex);
+	pthread_mutex_unlock(&pcap_mutex);
 	/*
 	if(disable_bpf_filter) return;
 	//if(raw_mode==mode_icmp) return ;
@@ -1244,13 +1250,15 @@ int send_raw_packet(raw_info_t &raw_info,const char * packet,int len)
     	assert(pcap_link_header_len!=-1);
     	memcpy(buf,pcap_header_buf,pcap_link_header_len);
     	memcpy(buf+pcap_link_header_len,packet,len);
+    	pthread_mutex_lock(&pcap_mutex);
     	int ret=pcap_sendpacket(pcap_handle,(const unsigned char *)buf,len+pcap_link_header_len);
-
 		if(ret!=0)
 		{
 			mylog(log_fatal,"pcap_sendpcaket failed with vaule %d,%s\n",ret,pcap_geterr(pcap_handle));
+			pthread_mutex_unlock(&pcap_mutex);
 			myexit(-1);
 		}
+    	pthread_mutex_unlock(&pcap_mutex);
 		/*
 	unsigned char *p=(unsigned char *)send_raw_ip_buf0;
 	for(int i=0;i<ip_tot_len+pcap_link_header_len;i++)
