@@ -73,6 +73,7 @@ queue_t my_queue;
 
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t pcap_mutex = PTHREAD_MUTEX_INITIALIZER;
+int use_pcap_mutex=1;
 
 ev_async async_watcher;
 
@@ -326,9 +327,9 @@ void *pcap_recv_thread_entry(void *none)
 
 	while(1)
 	{
-		pthread_mutex_lock(&pcap_mutex);
+		if(use_pcap_mutex) pthread_mutex_lock(&pcap_mutex);
 		int ret=pcap_loop(pcap_handle, -1, my_packet_handler, NULL); //use -1 instead of 0 as cnt, since 0 is undefined in old versions
-		pthread_mutex_unlock(&pcap_mutex);
+		if(use_pcap_mutex) pthread_mutex_unlock(&pcap_mutex);
 		if(ret==-1)
 			mylog(log_warn,"pcap_loop exited with value %d\n",ret);
 		else
@@ -845,19 +846,26 @@ void init_filter(int port)
 	//pthread_mutex_lock(&pcap_mutex);//not sure if mutex is needed here
 
 	long long tmp_cnt=0;
-	while(pthread_mutex_trylock(&pcap_mutex)!=0)
+	if(use_pcap_mutex)
 	{
-		tmp_cnt++;
-		pcap_breakloop(pcap_handle);
-		if(tmp_cnt%500==0)
+		while(pthread_mutex_trylock(&pcap_mutex)!=0)
 		{
-			mylog(log_warn,"%lld attempts of pcap_breakloop()\n", tmp_cnt);
-			if(tmp_cnt>5000)
+			tmp_cnt++;
+			pcap_breakloop(pcap_handle);
+			if(tmp_cnt==100)
 			{
-				 mylog(log_fatal,"we might have already run into a deadlock\n");
+				mylog(log_warn,"%lld attempts of pcap_breakloop()\n", tmp_cnt);
 			}
+			if(tmp_cnt%1000==0)
+			{
+				mylog(log_warn,"%lld attempts of pcap_breakloop()\n", tmp_cnt);
+				if(tmp_cnt>5000)
+				{
+					 mylog(log_fatal,"we might have already run into a deadlock\n");
+				}
+			}
+			ev_sleep(0.001);
 		}
-		ev_sleep(0.001);
 	}
 
 	mylog(log_info,"breakloop() succeed after %lld attempt(s)\n", tmp_cnt);
@@ -884,7 +892,7 @@ void init_filter(int port)
 	 }
 
 
-	pthread_mutex_unlock(&pcap_mutex);
+	if(use_pcap_mutex) pthread_mutex_unlock(&pcap_mutex);
 	/*
 	if(disable_bpf_filter) return;
 	//if(raw_mode==mode_icmp) return ;

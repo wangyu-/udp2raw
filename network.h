@@ -37,6 +37,8 @@ extern ev_async async_watcher;
 extern ev_loop* g_default_loop;
 
 extern pthread_mutex_t queue_mutex;
+extern int use_pcap_mutex;
+
 extern int pcap_cnt;
 
 extern int pcap_link_header_len;

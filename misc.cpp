@@ -297,6 +297,7 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"dns-resolve", no_argument,    0, 1},
 		{"pcap-send", no_argument,    0, 1},
 		{"easy-tcp", no_argument,    0, 1},
+		{"no-pcap-mutex", no_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
 
@@ -755,6 +756,11 @@ void process_arg(int argc, char *argv[])  //process all options
 			{
 				send_with_pcap=1;
 				mylog(log_info,"--pcap-send enabled, now pcap will be used for sending packet instead of libnet\n");
+			}
+			else if(strcmp(long_options[option_index].name,"no-pcap-mutex")==0)
+			{
+				use_pcap_mutex=9;
+				mylog(log_warn,"--no-pcap-mutex enabled, we will assume the underlying pcap calls are threadsafe\n");
 			}
 			else if(strcmp(long_options[option_index].name,"easy-tcp")==0)
 			{
