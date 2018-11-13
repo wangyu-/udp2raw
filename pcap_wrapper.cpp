@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 int	(*pcap_loop )(pcap_t *, int, pcap_handler, u_char *);
+int	(*pcap_breakloop )(pcap_t *);
 
 pcap_t* (*pcap_create)(const char *, char *);
 
@@ -84,6 +85,7 @@ int init_pcap()
 	assert(wpcap!=0);
 
 	EXPORT_FUN(pcap_loop);
+	EXPORT_FUN(pcap_breakloop);
 	EXPORT_FUN(pcap_create);
 	EXPORT_FUN(pcap_set_snaplen);
 	EXPORT_FUN(pcap_set_promisc);

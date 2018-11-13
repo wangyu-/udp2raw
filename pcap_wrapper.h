@@ -83,6 +83,8 @@ typedef void (*pcap_handler)(u_char *, const struct pcap_pkthdr *,
 
 extern int	(*pcap_loop )(pcap_t *, int, pcap_handler, u_char *);
 
+extern int	(*pcap_breakloop )(pcap_t *);
+
 extern pcap_t*	(*pcap_create)(const char *, char *);
 
 extern int	(*pcap_set_snaplen) (pcap_t *, int);
