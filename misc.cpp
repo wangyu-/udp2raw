@@ -138,7 +138,7 @@ void print_help()
 	printf("common options,these options must be same on both side:\n");
 	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp\n");
 	printf("    -k,--key              <string>        password to gen symetric key,default:\"secret key\"\n");
-	printf("    --cipher-mode         <string>        avaliable values:aes128cfb,aes128cbc(default),xor,none\n");
+	printf("    --cipher-mode         <string>        avaliable values:chacha12,chacha20,aes128cfb,aes128cbc(default),xor,none\n");
 	printf("    --auth-mode           <string>        avaliable values:hmac_sha1,md5(default),crc32,simple,none\n");
 	printf("    -a,--auto-rule                        auto add (and delete) iptables rule\n");
 	printf("    -g,--gen-rule                         generate iptables rule then exit,so that you can copy and\n");
