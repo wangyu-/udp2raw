@@ -9,7 +9,7 @@
 #include "log.h"
 #include "misc.h"
 
-int g_fix_gro=1;
+int g_fix_gro=0;
 
 int raw_recv_fd=-1;
 int raw_send_fd=-1;
@@ -855,9 +855,9 @@ int pre_recv_raw_packet()
         }
         else
         {
-            mylog(log_debug, "huge packet, data_len %d > %d(single_max_data_len) dropped\n", g_packet_buf_len,
+            mylog(log_debug, "huge packet, data_len %d > %d(single_max_data_len) not dropped\n", g_packet_buf_len,
                   single_max_data_len);
-            return -1;
+            //return -1;
         }
 
     }

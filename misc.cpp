@@ -741,7 +741,8 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
             else if(strcmp(long_options[option_index].name,"fix-gro")==0)
             {
-                g_fix_gro=0;
+                mylog(log_info,"--fix-gro enabled\n");
+                g_fix_gro=1;
             }
 			else
 			{
