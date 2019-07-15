@@ -411,7 +411,10 @@ int server_on_raw_recv_handshake1(conn_info_t &conn_info,char * ip_port,char * d
 	}
 	return 0;
 }
-
+int server_on_recv_safer_multi(conn_info_t &conn_info,char type,char *data,int data_len)
+{
+    return 0;
+}
 int server_on_raw_recv_multi() //called when server received an raw packet
 {
 	char dummy_buf[buf_len];
@@ -590,13 +593,23 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 	}
 	if(conn_info.state.server_current_state==server_ready)
 	{
-		char type;
-		//mylog(log_info,"before recv_safer\n");
-		if (recv_safer(conn_info,type, data, data_len) != 0) {
-			return -1;
-		}
-		//mylog(log_info,"after recv_safer\n");
-		return server_on_raw_recv_ready(conn_info,ip_port,type,data,data_len);
+        vector<char> type_vec;
+        vector<string> data_vec;
+        if(recv_safer_multi(conn_info,type_vec,data_vec)!=0)
+        {
+            mylog(log_debug,"recv_safer failed!\n");
+            return -1;
+        }
+
+        for(int i=0;i<(int)type_vec.size();i++)
+        {
+            char type=type_vec[i];
+            char *data=(char *)data_vec[i].c_str(); //be careful, do not append data to it
+            int data_len=data_vec[i].length();
+            server_on_raw_recv_ready(conn_info,ip_port,type,data,data_len);
+        }
+        return 0;
+
 	}
 
 	if(conn_info.state.server_current_state==server_idle)

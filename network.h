@@ -31,7 +31,6 @@ extern char g_packet_buf[buf_len];
 extern int g_packet_buf_len;
 extern int g_packet_buf_cnt;
 
-
 struct my_iphdr
   {
 #ifdef UDP2RAW_LITTLE_ENDIAN

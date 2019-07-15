@@ -18,8 +18,6 @@ extern int disable_anti_replay;
 
 const int disable_conv_clear=0;//a udp connection in the multiplexer is called conversation in this program,conv for short.
 
-
-
 struct anti_replay_t  //its for anti replay attack,similar to openvpn/ipsec 's anti replay window
 {
 	u64_t max_packet_received;
@@ -346,5 +344,8 @@ int send_handshake(raw_info_t &raw_info,my_id_t id1,my_id_t id2,my_id_t id3);// 
 int send_safer(conn_info_t &conn_info,char type,const char* data,int len);  //safer transfer function with anti-replay,when mutually verification is done.
 int send_data_safer(conn_info_t &conn_info,const char* data,int len,u32_t conv_num);//a wrap for  send_safer for transfer data.
 //int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len,char &type,char* &data,int &len);//subfunction for recv_safer,allow overlap
-int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len);///safer transfer function with anti-replay,when mutually verification is done.
+
+//int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len);///safer transfer function with anti-replay,when mutually verification is done.
+
+int recv_safer_multi(conn_info_t &conn_info,vector<char> &type_arr,vector<string> &data_arr);//new api for handle gro
 #endif /* CONNECTION_H_ */
