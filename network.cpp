@@ -1944,9 +1944,8 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     if(tcp_chk!=0)
     {
-    	mylog(log_debug,"tcp_chk:%x\n",tcp_chk);
-    	mylog(log_debug,"tcp header error\n");
-    	return -1;
+    	mylog(log_debug,"tcp_chk:%x, tcp checksum failed, ignored\n",tcp_chk);
+    	//return -1;
 
     }
 

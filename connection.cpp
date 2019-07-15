@@ -653,14 +653,14 @@ int recv_safer_multi(conn_info_t &conn_info,vector<char> &type_arr,vector<string
     } else
     {
         char *ori_recv_data=recv_data;
-        mylog(log_debug,"recv_len:%d\n",recv_len);
+        //mylog(log_debug,"recv_len:%d\n",recv_len);
         while(recv_len>2)
         {
-            recv_len-=2;
             int single_len;
             //recv_data[0]^=gro_xor[0];
             //recv_data[1]^=gro_xor[1];
             single_len=read_u16(recv_data);
+            recv_len-=2;
             recv_data+=2;
             if(single_len > recv_len)
             {
@@ -676,14 +676,14 @@ int recv_safer_multi(conn_info_t &conn_info,vector<char> &type_arr,vector<string
 
             if(ret!=0)
             {
-                mylog(log_debug,"parse failed, offset= %d,single_len=%d\n",ori_recv_data-recv_data,single_len);
+                mylog(log_debug,"parse failed, offset= %d,single_len=%d\n",recv_data-ori_recv_data,single_len);
             } else{
                 type_arr.push_back(type);
                 data_arr.emplace_back(data,data+len);
                 //std::copy(data,data+len,data_arr[data_arr.size()-1]);
             }
             recv_data+=single_len;
-            
+            recv_len-=single_len;
         }
         return 0;
     }
