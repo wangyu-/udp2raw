@@ -497,8 +497,8 @@ int send_safer(conn_info_t &conn_info,char type,const char* data,int len)  //saf
             return -1;
         }
         write_u16(send_data_buf2,new_len);
-        //send_data_buf2[0]^=gro_xor[0];
-        //send_data_buf2[1]^=gro_xor[1];
+        send_data_buf2[0]^=gro_xor[0];
+        send_data_buf2[1]^=gro_xor[1];
         new_len+=2;
     }
 
@@ -653,30 +653,35 @@ int recv_safer_multi(conn_info_t &conn_info,vector<char> &type_arr,vector<string
     } else
     {
         char *ori_recv_data=recv_data;
+        int ori_recv_len=recv_len;
         //mylog(log_debug,"recv_len:%d\n",recv_len);
+        int cnt=0;
         while(recv_len>2)
         {
+            cnt++;
+            int single_len_no_xor;
+            single_len_no_xor=read_u16(recv_data);
             int single_len;
-            //recv_data[0]^=gro_xor[0];
-            //recv_data[1]^=gro_xor[1];
+            recv_data[0]^=gro_xor[0];
+            recv_data[1]^=gro_xor[1];
             single_len=read_u16(recv_data);
             recv_len-=2;
             recv_data+=2;
             if(single_len > recv_len)
             {
-                mylog(log_debug,"illegal single_len %d, recv_len %d left,dropped\n",single_len,recv_len);
+                mylog(log_debug,"illegal single_len %d(%d), recv_len %d left,dropped\n",single_len,single_len_no_xor,recv_len);
                 break;
             }
             if(single_len> single_max_data_len )
             {
-                mylog(log_warn,"single_len %d > %d\n",single_len,single_max_data_len);
+                mylog(log_warn,"single_len %d(%d) > %d, maybe you need to turn down mtu at upper level\n",single_len,single_len_no_xor,single_max_data_len);
             }
 
             int ret = reserved_parse_safer(conn_info, recv_data, single_len, type, data, len);
 
             if(ret!=0)
             {
-                mylog(log_debug,"parse failed, offset= %d,single_len=%d\n",recv_data-ori_recv_data,single_len);
+                mylog(log_debug,"parse failed, offset= %d,single_len=%d(%d)\n",(int)(recv_data-ori_recv_data),single_len,single_len_no_xor);
             } else{
                 type_arr.push_back(type);
                 data_arr.emplace_back(data,data+len);
@@ -684,6 +689,10 @@ int recv_safer_multi(conn_info_t &conn_info,vector<char> &type_arr,vector<string
             }
             recv_data+=single_len;
             recv_len-=single_len;
+        }
+        if(cnt>1)
+        {
+            mylog(log_debug,"got a suspected gro packet, %d packets recovered, recv_len=%d, loop_cnt=%d\n",(int)data_arr.size(),ori_recv_len,cnt);
         }
         return 0;
     }

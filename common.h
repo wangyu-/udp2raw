@@ -349,7 +349,7 @@ struct not_copy_able_t
 
 const int single_max_data_len=1800;
 const int max_data_len=single_max_data_len*10;
-const int buf_len=max_data_len+400;
+const int buf_len=max_data_len+800;
 
 //const int max_data_len_gro=max_data_len*10;
 //const int buf_len_gro=max_data_len_gro+400;

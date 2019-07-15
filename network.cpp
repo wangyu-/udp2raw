@@ -849,7 +849,7 @@ int pre_recv_raw_packet()
     {
         if(g_fix_gro==0)
         {
-            mylog(log_warn, "huge packet, data_len %d > %d(single_max_data_len) dropped\n", g_packet_buf_len,
+            mylog(log_warn, "huge packet, data_len %d > %d(single_max_data_len) dropped, maybe you need to turn down mtu at upper level, or you may take a look at --fix-gro\n", g_packet_buf_len,
                   single_max_data_len);
             return -1;
         }
