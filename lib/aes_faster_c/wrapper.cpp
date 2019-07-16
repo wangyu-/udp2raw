@@ -14,13 +14,27 @@
 
 void AES_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, const uint32_t length)
 {
-	printf("AES_ECB_encrypt not implemented\n");
-	exit(-1);
+	static aes_context ctx;
+	if(key!=0)
+	{
+		aes_init( &ctx);
+		aes_setkey_enc(&ctx,key,AES_KEYSIZE);
+	}
+	int ret=aes_crypt_ecb( &ctx, AES_ENCRYPT, (const unsigned char*)input,(unsigned char*) output );
+	assert(ret==0);
+	return ;
 }
 void AES_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, const uint32_t length)
 {
-	printf("AES_ECB_encrypt not implemented\n");
-	exit(-1);
+	static aes_context ctx;
+	if(key!=0)
+	{
+		aes_init( &ctx);
+		aes_setkey_dec(&ctx,key,AES_KEYSIZE);
+	}
+	int ret=aes_crypt_ecb( &ctx, AES_DECRYPT, (const unsigned char*)input,(unsigned char*) output );
+	assert(ret==0);
+    return ;
 }
 
 void AES_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)

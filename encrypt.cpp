@@ -326,6 +326,11 @@ int cipher_aes128cfb_encrypt(const char *data,char *output,int &len,char * key)
 		if(first_time==0) key=0;
 		else first_time=0;
 	}
+    
+    if(len>=16)
+    {
+        AES_ECB_encrypt_buffer(data,key,buf); //tmp solution, to fix a problem
+    }
 
 	AES_CFB_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	return 0;
@@ -374,7 +379,15 @@ int cipher_aes128cfb_decrypt(const char *data,char *output,int &len,char * key)
 		if(first_time==0) key=0;
 		else first_time=0;
 	}
-	AES_CFB_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	char buf[buf_len];
+	memcpy(buf,data,len);//TODO inefficient code
+    
+    if(len>=16)
+    {
+        AES_ECB_decrypt_buffer(data,key,buf);//tmp solution to fix a problem
+    }
+
+	AES_CFB_decrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	//if(de_padding(output,len,16)<0) return -1;
 	return 0;
 }
