@@ -4,6 +4,9 @@
  *  Created on: Jul 29, 2017
  *      Author: wangyu
  */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 #include "common.h"
 #include "log.h"
@@ -22,16 +25,58 @@ int address_t::from_str(char *str)
 	char ip_addr_str[100];u32_t port;
 	mylog(log_info,"parsing address: %s\n",str);
 	int is_ipv6=0;
+	int is_ipv4=0;
 	if(sscanf(str, "[%[^]]]:%u", ip_addr_str,&port)==2)
 	{
 		mylog(log_info,"its an ipv6 adress\n");
 		inner.ipv6.sin6_family=AF_INET6;
 		is_ipv6=1;
 	}
-	else if(sscanf(str, "%[^:]:%u", ip_addr_str,&port)==2)
+	else if(sscanf(str, "%[0-9.]:%u", ip_addr_str,&port)==2)
 	{
 		mylog(log_info,"its an ipv4 adress\n");
 		inner.ipv4.sin_family=AF_INET;
+		is_ipv4=1;
+	}
+	else if (sscanf(str, "%[^:]:%u", ip_addr_str, &port) == 2)
+	{
+		struct addrinfo hints, *res;
+		int errcode;
+		char addrstr[100];
+
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_flags |= AI_CANONNAME;
+
+		errcode = getaddrinfo (ip_addr_str, NULL, &hints, &res);
+		if (errcode != 0)
+		{
+			mylog(log_error, "Unable to resolve hostname: %s\n", ip_addr_str);
+			return -1;
+		}
+
+		inet_ntop (res->ai_family, res->ai_addr->sa_data, addrstr, 100);
+		switch (res->ai_family)
+		{
+			case AF_INET:
+				inner.ipv4.sin_family=AF_INET;
+				inner.ipv4.sin_addr = ((struct sockaddr_in *) res->ai_addr)->sin_addr;
+				inner.ipv4.sin_port=htons(port);
+				mylog(log_info, "%s ip = %s\n", program_mode == client_mode ? "server" : "remote",
+					  addrstr);
+				break;
+			case AF_INET6:
+				inner.ipv6.sin6_family=AF_INET6;
+				inner.ipv6.sin6_addr = ((struct sockaddr_in6 *) res->ai_addr)->sin6_addr;
+				inner.ipv6.sin6_port=htons(port);
+				mylog(log_info, "%s ip = %s\n", program_mode == client_mode ? "server" : "remote",
+					  addrstr);
+				break;
+			default:
+				mylog(log_error, "WTF");
+				return -1;
+		}
 	}
 	else
 	{
@@ -67,7 +112,7 @@ int address_t::from_str(char *str)
 			myexit(-1);
 		}
 	}
-	else
+	else if(is_ipv4)
 	{
 		ret=inet_pton(AF_INET, ip_addr_str,&(inner.ipv4.sin_addr));
 		inner.ipv4.sin_port=htons(port);
