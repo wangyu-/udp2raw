@@ -612,7 +612,7 @@ int client_on_udp_recv(conn_info_t &conn_info)
 {
 	int recv_len;
 	char buf[buf_len];
-	address_t::storage_t udp_new_addr_in={0};
+	address_t::storage_t udp_new_addr_in={{0}};
 	socklen_t udp_new_addr_len = sizeof(address_t::storage_t);
 	if ((recv_len = recvfrom(udp_fd, buf, max_data_len+1, 0,
 			(struct sockaddr *) &udp_new_addr_in, &udp_new_addr_len)) == -1) {
