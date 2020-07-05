@@ -113,10 +113,10 @@ usage:
     run as server : ./this_program -s -l server_listen_ip:server_port -r remote_address:remote_port  [options]
 
 common options,these options must be same on both side:
-    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp
+    --raw-mode            <string>        available values:faketcp(default),udp,icmp
     -k,--key              <string>        password to gen symetric key,default:"secret key"
-    --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none
-    --auth-mode           <string>        avaliable values:hmac_sha1,md5(default),crc32,simple,none
+    --cipher-mode         <string>        available values:aes128cbc(default),xor,none
+    --auth-mode           <string>        available values:hmac_sha1,md5(default),crc32,simple,none
     -a,--auto-rule                        auto add (and delete) iptables rule
     -g,--gen-rule                         generate iptables rule then exit,so that you can copy and
                                           add it manually.overrides -a

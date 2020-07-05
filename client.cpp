@@ -865,9 +865,9 @@ int client_event_loop()
 	}
 	if(strcmp(dev,"")==0)
 	{
-		mylog(log_info,"--dev have not been set, trying to detect automatically, avaliable deives:\n");
+		mylog(log_info,"--dev have not been set, trying to detect automatically, available devices:\n");
 
-		mylog(log_info,"avaliable deives(device name: ip address ; description):\n");
+		mylog(log_info,"available device(device name: ip address ; description):\n");
 
 		char errbuf[PCAP_ERRBUF_SIZE];
 
@@ -934,7 +934,7 @@ int client_event_loop()
 			if(cnt==0) log_bare(log_warn," [no ip found]");
 			if(d->description==0)
 			{
-				log_bare(log_warn,"; (no description avaliable)");
+				log_bare(log_warn,"; (no description available)");
 			}
 			else
 			{
