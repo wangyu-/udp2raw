@@ -49,7 +49,6 @@ int main(int argc, char *argv[])
 		ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
 		ev_signal_start(loop, &signal_watcher_sigpipe);
 #endif
-
 		ev_signal signal_watcher_sigterm;
 		ev_signal_init(&signal_watcher_sigterm, sigterm_cb, SIGTERM);
 		ev_signal_start(loop, &signal_watcher_sigterm);

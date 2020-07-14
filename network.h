@@ -34,7 +34,7 @@ extern int g_packet_buf_cnt;
 extern queue_t my_queue;
 
 extern ev_async async_watcher;
-extern ev_loop* g_default_loop;
+extern struct ev_loop* g_default_loop;
 
 extern pthread_mutex_t queue_mutex;
 extern int use_pcap_mutex;

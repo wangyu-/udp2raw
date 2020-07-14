@@ -9,17 +9,19 @@ cc_arm= /toolchains/arm-2014.05/bin/arm-none-linux-gnueabi-g++
 #cc_arm=/toolchains/lede-sdk-17.01.2-brcm2708-bcm2708_gcc-5.4.0_musl-1.1.16_eabi.Linux-x86_64/staging_dir/toolchain-arm_arm1176jzf-s+vfp_gcc-5.4.0_musl-1.1.16_eabi/bin/arm-openwrt-linux-muslgnueabi-g++
 #cc_bcm2708=/home/wangyu/raspberry/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/arm-linux-gnueabihf-g++ 
 cc_tmp= /home/wangyu/OpenWrt-SDK-15.05-x86-64_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64/staging_dir/toolchain-x86_64_gcc-4.8-linaro_uClibc-0.9.33.2/bin/x86_64-openwrt-linux-uclibc-g++
+cc_mingw_cross=i686-w64-mingw32-g++-posix
 
 FLAGS= -std=c++11 -Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers ${OPT}
 
-COMMON=main.cpp lib/md5.cpp encrypt.cpp log.cpp network.cpp common.cpp  connection.cpp misc.cpp fd_manager.cpp client.cpp -lpthread my_ev.cpp -isystem libev
+COMMON=main.cpp lib/md5.cpp encrypt.cpp log.cpp network.cpp common.cpp  connection.cpp misc.cpp fd_manager.cpp client.cpp -lpthread
 
 PCAP="-lpcap"
 
 LIBNET=-D_DEFAULT_SOURCE `libnet-config --defines` `libnet-config --libs`
 
 
-SOURCES= $(COMMON) lib/aes_faster_c/aes.cpp lib/aes_faster_c/wrapper.cpp lib/pbkdf2-sha1.cpp lib/pbkdf2-sha256.cpp
+SOURCES0= $(COMMON) lib/aes_faster_c/aes.cpp lib/aes_faster_c/wrapper.cpp lib/pbkdf2-sha1.cpp lib/pbkdf2-sha256.cpp
+SOURCES=${SOURCES0} my_ev.cpp -isystem libev
 SOURCES_TINY_AES= $(COMMON) lib/aes.cpp
 SOURCES_AES_ACC=$(COMMON) $(wildcard lib/aes_acc/aes*.c)
 
@@ -39,6 +41,12 @@ cygwin:git_version
 mingw:git_version
 	rm -f ${OUTPUTS}
 	${cc_local}   -o ${NAME}_nolibnet          -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -ggdb -static -O2 -lws2_32
+
+mingw_cross:git_version
+	${cc_mingw_cross}   -o ${NAME}_nolibnet.exe          -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -ggdb -static -O2 -lws2_32
+
+mingw_cross_wepoll:git_version
+	${cc_mingw_cross}   -o ${NAME}_nolibnet_wepoll.exe          -I. ${SOURCES0} pcap_wrapper.cpp ${FLAGS} -ggdb -static -O2 -DNO_LIBEV_EMBED -D_WIN32 -lev -lws2_32
 
 linux:git_version
 	rm -f ${OUTPUTS}
@@ -88,4 +96,3 @@ clean:
 
 git_version:
 	    echo "const char *gitversion = \"$(shell git rev-parse HEAD)\";" > git_version.h
-	

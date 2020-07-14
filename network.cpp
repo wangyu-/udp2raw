@@ -79,7 +79,7 @@ int use_pcap_mutex=1;
 
 ev_async async_watcher;
 
-ev_loop* g_default_loop;
+struct ev_loop* g_default_loop;
 
 pthread_t pcap_recv_thread;
 
