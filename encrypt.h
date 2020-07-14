@@ -41,4 +41,8 @@ int cipher_encrypt(const char *data,char *output,int &len,char * key);//internal
 
 void aes_ecb_encrypt(const char *data,char *output);
 void aes_ecb_decrypt(const char *data,char *output);
+
+void aes_ecb_encrypt1(char *data);
+void aes_ecb_decrypt1(char *data);
+
 #endif

@@ -53,7 +53,7 @@ int my_init_keys(const char * user_passwd,int is_client)
 
 	if(auth_mode==auth_hmac_sha1)
 		is_hmac_used=1;
-	if(is_hmac_used||g_fix_gro)
+	if(is_hmac_used||g_fix_gro||1)
 	{
 		unsigned char salt[400]="";
 		char salt_text[400]="udp2raw_salt1";
@@ -308,6 +308,12 @@ void aes_ecb_encrypt(const char *data,char *output)
 	}	
 	AES_ECB_encrypt_buffer((uint8_t*)data,(uint8_t*)key,(uint8_t*)output);
 }
+void aes_ecb_encrypt1(char *data)
+{
+    char buf[16];
+    memcpy(buf,data,16);
+    aes_ecb_encrypt(buf,data);
+}
 void aes_ecb_decrypt(const char *data,char *output)
 {
 	static int first_time=1;
@@ -318,6 +324,12 @@ void aes_ecb_decrypt(const char *data,char *output)
 		else first_time=0;
 	}	
 	AES_ECB_decrypt_buffer((uint8_t*)data,(uint8_t*)key,(uint8_t*)output);
+}
+void aes_ecb_decrypt1(char *data)
+{
+    char buf[16];
+    memcpy(buf,data,16);
+    aes_ecb_decrypt(buf,data);
 }
 int cipher_aes128cbc_encrypt(const char *data,char *output,int &len,char * key)
 {
