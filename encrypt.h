@@ -34,8 +34,7 @@ extern cipher_mode_t cipher_mode;
 extern unordered_map<int, const char *> auth_mode_tostring;
 extern unordered_map<int, const char *> cipher_mode_tostring;
 
-
-
+extern char gro_xor[16+100];
 
 int cipher_decrypt(const char *data,char *output,int &len,char * key);//internal interface ,exposed for test only
 int cipher_encrypt(const char *data,char *output,int &len,char * key);//internal interface ,exposed for test only

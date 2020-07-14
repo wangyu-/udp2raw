@@ -11,8 +11,6 @@
 
 int disable_anti_replay=0;//if anti_replay windows is diabled
 
-
-
 const int disable_conn_clear=0;//a raw connection is called conn.
 
 conn_manager_t conn_manager;
@@ -462,11 +460,8 @@ int send_safer(conn_info_t &conn_info,char type,const char* data,int len)  //saf
 	}
 
 
-
 	char send_data_buf[buf_len];  //buf for send data and send hb
 	char send_data_buf2[buf_len];
-
-
 
 	my_id_t n_tmp_id=htonl(conn_info.my_id);
 
@@ -488,10 +483,25 @@ int send_safer(conn_info_t &conn_info,char type,const char* data,int len)  //saf
 
 	int new_len=len+sizeof(n_seq)+sizeof(n_tmp_id)*2+2;
 
-	if(my_encrypt(send_data_buf,send_data_buf2,new_len)!=0)
-	{
-		return -1;
-	}
+	if(g_fix_gro==0)
+    {
+        if (my_encrypt(send_data_buf, send_data_buf2, new_len) != 0)
+        {
+            return -1;
+        }
+    }
+	else
+    {
+        if (my_encrypt(send_data_buf, send_data_buf2+2, new_len) != 0)
+        {
+            return -1;
+        }
+        write_u16(send_data_buf2,new_len);
+        send_data_buf2[0]^=gro_xor[0];
+        send_data_buf2[1]^=gro_xor[1];
+        new_len+=2;
+    }
+
 
 	if(send_raw0(conn_info.raw_info,send_data_buf2,new_len)!=0) return -1;
 
@@ -602,18 +612,81 @@ int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len
 
 	return 0;
 }
-int recv_safer(conn_info_t &conn_info,char &type,char* &data,int &len)///safer transfer function with anti-replay,when mutually verification is done.
+int recv_safer_notused(conn_info_t &conn_info,char &type,char* &data,int &len)///safer transfer function with anti-replay,when mutually verification is done.
 {
 	packet_info_t &send_info=conn_info.raw_info.send_info;
 	packet_info_t &recv_info=conn_info.raw_info.recv_info;
 
 	char * recv_data;int recv_len;
-	static char recv_data_buf[buf_len];
+	//static char recv_data_buf[buf_len];
 
 	if(recv_raw0(conn_info.raw_info,recv_data,recv_len)!=0) return -1;
 
 	return reserved_parse_safer(conn_info,recv_data,recv_len,type,data,len);
 }
+
+int recv_safer_multi(conn_info_t &conn_info,vector<char> &type_arr,vector<string> &data_arr)///safer transfer function with anti-replay,when mutually verification is done.
+{
+    packet_info_t &send_info=conn_info.raw_info.send_info;
+    packet_info_t &recv_info=conn_info.raw_info.recv_info;
+
+    char * recv_data;int recv_len;
+    assert(type_arr.empty());
+    assert(data_arr.empty());
+
+    if(recv_raw0(conn_info.raw_info,recv_data,recv_len)!=0) return -1;
+
+    char type;
+    char *data;
+    int len;
+
+    if(g_fix_gro==0)
+    {
+        int ret = reserved_parse_safer(conn_info, recv_data, recv_len, type, data, len);
+        if(ret==0)
+        {
+            type_arr.push_back(type);
+            data_arr.emplace_back(data,data+len);
+            //std::copy(data,data+len,data_arr[0]);
+        }
+        return ret;
+    } else
+    {
+        while(recv_len>2)
+        {
+            recv_len-=2;
+            int single_len;
+            recv_data[0]^=gro_xor[0];
+            recv_data[1]^=gro_xor[1];
+            single_len=read_u16(recv_data);
+            recv_data+=2;
+            if(single_len > recv_len)
+            {
+                mylog(log_debug,"illegal single_len %d, recv_len %d left,dropped\n",single_len,recv_len);
+                break;
+            }
+            if(single_len> single_max_data_len )
+            {
+                mylog(log_warn,"single_len %d > %d\n",single_len,single_max_data_len);
+            }
+
+            int ret = reserved_parse_safer(conn_info, recv_data, single_len, type, data, len);
+
+            if(ret!=0)
+            {
+                mylog(log_debug,"illegal single_len %d, recv_len %d left,dropped\n",single_len,recv_len);
+            } else{
+                type_arr.push_back(type);
+                data_arr.emplace_back(data,data+len);
+                //std::copy(data,data+len,data_arr[data_arr.size()-1]);
+            }
+            recv_data+=single_len;
+            
+        }
+        return 0;
+    }
+}
+
 
 void server_clear_function(u64_t u64)//used in conv_manager in server mode.for server we have to use one udp fd for one conv(udp connection),
 //so we have to close the fd when conv expires

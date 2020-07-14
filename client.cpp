@@ -387,6 +387,77 @@ int client_on_timer(conn_info_t &conn_info) //for client. called when a timer is
 	}
 	return 0;
 }
+int client_on_raw_recv_hs2_or_ready(conn_info_t &conn_info,char type,char *data,int data_len)
+{
+    packet_info_t &send_info=conn_info.raw_info.send_info;
+    packet_info_t &recv_info=conn_info.raw_info.recv_info;
+
+    if(!recv_info.new_src_ip.equal(send_info.new_dst_ip)||recv_info.src_port!=send_info.dst_port)
+    {
+        mylog(log_warn,"unexpected adress %s %s %d %d,this shouldnt happen.\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);
+        return -1;
+    }
+
+    if(conn_info.state.client_current_state==client_handshake2)
+    {
+        mylog(log_info,"changed state from to client_handshake2 to client_ready\n");
+        conn_info.state.client_current_state=client_ready;
+        conn_info.last_hb_sent_time=0;
+        conn_info.last_hb_recv_time=get_current_time();
+        conn_info.last_oppsite_roller_time=conn_info.last_hb_recv_time;
+        client_on_timer(conn_info);
+    }
+    if(data_len>=0&&type=='h')
+    {
+        mylog(log_debug,"[hb]heart beat received,oppsite_roller=%d\n",int(conn_info.oppsite_roller));
+        conn_info.last_hb_recv_time=get_current_time();
+        return 0;
+    }
+    else if(data_len>= int( sizeof(u32_t))&&type=='d')
+    {
+        mylog(log_trace,"received a data from fake tcp,len:%d\n",data_len);
+
+        if(hb_mode==0)
+            conn_info.last_hb_recv_time=get_current_time();
+
+        u32_t tmp_conv_id;
+        memcpy(&tmp_conv_id,&data[0],sizeof(tmp_conv_id));
+        tmp_conv_id=ntohl(tmp_conv_id);
+
+        if(!conn_info.blob->conv_manager.c.is_conv_used(tmp_conv_id))
+        {
+            mylog(log_info,"unknow conv %d,ignore\n",tmp_conv_id);
+            return 0;
+        }
+
+        conn_info.blob->conv_manager.c.update_active_time(tmp_conv_id);
+
+        //u64_t u64=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
+        address_t tmp_addr=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
+
+        //sockaddr_in tmp_sockaddr={0};
+
+        //tmp_sockaddr.sin_family = AF_INET;
+        //tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
+
+        //tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
+
+
+        int ret=sendto(udp_fd,data+sizeof(u32_t),data_len -(sizeof(u32_t)),0,(struct sockaddr *)&tmp_addr.inner,tmp_addr.get_len());
+
+        if(ret<0)
+        {
+            mylog(log_warn,"sento returned %d,%s,%02x,%s\n",ret,get_sock_error(),int(tmp_addr.get_type()),tmp_addr.get_str());
+            //perror("ret<0");
+        }
+    }
+    else
+    {
+        mylog(log_warn,"unknown packet,this shouldnt happen.\n");
+        return -1;
+    }
+    return 0;
+}
 int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a packet.
 {
 	char* data;int data_len;
@@ -508,75 +579,21 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 	}
 	else if(conn_info.state.client_current_state==client_handshake2||conn_info.state.client_current_state==client_ready)//received heartbeat or data
 	{
-		char type;
-		if(recv_safer(conn_info,type,data,data_len)!=0)
+		vector<char> type_vec;
+		vector<string> data_vec;
+		if(recv_safer_multi(conn_info,type_vec,data_vec)!=0)
 		{
 			mylog(log_debug,"recv_safer failed!\n");
 			return -1;
 		}
-		if(!recv_info.new_src_ip.equal(send_info.new_dst_ip)||recv_info.src_port!=send_info.dst_port)
-		{
-			mylog(log_warn,"unexpected adress %s %s %d %d,this shouldnt happen.\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);
-			return -1;
-		}
-		if(conn_info.state.client_current_state==client_handshake2)
-		{
-			mylog(log_info,"changed state from to client_handshake2 to client_ready\n");
-			conn_info.state.client_current_state=client_ready;
-			conn_info.last_hb_sent_time=0;
-			conn_info.last_hb_recv_time=get_current_time();
-			conn_info.last_oppsite_roller_time=conn_info.last_hb_recv_time;
-			client_on_timer(conn_info);
-		}
-		if(data_len>=0&&type=='h')
-		{
-			mylog(log_debug,"[hb]heart beat received,oppsite_roller=%d\n",int(conn_info.oppsite_roller));
-			conn_info.last_hb_recv_time=get_current_time();
-			return 0;
-		}
-		else if(data_len>= int( sizeof(u32_t))&&type=='d')
-		{
-			mylog(log_trace,"received a data from fake tcp,len:%d\n",data_len);
 
-			if(hb_mode==0)
-				conn_info.last_hb_recv_time=get_current_time();
-
-			u32_t tmp_conv_id;
-			memcpy(&tmp_conv_id,&data[0],sizeof(tmp_conv_id));
-			tmp_conv_id=ntohl(tmp_conv_id);
-
-			if(!conn_info.blob->conv_manager.c.is_conv_used(tmp_conv_id))
-			{
-				mylog(log_info,"unknow conv %d,ignore\n",tmp_conv_id);
-				return 0;
-			}
-
-			conn_info.blob->conv_manager.c.update_active_time(tmp_conv_id);
-
-			//u64_t u64=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
-			address_t tmp_addr=conn_info.blob->conv_manager.c.find_data_by_conv(tmp_conv_id);
-
-			//sockaddr_in tmp_sockaddr={0};
-
-			//tmp_sockaddr.sin_family = AF_INET;
-			//tmp_sockaddr.sin_addr.s_addr=(u64>>32u);
-
-			//tmp_sockaddr.sin_port= htons(uint16_t((u64<<32u)>>32u));
-
-
-			int ret=sendto(udp_fd,data+sizeof(u32_t),data_len -(sizeof(u32_t)),0,(struct sockaddr *)&tmp_addr.inner,tmp_addr.get_len());
-
-			if(ret<0)
-			{
-		    	mylog(log_warn,"sento returned %d,%s,%02x,%s\n",ret,get_sock_error(),int(tmp_addr.get_type()),tmp_addr.get_str());
-				//perror("ret<0");
-			}
-		}
-		else
-		{
-			mylog(log_warn,"unknown packet,this shouldnt happen.\n");
-						return -1;
-		}
+		for(int i=0;i<(int)type_vec.size();i++)
+        {
+		    char type=type_vec[i];
+		    char *data=(char *)data_vec[i].c_str(); //be careful, do not append data to it
+		    int data_len=data_vec[i].length();
+            client_on_raw_recv_hs2_or_ready(conn_info, type, data,data_len);
+        }
 
 		return 0;
 	}

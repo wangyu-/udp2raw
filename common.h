@@ -144,6 +144,7 @@ const int max_addr_len=100;
 
 extern int force_socket_buf;
 
+extern int g_fix_gro;
 struct ip_port_t
 {
 	u32_t ip;
@@ -330,12 +331,15 @@ struct not_copy_able_t
 	}
 };
 
-const int max_data_len=1800;
-const int buf_len=max_data_len+400;
+const int single_max_data_len=1800;
+const int max_data_len=single_max_data_len*10;
+const int buf_len=max_data_len+800;
+
+//const int max_data_len_gro=max_data_len*10;
+//const int buf_len_gro=max_data_len_gro+400;
+//const int max_address_len=512;
 
 const int queue_len=2000;
-
-//const int max_address_len=512;
 
 struct queue_t
 {
