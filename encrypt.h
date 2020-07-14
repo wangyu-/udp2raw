@@ -39,4 +39,6 @@ extern char gro_xor[256+100];
 int cipher_decrypt(const char *data,char *output,int &len,char * key);//internal interface ,exposed for test only
 int cipher_encrypt(const char *data,char *output,int &len,char * key);//internal interface ,exposed for test only
 
+void aes_ecb_encrypt(const char *data,char *output);
+void aes_ecb_decrypt(const char *data,char *output);
 #endif

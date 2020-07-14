@@ -366,7 +366,7 @@ void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
   decrypt_cbc(rk, length, iv_tmp, input, output);
 }
 
-void AES_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output, const uint32_t length)
+void AES_ECB_encrypt_buffer(const uint8_t* input, const uint8_t* key, uint8_t* output)
 {
   static uint8_t rk[AES_RKSIZE];
 
@@ -376,7 +376,7 @@ void AES_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output, 
   encrypt_ecb(AES_NR, rk, input, output);
 }
 
-void AES_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, const uint32_t length)
+void AES_ECB_decrypt_buffer(const uint8_t* input, const uint8_t* key, uint8_t *output)
 {
   static uint8_t rk[AES_RKSIZE];
 
