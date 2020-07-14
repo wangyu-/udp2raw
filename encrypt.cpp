@@ -26,7 +26,7 @@ unsigned char hmac_key_decrypt[hmac_key_len + 100];  //key for hmac
 unsigned char cipher_key_encrypt[cipher_key_len + 100];  //key for aes etc.
 unsigned char cipher_key_decrypt[cipher_key_len + 100];  //key for aes etc.
 
-char gro_xor[16+100];//dirty fix for gro
+char gro_xor[256+100];//dirty fix for gro
 
 unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_simple,"simple"},{auth_hmac_sha1,"hmac_sha1"},};
 
@@ -87,7 +87,7 @@ int my_init_keys(const char * user_passwd,int is_client)
 		assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)info_hmac_decrypt,strlen(info_hmac_decrypt), hmac_key_decrypt, hmac_key_len )  ==0);
 
         const char *gro_info="gro";
-        assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)gro_info,strlen(gro_info), (unsigned char *)gro_xor, 16 )  ==0);
+        assert( hkdf_sha256_expand( pbkdf2_output1,32, (unsigned char *)gro_info,strlen(gro_info), (unsigned char *)gro_xor, 256 )  ==0);
 	}
 	
 	print_binary_chars(normal_key,16);

@@ -143,6 +143,8 @@ void print_help()
 	printf("    -g,--gen-rule                         generate iptables rule then exit,so that you can copy and\n");
 	printf("                                          add it manually.overrides -a\n");
 	printf("    --disable-anti-replay                 disable anti-replay,not suggested\n");
+	printf("    --fix-gro                             try to fix huge packet caused by GRO. this option is at an early stage.\n");
+	printf("                                          make sure client and server are at same version.\n");
 
 	//printf("\n");
 	printf("client options:\n");
@@ -184,7 +186,6 @@ void print_help()
 	printf("    --clear                               clear any iptables rules added by this program.overrides everything\n");
 	printf("    --retry-on-error                      retry on error, allow to start udp2raw before network is initialized\n");
 	printf("    -h,--help                             print this help message\n");
-
 	//printf("common options,these options must be same on both side\n");
 }
 
@@ -770,7 +771,8 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
             else if(strcmp(long_options[option_index].name,"fix-gro")==0)
             {
-                g_fix_gro=0;
+                mylog(log_info,"--fix-gro enabled\n");
+                g_fix_gro=1;
             }
 			else
 			{

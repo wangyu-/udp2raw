@@ -581,7 +581,8 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 	{
 		vector<char> type_vec;
 		vector<string> data_vec;
-		if(recv_safer_multi(conn_info,type_vec,data_vec)!=0)
+        recv_safer_multi(conn_info,type_vec,data_vec);
+		if(data_vec.empty())
 		{
 			mylog(log_debug,"recv_safer failed!\n");
 			return -1;

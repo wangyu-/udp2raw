@@ -9,7 +9,7 @@
 #include "log.h"
 #include "misc.h"
 
-int g_fix_gro=1;
+int g_fix_gro=0;
 
 int raw_recv_fd=-1;
 int raw_send_fd=-1;
@@ -1418,15 +1418,15 @@ int pre_recv_raw_packet()
     {
         if(g_fix_gro==0)
         {
-            mylog(log_warn, "huge packet, data_len %d > %d(single_max_data_len) dropped\n", g_packet_buf_len,
+            mylog(log_warn, "huge packet, data_len %d > %d(single_max_data_len) dropped, maybe you need to turn down mtu at upper level, or you may take a look at --fix-gro\n", g_packet_buf_len,
                   single_max_data_len);
             return -1;
         }
         else
         {
-            mylog(log_debug, "huge packet, data_len %d > %d(single_max_data_len) dropped\n", g_packet_buf_len,
+            mylog(log_debug, "huge packet, data_len %d > %d(single_max_data_len) not dropped\n", g_packet_buf_len,
                   single_max_data_len);
-            return -1;
+            //return -1;
         }
 
     }
@@ -2526,9 +2526,8 @@ int recv_raw_tcp(raw_info_t &raw_info,char * &payload,int &payloadlen)
 
     if(tcp_chk!=0)
     {
-    	mylog(log_debug,"tcp_chk:%x\n",tcp_chk);
-    	mylog(log_debug,"tcp header error\n");
-    	return -1;
+    	mylog(log_debug,"tcp_chk:%x, tcp checksum failed, ignored\n",tcp_chk);
+    	//return -1;
 
     }
 
