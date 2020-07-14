@@ -366,32 +366,25 @@ void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
   decrypt_cbc(rk, length, iv_tmp, input, output);
 }
 
-/*
 void AES_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output, const uint32_t length)
 {
-  uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE];
 
-  if (key == NULL)
-  {
-    return;
-  }
   aeshw_init();
-  setkey_enc(rk, key);
+  if(key!=NULL)
+    setkey_enc(rk, key);
   encrypt_ecb(AES_NR, rk, input, output);
 }
 
 void AES_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *output, const uint32_t length)
 {
-  uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE];
 
-  if (key == NULL)
-  {
-    return;
-  }
   aeshw_init();
-  setkey_dec(rk, key);
+  if(key!=NULL)
+    setkey_dec(rk, key);
   decrypt_ecb(AES_NR, rk, input, output);
-}*/
+}
 
 static void encrypt_cfb( uint8_t* rk,
                          uint32_t length,size_t *iv_off,
