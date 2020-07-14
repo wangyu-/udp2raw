@@ -663,7 +663,7 @@ int recv_safer_multi(conn_info_t &conn_info,vector<char> &type_arr,vector<string
         int ori_recv_len=recv_len;
         //mylog(log_debug,"recv_len:%d\n",recv_len);
         int cnt=0;
-        while(recv_len>2)
+        while(recv_len>=16)
         {
             cnt++;
             int single_len_no_xor;
