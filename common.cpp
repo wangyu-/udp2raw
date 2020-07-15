@@ -1230,7 +1230,7 @@ vector<string> parse_conf_line(const string& s0)
 
 int create_fifo(char * file)
 {
-#ifdef  UDP2RAW_LINUX
+#if !defined(__MINGW32__)
 	if(mkfifo (file, 0666)!=0)
 	{
 		if(errno==EEXIST)
