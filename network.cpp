@@ -841,8 +841,16 @@ int pre_recv_raw_packet()
 
 	if(g_packet_buf_len==max_data_len+1)
 	{
+		if(g_fix_gro==0)
+		{
 		mylog(log_warn,"huge packet, data_len %d > %d(max_data_len),dropped\n",g_packet_buf_len,max_data_len);
 		return -1;
+		}
+		else
+		{
+			mylog(log_debug,"huge packet, data_len %d > %d(max_data_len),not dropped\n",g_packet_buf_len,max_data_len);
+			g_packet_buf_len=max_data_len;
+		}
 	}
 
     if(g_packet_buf_len> single_max_data_len+1)
