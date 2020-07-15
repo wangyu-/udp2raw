@@ -43,7 +43,7 @@ const u32_t receive_window_lower_bound=40960;
 const u32_t receive_window_random_range=512;
 const unsigned char wscale=0x05;
 
-char g_packet_buf[buf_len]; //looks dirty but works well
+char g_packet_buf[huge_buf_len]; //looks dirty but works well
 int g_packet_buf_len=-1;
 int g_packet_buf_cnt=0;
 
@@ -1403,29 +1403,37 @@ int pre_recv_raw_packet()
 	assert(g_packet_buf_cnt==0);
 
 	g_sockaddr_len=sizeof(g_sockaddr.ll);
-	g_packet_buf_len = recvfrom(raw_recv_fd, g_packet_buf, max_data_len+1, 0 ,(sockaddr*)&g_sockaddr , &g_sockaddr_len);
+	g_packet_buf_len = recvfrom(raw_recv_fd, g_packet_buf, huge_data_len+1, 0 ,(sockaddr*)&g_sockaddr , &g_sockaddr_len);
 	//assert(g_sockaddr_len==sizeof(g_sockaddr.ll)); //g_sockaddr_len=18, sizeof(g_sockaddr.ll)=20, why its not equal? maybe its bc sll_halen is 6?
 
 	//assert(g_addr_ll_size==sizeof(g_addr_ll));
 
-	if(g_packet_buf_len==max_data_len+1)
+	if(g_packet_buf_len==huge_data_len+1)
 	{
-		mylog(log_warn,"huge packet, data_len %d > %d(max_data_len),dropped\n",g_packet_buf_len,max_data_len);
+		if(g_fix_gro==0)
+		{
+		mylog(log_warn,"huge packet, data_len %d > %d,dropped\n",g_packet_buf_len,huge_data_len);
 		return -1;
+		}
+		else
+		{
+			mylog(log_debug,"huge packet, data_len %d > %d,not dropped\n",g_packet_buf_len,huge_data_len);  
+			g_packet_buf_len=huge_data_len;
+		}
 	}
 
-    if(g_packet_buf_len> single_max_data_len+1)
+    if(g_packet_buf_len> max_data_len+1)
     {
         if(g_fix_gro==0)
         {
-            mylog(log_warn, "huge packet, data_len %d > %d(single_max_data_len) dropped, maybe you need to turn down mtu at upper level, or you may take a look at --fix-gro\n", g_packet_buf_len,
-                  single_max_data_len);
+            mylog(log_warn, "huge packet, data_len %d > %d(max_data_len) dropped, maybe you need to turn down mtu at upper level, or you may take a look at --fix-gro\n", g_packet_buf_len,
+                  max_data_len);
             return -1;
         }
         else
         {
-            mylog(log_debug, "huge packet, data_len %d > %d(single_max_data_len) not dropped\n", g_packet_buf_len,
-                  single_max_data_len);
+            mylog(log_debug, "huge packet, data_len %d > %d(max_data_len) not dropped\n", g_packet_buf_len,
+                  max_data_len);
             //return -1;
         }
 

@@ -686,9 +686,10 @@ int recv_safer_multi(conn_info_t &conn_info,vector<char> &type_arr,vector<string
                 mylog(log_debug,"illegal single_len %d(%d), recv_len %d left,dropped\n",single_len,single_len_no_xor,recv_len);
                 break;
             }
-            if(single_len> single_max_data_len )
+            if(single_len> max_data_len )
             {
-                mylog(log_warn,"single_len %d(%d) > %d, maybe you need to turn down mtu at upper level\n",single_len,single_len_no_xor,single_max_data_len);
+                mylog(log_warn,"single_len %d(%d) > %d, maybe you need to turn down mtu at upper level\n",single_len,single_len_no_xor,max_data_len);
+		break;
             }
 
             int ret = reserved_parse_safer(conn_info, recv_data, single_len, type, data, len);
