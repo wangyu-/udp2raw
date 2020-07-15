@@ -539,7 +539,7 @@ int init_raw_socket()
 		myexit(-1);
 	}
 
-	assert( pcap_set_snaplen(pcap_handle, max_data_len) ==0);
+	assert( pcap_set_snaplen(pcap_handle, huge_data_len) ==0);
 	assert( pcap_set_promisc(pcap_handle, 0) ==0);
 	assert( pcap_set_timeout(pcap_handle, 1) ==0);
 	assert( pcap_set_immediate_mode(pcap_handle,1) ==0);

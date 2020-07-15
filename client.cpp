@@ -713,6 +713,11 @@ void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents)
 		pthread_mutex_unlock(&queue_mutex);
 
 		if(empty) break;
+		if(g_fix_gro==0&&len>max_data_len)
+		{
+		    mylog(log_warn,"huge packet %d > %d, dropped\n",len,max_data_len);
+		    break;
+		}
 
 		int new_len=len-pcap_link_header_len;
 		memcpy(g_packet_buf,p+pcap_link_header_len,new_len);

@@ -343,11 +343,11 @@ const int buf_len=max_data_len+400;
 
 //const int max_address_len=512;
 
-const int queue_len=2000;
+const int queue_len=200;
 
 struct queue_t
 {
-	char data[queue_len][buf_len];
+	char data[queue_len][huge_buf_len];
 	int data_len[queue_len];
 
 	int head=0;
