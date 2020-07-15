@@ -347,12 +347,12 @@ struct not_copy_able_t
 	}
 };
 
-const int single_max_data_len=1800;
-const int max_data_len=single_max_data_len*10;
-const int buf_len=max_data_len+800;
+const int huge_data_len=65535+100; //a packet with link level header might be larger than 65535
+const int huge_buf_len=huge_data_len+100;
 
-//const int max_data_len_gro=max_data_len*10;
-//const int buf_len_gro=max_data_len_gro+400;
+const int max_data_len=1800;
+const int buf_len=max_data_len+400;
+
 //const int max_address_len=512;
 
 u64_t get_current_time();
