@@ -563,6 +563,13 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"cipher-mode")==0)
 			{
+				string s=optarg;
+				if(s=="aes128cfb_0")
+				{
+					s="aes128cfb";
+					aes128cfb_old=1;
+					mylog(log_warn,"aes128cfb_0 is used\n");
+				}
 				for(i=0;i<cipher_end;i++)
 				{
 					if(strcmp(optarg,cipher_mode_tostring[i])==0)

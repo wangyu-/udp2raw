@@ -37,6 +37,8 @@ auth_mode_t auth_mode=auth_md5;
 cipher_mode_t cipher_mode=cipher_aes128cbc;
 int is_hmac_used=0;
 
+int aes128cfb_old=0;
+
 //TODO key negotiation and forward secrecy
 
 int my_init_keys(const char * user_passwd,int is_client)
@@ -361,7 +363,10 @@ int cipher_aes128cfb_encrypt(const char *data,char *output,int &len,char * key)
 		if(first_time==0) key=0;
 		else first_time=0;
 	}
-	aes_ecb_encrypt(data,buf); //encrypt the first block
+	if(!aes128cfb_old)
+	{
+	    aes_ecb_encrypt(data,buf); //encrypt the first block
+	}
 
 	AES_CFB_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	return 0;
@@ -416,9 +421,8 @@ int cipher_aes128cfb_decrypt(const char *data,char *output,int &len,char * key)
 	
 	AES_CFB_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	
-	char buf[16];
-	memcpy(buf,output,16);
-	aes_ecb_decrypt(buf,output); //decrypt the first block
+	if(!aes128cfb_old)
+	    aes_ecb_decrypt1(output); //decrypt the first block
 	//if(de_padding(output,len,16)<0) return -1;
 	return 0;
 }
