@@ -28,7 +28,7 @@
 #include <pthread.h>
 
 #if defined(UDP2RAW_MP)
-
+const int is_udp2raw_mp=1;
 #if !defined(__CYGWIN__) && !defined(__MINGW32__)
 #include <pcap.h>
 #else
@@ -40,8 +40,10 @@
 #include <libnet.h>
 #endif
 
-#else
 
+#else
+#define UDP2RAW_LINUX
+const int is_udp2raw_mp=0;
 //#include <linux/if_ether.h>
 #include <linux/filter.h>
 #include <linux/if_packet.h>
@@ -53,7 +55,11 @@
 
 #endif
 
+#if !defined(NO_LIBEV_EMBED)
 #include <my_ev.h>
+#else
+#include "ev.h"
+#endif
 
 #if defined(__MINGW32__)
 #include <winsock2.h>
@@ -355,6 +361,52 @@ const int buf_len=max_data_len+400;
 
 //const int max_address_len=512;
 
+#ifdef UDP2RAW_MP
+const int queue_len=200;
+
+struct queue_t
+{
+	char data[queue_len][huge_buf_len];
+	int data_len[queue_len];
+
+	int head=0;
+	int tail=0;
+	void clear()
+	{
+		head=tail=0;
+	}
+	int empty()
+	{
+		if(head==tail) return 1;
+		else return 0;
+	}
+	int full()
+	{
+		if( (tail+1)%queue_len==head  ) return 1;
+		else return 0;
+	}
+	void peek_front(char * & p,int &len)
+	{
+		assert(!empty());
+		p=data[head];
+		len=data_len[head];
+	}
+	void pop_front()
+	{
+		assert(!empty());
+		head++;head%=queue_len;
+	}
+	void push_back(char * p,int len)
+	{
+		assert(!full());
+		memcpy(data[tail],p,len);
+		data_len[tail]=len;
+		tail++;tail%=queue_len;
+	}
+};
+
+int init_ws();
+#endif
 u64_t get_current_time();
 u64_t pack_u64(u32_t a,u32_t b);
 

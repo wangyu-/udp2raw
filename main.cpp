@@ -33,6 +33,10 @@ int main(int argc, char *argv[])
 	assert(sizeof(unsigned int)==4);
 	assert(sizeof(unsigned long long)==8);
 
+#ifdef UDP2RAW_MP
+	init_ws();
+#endif
+
 	dup2(1, 2);//redirect stderr to stdout
 #if defined(__MINGW32__)
     enable_log_color=0;
@@ -59,11 +63,17 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+#ifdef UDP2RAW_LINUX
 		signal(SIGINT, signal_handler);
 		signal(SIGHUP, signal_handler);
 		signal(SIGKILL, signal_handler);
 		signal(SIGTERM, signal_handler);
 		signal(SIGQUIT, signal_handler);
+#else
+		mylog(log_fatal,"server mode not supported in multi-platform version\n");
+		myexit(-1);	
+#endif
+	      
 	}
 #if !defined(__MINGW32__)
 	if(geteuid() != 0)
@@ -87,7 +97,10 @@ int main(int argc, char *argv[])
 	my_init_keys(key_string,program_mode==client_mode?1:0);
 
 	iptables_rule();
+	
+#ifdef UDP2RAW_LINUX
 	init_raw_socket();
+#endif
 
 	if(program_mode==client_mode)
 	{
@@ -95,7 +108,12 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+#ifdef UDP2RAW_LINUX
 		server_event_loop();
+#else
+		mylog(log_fatal,"server mode not supported in multi-platform version\n");
+		myexit(-1);
+#endif
 	}
 
 	return 0;

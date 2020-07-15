@@ -47,8 +47,10 @@ my_id_t const_id=0;//an id used for connection recovery,its generated randomly,i
 
 int udp_fd=-1;  //for client only. client use this fd to listen and handle udp connection
 int bind_fd=-1; //bind only,never send or recv.  its just a dummy fd for bind,so that other program wont occupy the same port
+#ifdef UDP2RAW_LINUX
 int epollfd=-1; //fd for epoll
 int timer_fd=-1;   //the general timer fd for client and server.for server this is not the only timer find,every connection has a timer fd.
+#endif
 int fail_time_counter=0;//determine if the max_fail_time is reached
 int epoll_trigger_counter=0;//for debug only
 int debug_flag=0;//for debug only
@@ -70,12 +72,14 @@ char fifo_file[1000]="";
 
 int clear_iptables=0;
 int wait_xtables_lock=0;
+#ifdef UDP2RAW_LINUX
 string iptables_command0="iptables/ip6tables ";
 string iptables_command="";
 string iptables_pattern="";
 int iptables_rule_added=0;
 int iptables_rule_keeped=0;
 int iptables_rule_keep_index=0;
+#endif
 
 program_mode_t program_mode=unset_mode;//0 unset; 1client 2server
 raw_mode_t raw_mode=mode_faketcp;
@@ -94,6 +98,7 @@ int socket_buf_size=1024*1024;
 
 
 //char lower_level_arg[1000];
+#ifdef UDP2RAW_LINUX
 int process_lower_level_arg()//handle --lower-level option
 {
 	lower_level=1;
@@ -122,6 +127,7 @@ int process_lower_level_arg()//handle --lower-level option
 	}
 	return 0;
 }
+#endif
 void print_help()
 {
 	char git_version_buf[100]={0};
@@ -131,12 +137,18 @@ void print_help()
 	printf("build date:%s %s\n",__DATE__,__TIME__);
 	printf("repository: https://github.com/wangyu-/udp2raw-tunnel\n");
 	printf("\n");
+#ifdef UDP2RAW_MP
+#ifdef NO_LIBNET
+	printf("libnet is disabled at compile time\n");
+	printf("\n");
+#endif
+#endif
 	printf("usage:\n");
 	printf("    run as client : ./this_program -c -l local_listen_ip:local_port -r server_address:server_port  [options]\n");
 	printf("    run as server : ./this_program -s -l server_listen_ip:server_port -r remote_address:remote_port  [options]\n");
 	printf("\n");
 	printf("common options,these options must be same on both side:\n");
-	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp\n");
+	printf("    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp and easy-faketcp\n");
 	printf("    -k,--key              <string>        password to gen symetric key,default:\"secret key\"\n");
 	printf("    --cipher-mode         <string>        avaliable values:aes128cfb,aes128cbc(default),xor,none\n");
 	printf("    --auth-mode           <string>        avaliable values:hmac_sha1,md5(default),crc32,simple,none\n");
@@ -166,7 +178,9 @@ void print_help()
 	printf("    --disable-bpf                         disable the kernel space filter,most time its not necessary\n");
 	printf("                                          unless you suspect there is a bug\n");
 //	printf("\n");
+#ifdef UDP2RAW_LINUX
 	printf("    --dev                 <string>        bind raw socket to a device, not necessary but improves performance\n");
+#endif
 	printf("    --sock-buf            <number>        buf size for socket,>=10 and <=10240,unit:kbyte,default:1024\n");
 	printf("    --force-sock-buf                      bypass system limitation while setting sock-buf\n");
 	printf("    --seq-mode            <number>        seq increase mode for faketcp:\n");
@@ -299,6 +313,10 @@ void process_arg(int argc, char *argv[])  //process all options
 		{"dev", required_argument,    0, 1},
 		{"dns-resolve", no_argument,    0, 1},
 		{"easy-tcp", no_argument,    0, 1},
+#ifdef UDP2RAW_MP
+		{"pcap-send", no_argument,    0, 1},
+		{"no-pcap-mutex", no_argument,    0, 1},
+#endif
         {"fix-gro", no_argument,    0, 1},
 		{NULL, 0, 0, 0}
 	  };
@@ -468,6 +486,11 @@ void process_arg(int argc, char *argv[])  //process all options
 		case 'h':
 			break;
 		case 'a':
+if(is_udp2raw_mp)
+{
+			mylog(log_fatal,"-a not supported in this version, check -g or --raw-mode easyfaketcp\n");
+			myexit(-1);
+}
 			auto_add_iptables_rule=1;
 			break;
 		case 'g':
@@ -481,6 +504,12 @@ void process_arg(int argc, char *argv[])  //process all options
 			mylog(log_debug,"option_index: %d\n",option_index);
 			if(strcmp(long_options[option_index].name,"clear")==0)
 			{
+if(is_udp2raw_mp)
+{
+				mylog(log_fatal,"--clear not supported in this version\n");
+				myexit(-1);
+}
+
 				clear_iptables=1;
 			}
 			else if(strcmp(long_options[option_index].name,"source-ip")==0)
@@ -590,20 +619,44 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"lower-level")==0)
 			{
+if(is_udp2raw_mp)
+{
+				mylog(log_fatal,"--lower-level not supported in this version\n");
+				myexit(-1);
+}
+
+#ifdef UDP2RAW_LINUX
 				process_lower_level_arg();
+#endif
+				//process_lower_level_arg();
 				//lower_level=1;
 				//strcpy(lower_level_arg,optarg);
 			}
 			else if(strcmp(long_options[option_index].name,"simple-rule")==0)
 			{
+if(is_udp2raw_mp)
+{
+				mylog(log_fatal,"--simple-rule not supported in this version\n");
+				myexit(-1);
+}
 				simple_rule=1;
 			}
 			else if(strcmp(long_options[option_index].name,"keep-rule")==0)
 			{
+if(is_udp2raw_mp)
+{
+				mylog(log_fatal,"--keep-rule not supported in this version\n");
+				myexit(-1);
+}
 				keep_rule=1;
 			}
 			else if(strcmp(long_options[option_index].name,"gen-add")==0)
 			{
+if(is_udp2raw_mp)
+{
+				mylog(log_fatal,"--gen-add not supported in this version\n");
+				myexit(-1);
+}
 				generate_iptables_rule_add=1;
 			}
 			else if(strcmp(long_options[option_index].name,"disable-color")==0)
@@ -636,6 +689,11 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"force-sock-buf")==0)
 			{
+if(is_udp2raw_mp)
+{
+				mylog(log_fatal,"--force-sock-buf not supported in this version\n");
+				myexit(-1);
+}
 				force_socket_buf=1;
 			}
 			else if(strcmp(long_options[option_index].name,"retry-on-error")==0)
@@ -692,6 +750,11 @@ void process_arg(int argc, char *argv[])  //process all options
 			}
 			else if(strcmp(long_options[option_index].name,"fifo")==0)
 			{
+if(is_udp2raw_mp)
+{
+				mylog(log_fatal,"--fifo not supported in this version\n");
+				myexit(-1);
+}
 				sscanf(optarg,"%s",fifo_file);
 
 				mylog(log_info,"fifo_file =%s \n",fifo_file);
@@ -742,6 +805,18 @@ void process_arg(int argc, char *argv[])  //process all options
 				enable_dns_resolve=1;
 				mylog(log_info,"dns-resolve enabled\n");
 			}
+#ifdef UDP2RAW_MP
+			else if(strcmp(long_options[option_index].name,"pcap-send")==0)
+			{
+				send_with_pcap=1;
+				mylog(log_info,"--pcap-send enabled, now pcap will be used for sending packet instead of libnet\n");
+			}
+			else if(strcmp(long_options[option_index].name,"no-pcap-mutex")==0)
+			{
+				use_pcap_mutex=0;
+				mylog(log_warn,"--no-pcap-mutex enabled, we will assume the underlying pcap calls are threadsafe\n");
+			}
+#endif
 			else if(strcmp(long_options[option_index].name,"easy-tcp")==0)
 			{
 				use_tcp_dummy_socket=1;
@@ -904,6 +979,7 @@ void pre_process_arg(int argc, char *argv[])//mainly for load conf file
 	process_arg(new_argc,new_argv_char);
 
 }
+#ifdef UDP2RAW_LINUX
 void *run_keep(void *none)  //called in a new thread for --keep-rule option
 {
 
@@ -1092,6 +1168,7 @@ void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-loc
 		mylog(log_warn," -a has not been set, make sure you have added the needed iptables rules manually\n");
 	}
 }
+#endif
 
 int unit_test()
 {
@@ -1151,6 +1228,7 @@ int unit_test()
 	return 0;
 }
 
+#ifdef UDP2RAW_LINUX
 int set_timer(int epollfd,int &timer_fd)//put a timer_fd into epoll,general function,used both in client and server
 {
 	int ret;
@@ -1379,6 +1457,117 @@ int clear_iptables_rule()
 	}
 	return 0;
 }
+#endif
+
+#ifdef UDP2RAW_MP
+void iptables_rule()  // handles -a -g --gen-add  --keep-rule --clear --wait-lock
+{
+
+	if(generate_iptables_rule)
+	{
+		if(raw_mode==mode_faketcp && use_tcp_dummy_socket==1)
+		{
+			mylog(log_fatal, "failed,-g doesnt work with easy-faketcp mode\n");
+			myexit(-1);
+		}
+		if(raw_mode==mode_udp)
+		{
+			mylog(log_warn, "It not necessary to use iptables/firewall rule in udp mode\n");
+		}
+		log_bare(log_warn,"for linux, use:\n");
+		if(raw_ip_version==AF_INET)
+		{
+			if(raw_mode==mode_faketcp)
+				printf("iptables -I INPUT -s %s -p tcp -m tcp --sport %d -j DROP\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_udp)
+				printf("iptables -I INPUT -s %s -p udp -m udp --sport %d -j DROP\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_icmp)
+				printf("iptables -I INPUT -s %s -p icmp --icmp-type 0 -j DROP\n",remote_addr.get_ip());
+			printf("\n");
+		}
+		else
+		{
+			assert(raw_ip_version==AF_INET6);
+			if(raw_mode==mode_faketcp)
+				printf("ip6tables -I INPUT -s %s -p tcp -m tcp --sport %d -j DROP\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_udp)
+				printf("ip6tables -I INPUT -s %s -p udp -m udp --sport %d -j DROP\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_icmp)
+				printf("ip6tables -I INPUT -s %s -p -p icmpv6 --icmpv6-type 129 -j DROP\n",remote_addr.get_ip());
+			printf("\n");
+		}
+
+		log_bare(log_warn,"for mac/bsd use:\n");
+		if(raw_ip_version==AF_INET)
+		{
+			if(raw_mode==mode_faketcp)
+				printf("echo 'block drop inet proto tcp from %s port %d to any' > ./1.conf\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_udp)
+				printf("echo 'block drop inet proto udp from %s port %d to any' > ./1.conf\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_icmp)
+				printf("echo 'block drop inet proto icmp from %s to any' > ./1.conf\n",remote_addr.get_ip());
+		}
+		else
+		{
+			assert(raw_ip_version==AF_INET6);
+			if(raw_mode==mode_faketcp)
+				printf("echo 'block drop inet6 proto tcp from %s port %d to any' > ./1.conf\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_udp)
+				printf("echo 'block drop inet6 proto udp from %s port %d to any' > ./1.conf\n",remote_addr.get_ip(),remote_addr.get_port());
+			if(raw_mode==mode_icmp)
+				printf("echo 'block drop inet6 proto icmp6 from %s to any' > ./1.conf\n",remote_addr.get_ip());
+		}
+		printf("pfctl -f ./1.conf\n");
+		printf("pfctl -e\n");
+		printf("\n");
+
+		log_bare(log_warn,"for windows vista and above use:\n");
+		if(raw_ip_version==AF_INET)
+		{
+			if(raw_mode==mode_faketcp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=in remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=out remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+			}
+			if(raw_mode==mode_udp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=in remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=out remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+			}
+
+			if(raw_mode==mode_icmp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV4 dir=in remoteip=%s action=block\n",remote_addr.get_ip());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV4 dir=out remoteip=%s action=block\n",remote_addr.get_ip());
+			}
+		}
+		else
+		{
+			assert(raw_ip_version==AF_INET6);
+			if(raw_mode==mode_faketcp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=in remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=TCP dir=out remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+			}
+			if(raw_mode==mode_udp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=in remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=UDP dir=out remoteip=%s remoteport=%d action=block\n",remote_addr.get_ip(),remote_addr.get_port());
+			}
+
+			if(raw_mode==mode_icmp)
+			{
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV6 dir=in remoteip=%s action=block\n",remote_addr.get_ip());
+				printf("netsh advfirewall firewall add rule name=udp2raw protocol=ICMPV6 dir=out remoteip=%s action=block\n",remote_addr.get_ip());
+			}
+		}
+
+		myexit(0);
+
+	}
+
+}
+#endif
 
 void  signal_handler(int sig)
 {

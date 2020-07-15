@@ -5,6 +5,7 @@
  *      Author: root
  */
 
+#ifndef UDP2RAW_MP
 
 #include "common.h"
 #include "network.h"
@@ -911,3 +912,5 @@ int server_event_loop()
 	}
 	return 0;
 }
+
+#endif

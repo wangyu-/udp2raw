@@ -34,9 +34,11 @@ char if_name[100]="";
 char dev[100]="";
 
 unsigned short g_ip_id_counter=0;
-
+#ifdef UDP2RAW_LINUX
 unsigned char dest_hw_addr[sizeof(sockaddr_ll::sll_addr)]=
     {0xff,0xff,0xff,0xff,0xff,0xff,0,0};
+#endif
+
 //{0x00,0x23,0x45,0x67,0x89,0xb9};
 
 const u32_t receive_window_lower_bound=40960;
@@ -47,6 +49,7 @@ char g_packet_buf[huge_buf_len]; //looks dirty but works well
 int g_packet_buf_len=-1;
 int g_packet_buf_cnt=0;
 
+#ifdef UDP2RAW_LINUX
 union
 {
 	sockaddr_ll ll;
@@ -54,6 +57,43 @@ union
 	sockaddr_in6 ipv6;
 }g_sockaddr;
 socklen_t g_sockaddr_len = -1;
+#endif
+
+#ifdef UDP2RAW_MP
+
+#ifndef NO_LIBNET
+libnet_t *libnet_handle;
+libnet_ptag_t g_ptag=0;
+int send_with_pcap=0;
+#else
+int send_with_pcap=1;
+#endif
+
+int pcap_header_captured=0;
+int pcap_header_buf[buf_len];
+int pcap_captured_full_len=-1;
+
+pcap_t *pcap_handle;
+int pcap_link_header_len=-1;
+//int pcap_cnt=0;
+queue_t my_queue;
+
+pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pcap_mutex = PTHREAD_MUTEX_INITIALIZER;
+int use_pcap_mutex=1;
+
+ev_async async_watcher;
+
+struct ev_loop* g_default_loop;
+
+pthread_t pcap_recv_thread;
+
+struct bpf_program g_filter;
+long long g_filter_compile_cnt=0;
+
+#endif
+
+#ifdef UDP2RAW_LINUX
 
 struct sock_filter code_tcp_old[] = {
 		{ 0x28, 0, 0, 0x0000000c },//0
@@ -218,6 +258,7 @@ tcpdump -i eth1  ip and icmp -dd
 (010) ret      #0
 
  */
+#endif
 
 packet_info_t::packet_info_t()
 {
@@ -255,8 +296,94 @@ packet_info_t::packet_info_t()
 	}
 
 }
+#ifdef UDP2RAW_MP
+void my_packet_handler(
+    u_char *args,
+    const struct pcap_pkthdr *packet_header,
+    const u_char *pkt_data
+)
+{
+	/*printf("<%d %d>\n",(int)packet_header->caplen,(int)packet_header->len );
+	for(int i=0;i<sizeof(pcap_pkthdr);i++)
+	{
+		char *p=(char *) packet_header;
+		printf("<%x>",int( p[i] ));
+	}
+	printf("\n");*/
+	//mylog(log_debug,"received a packet!\n");
+	assert(packet_header->caplen <= packet_header->len);
+	assert(packet_header->caplen <= max_data_len);
+	//if(packet_header->caplen > max_data_len) return ;
+	if(g_fix_gro==0&&packet_header->caplen<packet_header->len) return;
 
+	if((int)packet_header->caplen<pcap_link_header_len) return;
+	//mylog(log_debug,"and its vaild!\n");
 
+	pthread_mutex_lock(&queue_mutex);
+	if(!my_queue.full())
+		my_queue.push_back((char *)pkt_data,(int)(packet_header->caplen));
+	pthread_mutex_unlock(&queue_mutex);
+
+	//pcap_cnt++;
+
+	ev_async_send (g_default_loop,&async_watcher);
+    return;
+}
+
+void *pcap_recv_thread_entry(void *none)
+{
+	struct pcap_pkthdr *packet_header;
+	const u_char *pkt_data;
+
+	while(1)
+	{
+		if(use_pcap_mutex) pthread_mutex_lock(&pcap_mutex);
+		int ret=pcap_loop(pcap_handle, -1, my_packet_handler, NULL); //use -1 instead of 0 as cnt, since 0 is undefined in old versions
+		if(use_pcap_mutex) pthread_mutex_unlock(&pcap_mutex);
+		if(ret==-1)
+			mylog(log_warn,"pcap_loop exited with value %d\n",ret);
+		else
+		{
+			mylog(log_debug,"pcap_loop exited with value %d\n",ret);
+		}
+		ev_sleep(1.0);
+		//myexit(-1);
+	}
+	/*
+	while(1)
+	{
+		//printf("!!!\n");
+		pthread_mutex_lock(&pcap_mutex);
+		int ret=pcap_next_ex(pcap_handle,&packet_header,&pkt_data);
+		pthread_mutex_unlock(&pcap_mutex);
+
+		switch (ret)
+		{
+			case 0:
+				continue;
+			case 1:
+
+				break;
+
+			case -1:
+				mylog(log_fatal,"pcap_next_ex error [%s]\n",pcap_geterr(pcap_handle));
+				myexit(-1);
+				break;
+			case -2:
+				assert(0==1);//
+				break;
+			default:
+				assert(0==1);//
+		}
+	}
+	myexit(-1);*/
+	return 0;
+}
+
+extern void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents);
+#endif
+
+#ifdef UDP2RAW_LINUX
 int init_raw_socket()
 {
 	assert(raw_ip_version==AF_INET||raw_ip_version==AF_INET6);
@@ -381,6 +508,226 @@ int init_raw_socket()
 
 	return 0;
 }
+#endif
+#ifdef UDP2RAW_MP
+int init_raw_socket()
+{
+
+#ifndef NO_LIBNET
+	char libnet_errbuf[LIBNET_ERRBUF_SIZE];
+
+	if(raw_ip_version==AF_INET)
+	{
+		libnet_handle = libnet_init(LIBNET_RAW4, dev, libnet_errbuf);
+	}
+	else
+	{
+		assert(raw_ip_version==AF_INET6);
+		libnet_handle = libnet_init(LIBNET_RAW6, dev, libnet_errbuf);
+	}
+
+	if(libnet_handle==0)
+	{
+		mylog(log_fatal,"libnet_init failed bc of [%s]\n",libnet_errbuf);
+		myexit(-1);
+	}
+	g_ptag=0;
+    libnet_clear_packet(libnet_handle);
+#endif
+
+	char pcap_errbuf[PCAP_ERRBUF_SIZE];
+
+	//pcap_handle=pcap_open_live(dev,max_data_len,0,1000,pcap_errbuf);
+
+	pcap_handle = pcap_create( dev, pcap_errbuf );
+
+
+	if(pcap_handle==0)
+	{
+		mylog(log_fatal,"pcap_create failed bc of [%s]\n",pcap_errbuf);
+		myexit(-1);
+	}
+
+	assert( pcap_set_snaplen(pcap_handle, huge_data_len) ==0);
+	assert( pcap_set_promisc(pcap_handle, 0) ==0);
+	assert( pcap_set_timeout(pcap_handle, 1) ==0);
+	assert( pcap_set_immediate_mode(pcap_handle,1) ==0);
+
+	int ret = pcap_activate( pcap_handle );
+	if( ret < 0 )
+	{
+		 printf("pcap_activate failed  %s\n", pcap_geterr(pcap_handle));
+		 myexit(-1);
+	}
+
+	if(send_with_pcap)
+	{
+		ret=pcap_setdirection(pcap_handle,PCAP_D_INOUT);//must be used after being actived
+		if(ret!=0) mylog(log_debug,"pcap_setdirection(pcap_handle,PCAP_D_INOUT) failed with value %d, %s\n",ret,pcap_geterr(pcap_handle));
+	}
+	else
+	{
+		ret=pcap_setdirection(pcap_handle,PCAP_D_IN);
+		if(ret!=0) mylog(log_debug,"pcap_setdirection(pcap_handle,PCAP_D_IN) failed with value %d, %s\n",ret,pcap_geterr(pcap_handle));
+	}
+
+
+	ret=pcap_datalink(pcap_handle);
+
+	if(ret==DLT_EN10MB)
+	{
+		pcap_link_header_len=14;
+	}
+	else if(ret==DLT_NULL)
+	{
+		pcap_link_header_len=4;
+	}
+	else if(ret==DLT_LINUX_SLL)
+	{
+		pcap_link_header_len=16;
+	}
+	else
+	{
+		mylog(log_fatal,"unknown pcap link type : %d\n",ret);
+		myexit(-1);
+	}
+
+	char filter_exp[1000];
+
+	address_t tmp_addr;
+	if(get_src_adress2(tmp_addr,remote_addr)!=0)
+	{
+		mylog(log_error,"get_src_adress() failed, maybe you dont have internet\n");
+		myexit(-1);
+	}
+
+	string src=tmp_addr.get_ip();
+	string dst=remote_addr.get_ip();
+	if(raw_ip_version==AF_INET)
+	{
+		//sprintf(filter_exp,"ip and src %s and dst %s and (tcp or udp or icmp)",my_ntoa(source_ip_uint32),dst.c_str());
+		sprintf(filter_exp,"ip and src %s and dst %s and (tcp or udp or icmp)",src.c_str(),dst.c_str());
+	}
+	else
+	{
+		assert(raw_ip_version==AF_INET6);
+		sprintf(filter_exp,"ip6 and src %s and dst %s and (tcp or udp or icmp6)",src.c_str(),dst.c_str());
+
+	}
+
+	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
+		 printf("Bad filter - %s\n", pcap_geterr(pcap_handle));
+		 myexit(-1);
+	 }
+	 g_filter_compile_cnt++;
+
+
+	 if (pcap_setfilter(pcap_handle, &g_filter) == -1) {
+		 printf("Error setting filter - %s\n", pcap_geterr(pcap_handle));
+		 myexit(-1);
+	 }
+
+///////////////////////////////////////////////////////////////new thread created here
+		if(pthread_create(&pcap_recv_thread, NULL, pcap_recv_thread_entry, 0)) {
+			mylog(log_fatal, "Error creating thread\n");
+			myexit(-1);
+		}
+////////////////////////////////////////////////////////////////////////////////
+
+
+	g_ip_id_counter=get_true_random_number()%65535;
+
+	/*
+	if(lower_level==0)
+	{
+		raw_send_fd = socket(AF_INET , SOCK_RAW , IPPROTO_TCP);
+
+	    if(raw_send_fd == -1) {
+	    	mylog(log_fatal,"Failed to create raw_send_fd\n");
+	        //perror("Failed to create raw_send_fd");
+	        myexit(1);
+	    }
+
+	    int one = 1;
+	    const int *val = &one;
+	    if (setsockopt (raw_send_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0) {
+	    	mylog(log_fatal,"Error setting IP_HDRINCL %d\n",errno);
+	        //perror("Error setting IP_HDRINCL");
+	        myexit(2);
+	    }
+
+
+	}
+	else
+	{
+		raw_send_fd = socket(PF_PACKET , SOCK_DGRAM , htons(ETH_P_IP));
+
+	    if(raw_send_fd == -1) {
+	    	mylog(log_fatal,"Failed to create raw_send_fd\n");
+	        //perror("Failed to create raw_send_fd");
+	        myexit(1);
+	    }
+		//init_ifindex(if_name);
+
+	}
+
+	if(force_socket_buf)
+	{
+		if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
+		{
+			mylog(log_fatal,"SO_SNDBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			myexit(1);
+		}
+	}
+	else
+	{
+		if(setsockopt(raw_send_fd, SOL_SOCKET, SO_SNDBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
+		{
+			mylog(log_fatal,"SO_SNDBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			myexit(1);
+		}
+	}
+
+
+
+	//raw_fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
+
+	raw_recv_fd= socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
+
+    if(raw_recv_fd == -1) {
+    	mylog(log_fatal,"Failed to create raw_recv_fd\n");
+        //perror("");
+        myexit(1);
+    }
+
+	if(force_socket_buf)
+	{
+		if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
+		{
+			mylog(log_fatal,"SO_RCVBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			myexit(1);
+		}
+	}
+	else
+	{
+		if(setsockopt(raw_recv_fd, SOL_SOCKET, SO_RCVBUF, &socket_buf_size, sizeof(socket_buf_size))<0)
+		{
+			mylog(log_fatal,"SO_RCVBUF fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
+			myexit(1);
+		}
+	}
+
+    //IP_HDRINCL to tell the kernel that headers are included in the packet
+
+
+
+    setnonblocking(raw_send_fd); //not really necessary
+    setnonblocking(raw_recv_fd);*/
+
+	return 0;
+}
+#endif
+#ifdef UDP2RAW_LINUX
 void init_filter(int port)
 {
 	sock_fprog bpf;
@@ -450,9 +797,160 @@ void init_filter(int port)
 		myexit(-1);
 	}
 }
+#endif
+
+#ifdef UDP2RAW_MP
+void init_filter(int port)
+{
+	/*
+	sock_fprog bpf;*/
+	if(raw_mode==mode_faketcp||raw_mode==mode_udp)
+	{
+		filter_port=port;
+	}
+
+
+
+	 char filter_exp[1000];
+
+	if(raw_ip_version==AF_INET)
+	{
+		if(raw_mode==mode_faketcp)
+		{
+			sprintf(filter_exp,"ip and tcp and src %s and src port %d and dst port %d",remote_addr.get_ip(),remote_addr.get_port(),port);
+		}
+		else if(raw_mode==mode_udp)
+		{
+			sprintf(filter_exp,"ip and udp and src %s and src port %d and dst port %d",remote_addr.get_ip(),remote_addr.get_port(),port);
+		}
+		else if(raw_mode==mode_icmp)
+		{
+			sprintf(filter_exp,"ip and icmp and src %s",remote_addr.get_ip());
+		}
+		else
+		{
+			mylog(log_fatal,"unknow raw mode\n");
+			myexit(-1);
+		}
+	}
+	else
+	{
+		assert(raw_ip_version==AF_INET6);
+		if(raw_mode==mode_faketcp)
+		{
+			sprintf(filter_exp,"ip6 and tcp and src %s and src port %d and dst port %d",remote_addr.get_ip(),remote_addr.get_port(),port);
+		}
+		else if(raw_mode==mode_udp)
+		{
+			sprintf(filter_exp,"ip6 and udp and src %s and src port %d and dst port %d",remote_addr.get_ip(),remote_addr.get_port(),port);
+		}
+		else if(raw_mode==mode_icmp)
+		{
+			sprintf(filter_exp,"ip6 and icmp6 and src %s",remote_addr.get_ip());
+		}
+		else
+		{
+			mylog(log_fatal,"unknow raw mode\n");
+			myexit(-1);
+		}
+	}
+
+	mylog(log_info,"filter expression is [%s]\n",filter_exp);
+
+	//pthread_mutex_lock(&pcap_mutex);//not sure if mutex is needed here
+
+	long long tmp_cnt=0;
+	if(use_pcap_mutex)
+	{
+		while(pthread_mutex_trylock(&pcap_mutex)!=0)
+		{
+			tmp_cnt++;
+			pcap_breakloop(pcap_handle);
+			if(tmp_cnt==100)
+			{
+				mylog(log_warn,"%lld attempts of pcap_breakloop()\n", tmp_cnt);
+			}
+			if(tmp_cnt%1000==0)
+			{
+				mylog(log_warn,"%lld attempts of pcap_breakloop()\n", tmp_cnt);
+				if(tmp_cnt>5000)
+				{
+					 mylog(log_fatal,"we might have already run into a deadlock\n");
+				}
+			}
+			ev_sleep(0.001);
+		}
+		mylog(log_info,"breakloop() succeed after %lld attempt(s)\n", tmp_cnt);
+	}
+
+	if(1)
+	{
+		int ret=pcap_setdirection(pcap_handle,PCAP_D_IN);
+		if(ret!=0) mylog(log_debug,"pcap_setdirection(pcap_handle,PCAP_D_IN) failed with value %d, %s\n",ret,pcap_geterr(pcap_handle));
+	}
+
+	assert(g_filter_compile_cnt!=0);
+	pcap_freecode(&g_filter);
+
+	 if (pcap_compile(pcap_handle, &g_filter, filter_exp, 0, PCAP_NETMASK_UNKNOWN ) == -1) {
+		 mylog(log_fatal,"Bad filter - %s\n", pcap_geterr(pcap_handle));
+		 myexit(-1);
+	 }
+	 g_filter_compile_cnt++;
+
+	 if (pcap_setfilter(pcap_handle, &g_filter) == -1)
+	 {
+		 mylog(log_fatal,"Error setting filter - %s\n", pcap_geterr(pcap_handle));
+		 myexit(-1);
+	 }
+
+
+	if(use_pcap_mutex) pthread_mutex_unlock(&pcap_mutex);
+	/*
+	if(disable_bpf_filter) return;
+	//if(raw_mode==mode_icmp) return ;
+	//code_tcp[8].k=code_tcp[10].k=port;
+	if(raw_mode==mode_faketcp)
+	{
+		bpf.len = sizeof(code_tcp)/sizeof(code_tcp[0]);
+		code_tcp[code_tcp_port_index].k=port;
+		bpf.filter = code_tcp;
+	}
+	else if(raw_mode==mode_udp)
+	{
+		bpf.len = sizeof(code_udp)/sizeof(code_udp[0]);
+		code_udp[code_udp_port_index].k=port;
+		bpf.filter = code_udp;
+	}
+	else if(raw_mode==mode_icmp)
+	{
+		bpf.len = sizeof(code_icmp)/sizeof(code_icmp[0]);
+		bpf.filter = code_icmp;
+	}
+
+	int dummy;
+
+	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy)); //in case i forgot to remove
+	if (ret != 0)
+	{
+		mylog(log_debug,"error remove fiter\n");
+		//perror("filter");
+		//exit(-1);
+	}
+	ret = setsockopt(raw_recv_fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf));
+	if (ret != 0)
+	{
+		mylog(log_fatal,"error set fiter\n");
+		//perror("filter");
+		myexit(-1);
+	}*/
+}
+#endif
+
 void remove_filter()
 {
 	filter_port=0;
+#ifdef UDP2RAW_LINUX
 	int dummy;
 	int ret=setsockopt(raw_recv_fd, SOL_SOCKET, SO_DETACH_FILTER, &dummy, sizeof(dummy));
 	if (ret != 0)
@@ -461,10 +959,12 @@ void remove_filter()
 		//perror("filter");
 		//exit(-1);
 	}
+#endif
 }
 
 int init_ifindex(const char * if_name,int fd,int &index)
 {
+#ifdef UDP2RAW_LINUX
 	struct ifreq ifr;
 	size_t if_name_len=strlen(if_name);
 	if (if_name_len<sizeof(ifr.ifr_name)) {
@@ -481,8 +981,11 @@ int init_ifindex(const char * if_name,int fd,int &index)
 	}
 	index=ifr.ifr_ifindex;
 	mylog(log_info,"ifname:%s  ifindex:%d\n",if_name,index);
+#endif
 	return 0;
 }
+
+#ifdef UDP2RAW_LINUX
 bool interface_has_arp(const char * interface) {
     struct ifreq ifr;
    // int sock = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
@@ -702,7 +1205,9 @@ int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw)
 	dest_ip=ntohl(dest_ip);
 	return 0;
 }
+#endif
 
+#ifdef UDP2RAW_LINUX
 int send_raw_packet(raw_info_t &raw_info,const char * packet,int len)
 {
 	const packet_info_t &send_info=raw_info.send_info;
@@ -753,6 +1258,76 @@ int send_raw_packet(raw_info_t &raw_info,const char * packet,int len)
     }
     return 0;
 }
+#endif
+
+#ifdef UDP2RAW_MP
+
+int send_raw_packet(raw_info_t &raw_info,const char * packet,int len)
+{
+	const packet_info_t &send_info=raw_info.send_info;
+	const packet_info_t &recv_info=raw_info.recv_info;
+
+    if(! send_with_pcap)
+    {
+#ifndef NO_LIBNET
+
+		//g_ptag=libnet_build_ipv4(ip_tot_len, iph->tos, ntohs(iph->id), ntohs(iph->frag_off),
+		//	iph->ttl , iph->protocol , iph->check , iph->saddr, iph->daddr,
+		//	(const unsigned char *)payload, payloadlen, libnet_handle, g_ptag);
+
+		//assert(g_ptag!=-1 &&g_ptag!=0);
+
+		//int ret;
+		//ret= libnet_write(libnet_handle);
+
+		//assert(ret!=-1);
+
+
+		//iph->tot_len=htons(ip_tot_len);
+		//iph->check =csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4);
+    	if(raw_ip_version==AF_INET)
+    	{
+    		libnet_write_raw_ipv4(libnet_handle,(const unsigned char *)packet,len);  //todo, this api is marked as internal, maybe we should avoid using it.
+    	}
+    	else
+    	{
+    		assert(raw_ip_version==AF_INET6);
+    		libnet_write_raw_ipv6(libnet_handle,(const unsigned char *)packet,len);
+    	}
+#endif
+    }
+    else
+    {
+    	char buf[buf_len];
+    	assert(pcap_header_captured==1);
+    	assert(pcap_link_header_len!=-1);
+    	memcpy(buf,pcap_header_buf,pcap_link_header_len);
+    	memcpy(buf+pcap_link_header_len,packet,len);
+    	//pthread_mutex_lock(&pcap_mutex); looks like this is not necessary, and it harms performance
+    	int ret=pcap_sendpacket(pcap_handle,(const unsigned char *)buf,len+pcap_link_header_len);
+		if(ret!=0)
+		{
+			mylog(log_fatal,"pcap_sendpcaket failed with vaule %d,%s\n",ret,pcap_geterr(pcap_handle));
+			//pthread_mutex_unlock(&pcap_mutex);
+			myexit(-1);
+		}
+    	//pthread_mutex_unlock(&pcap_mutex);
+		/*
+	unsigned char *p=(unsigned char *)send_raw_ip_buf0;
+	for(int i=0;i<ip_tot_len+pcap_link_header_len;i++)
+		printf("<%02x>",int(p[i]));
+	printf("\n");
+    	assert(pcap_sendpacket(pcap_handle,(const unsigned char *)pcap_header_buf,cap_len)==0);
+	p=(unsigned char *)pcap_header_buf;
+	for(int i=0;i<cap_len;i++)
+		printf("<%02x>",int(p[i]));
+	printf("\n");
+	printf("pcap send!\n");*/
+    }
+    return 0;
+}
+#endif
+
 int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 {
 	const packet_info_t &send_info=raw_info.send_info;
@@ -796,16 +1371,28 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 		iph->daddr = send_info.new_dst_ip.v4;
 
 		ip_tot_len=sizeof (struct my_iphdr)+payloadlen;
+#ifdef UDP2RAW_LINUX
 		if(lower_level)iph->tot_len = htons(ip_tot_len);            //this is not necessary ,kernel will always auto fill this  //http://man7.org/linux/man-pages/man7/raw.7.html
 		else
 			iph->tot_len = 0;
+#endif
+
+#ifdef UDP2RAW_MP
+		iph->tot_len = htons(ip_tot_len);//always fill for mp version
+#endif
 
 		memcpy(send_raw_ip_buf+sizeof(my_iphdr) , payload, payloadlen);
 
+#ifdef UDP2RAW_LINUX
 		if(lower_level) iph->check =
 				csum ((unsigned short *) send_raw_ip_buf, iph->ihl*4); //this is not necessary ,kernel will always auto fill this
 		else
 			iph->check=0;
+#endif
+
+#ifdef UDP2RAW_MP
+		iph->check =csum((unsigned short *) send_raw_ip_buf, iph->ihl*4);//always cal checksum for mp version
+#endif
     }
     else
     {
@@ -831,6 +1418,7 @@ int send_raw_ip(raw_info_t &raw_info,const char * payload,int payloadlen)
 
 int pre_recv_raw_packet()
 {
+#ifdef UDP2RAW_LINUX
 	assert(g_packet_buf_cnt==0);
 
 	g_sockaddr_len=sizeof(g_sockaddr.ll);
@@ -876,6 +1464,7 @@ int pre_recv_raw_packet()
 		return -1;
 	}
 	g_packet_buf_cnt++;
+#endif
 	return 0;
 }
 int discard_raw_packet()
@@ -884,6 +1473,7 @@ int discard_raw_packet()
 	g_packet_buf_cnt--;
 	return 0;
 }
+#ifdef UDP2RAW_LINUX
 int recv_raw_packet(char * &packet,int &len,int peek)
 {
 	assert(g_packet_buf_cnt==1);
@@ -912,6 +1502,19 @@ int recv_raw_packet(char * &packet,int &len,int peek)
 	len=g_packet_buf_len-int(link_level_header_len);
 	return 0;
 }
+#endif
+#ifdef UDP2RAW_MP
+int recv_raw_packet(char * &packet,int &len,int peek)
+{
+	assert(g_packet_buf_cnt==1);
+	if(!peek)
+		g_packet_buf_cnt--;
+
+	packet=g_packet_buf;
+	len=g_packet_buf_len;
+	return 0;
+}
+#endif
 int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 {
 	char *raw_packet_buf;
@@ -966,11 +1569,12 @@ int recv_raw_ip(raw_info_t &raw_info,char * &payload,int &payloadlen)
 			return -1;
 		}
 	}
-
+#ifdef UDP2RAW_LINUX
 	if(lower_level)
 	{
 		memcpy(&recv_info.addr_ll,&g_sockaddr.ll,sizeof(recv_info.addr_ll));
 	}
+#endif
 
 
 
@@ -2535,7 +3139,7 @@ int try_to_list_and_bind2(int &fd,address_t address)  //try to bind to a port,ma
 	temp_bind_addr.sin_port = htons(port);
 	temp_bind_addr.sin_addr.s_addr = local_ip_uint32;*/
 
-	if (bind(fd, (struct sockaddr*)&address.inner, address.get_len()) !=0)
+	if (::bind(fd, (struct sockaddr*)&address.inner, address.get_len()) !=0)
 	{
 		mylog(log_debug,"bind fail\n");
 		return -1;

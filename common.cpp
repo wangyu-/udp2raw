@@ -345,6 +345,57 @@ int my_ip_t::from_str(char * str)
 	}
 	return 0;
 }*/
+#ifdef UDP2RAW_MP
+
+int init_ws()
+{
+#if defined(__MINGW32__)
+	WORD wVersionRequested;
+	WSADATA wsaData;
+	int err;
+
+	/* Use the MAKEWORD(lowbyte, highbyte) macro declared in Windef.h */
+	wVersionRequested = MAKEWORD(2, 2);
+
+	err = WSAStartup(wVersionRequested, &wsaData);
+	if (err != 0) {
+		/* Tell the user that we could not find a usable */
+		/* Winsock DLL.                                  */
+		printf("WSAStartup failed with error: %d\n", err);
+		exit(-1);
+	}
+
+	/* Confirm that the WinSock DLL supports 2.2.*/
+	/* Note that if the DLL supports versions greater    */
+	/* than 2.2 in addition to 2.2, it will still return */
+	/* 2.2 in wVersion since that is the version we      */
+	/* requested.                                        */
+
+	if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+		/* Tell the user that we could not find a usable */
+		/* WinSock DLL.                                  */
+		printf("Could not find a usable version of Winsock.dll\n");
+		WSACleanup();
+		exit(-1);
+	}
+	else
+	{
+		printf("The Winsock 2.2 dll was found okay");
+	}
+
+	int tmp[]={0,100,200,300,500,800,1000,2000,3000,4000,-1};
+	int succ=0;
+	for(int i=1;tmp[i]!=-1;i++)
+	{
+		if(_setmaxstdio(100)==-1) break;
+		else succ=i;
+	}
+	printf(", _setmaxstdio() was set to %d\n",tmp[succ]);
+#endif
+return 0;
+}
+
+#endif
 
 #if defined(__MINGW32__)
 int inet_pton(int af, const char *src, void *dst)
@@ -492,6 +543,8 @@ void init_random_number_fd()
 	}
 	setnonblocking(random_number_fd);
 }*/
+
+#if !defined(__MINGW32__)
 struct random_fd_t
 {
 	int random_number_fd;
@@ -511,8 +564,60 @@ struct random_fd_t
 		return random_number_fd;
 	}
 }random_fd;
+#else
+struct my_random_t
+{
+    std::random_device rd;
+    std::mt19937 gen;
+    std::uniform_int_distribution<u64_t> dis64;
+    std::uniform_int_distribution<u32_t> dis32;
+
+    std::uniform_int_distribution<unsigned char> dis8;
+
+    my_random_t()
+	{
+    	//std::mt19937 gen_tmp(rd());  //random device is broken on mingw
+	timespec tmp_time;
+	clock_gettime(CLOCK_MONOTONIC, &tmp_time);
+	long  long  a=((u64_t)tmp_time.tv_sec)*1000000000llu+((u64_t)tmp_time.tv_nsec);
+    	std::mt19937 gen_tmp(a);
+    	gen=gen_tmp;
+    	gen.discard(700000);  //magic
+	}
+    u64_t gen64()
+    {
+    	return dis64(gen);
+    }
+    u32_t gen32()
+    {
+    	return dis32(gen);
+    }
+
+    unsigned char gen8()
+    {
+    	return dis8(gen);
+    }
+	/*int random_number_fd;
+	random_fd_t()
+	{
+			random_number_fd=open("/dev/urandom",O_RDONLY);
+			if(random_number_fd==-1)
+			{
+				mylog(log_fatal,"error open /dev/urandom\n");
+				myexit(-1);
+			}
+			setnonblocking(random_number_fd);
+	}
+	int get_fd()
+	{
+		return random_number_fd;
+	}*/
+}my_random;
+#endif
+
 u64_t get_true_random_number_64()
 {
+#if !defined(__MINGW32__)
 	u64_t ret;
 	int size=read(random_fd.get_fd(),&ret,sizeof(ret));
 	if(size!=sizeof(ret))
@@ -521,9 +626,13 @@ u64_t get_true_random_number_64()
 		myexit(-1);
 	}
 	return ret;
+#else
+	return my_random.gen64();  //fake random number
+#endif
 }
 u32_t get_true_random_number()
 {
+#if !defined(__MINGW32__)
 	u32_t ret;
 	int size=read(random_fd.get_fd(),&ret,sizeof(ret));
 	if(size!=sizeof(ret))
@@ -532,6 +641,9 @@ u32_t get_true_random_number()
 		myexit(-1);
 	}
 	return ret;
+#else
+	return my_random.gen32();  //fake random number
+#endif
 }
 u32_t get_true_random_number_nz() //nz for non-zero
 {
@@ -694,6 +806,13 @@ int set_buf_size(int fd,int socket_buf_size)
 {
 	if(force_socket_buf)
 	{
+		if(is_udp2raw_mp)
+		{
+		mylog(log_fatal,"force_socket_buf not supported in this verion\n");
+		myexit(-1);
+		}
+		//assert(0==1);
+#ifdef UDP2RAW_LINUX
 		if(setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &socket_buf_size, sizeof(socket_buf_size))<0)
 		{
 			mylog(log_fatal,"SO_SNDBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
@@ -704,6 +823,8 @@ int set_buf_size(int fd,int socket_buf_size)
 			mylog(log_fatal,"SO_RCVBUFFORCE fail  socket_buf_size=%d  errno=%s\n",socket_buf_size,strerror(errno));
 			myexit(1);
 		}
+#endif
+
 	}
 	else
 	{
@@ -846,6 +967,7 @@ void myexit(int a)
 {
     if(enable_log_color)
    	printf("%s\n",RESET);
+#ifdef UDP2RAW_LINUX
     if(keep_thread_running)
     {
 		if(pthread_cancel(keep_thread))
@@ -858,6 +980,7 @@ void myexit(int a)
 		}
     }
 	clear_iptables_rule();
+#endif
 	exit(a);
 }
 
@@ -927,6 +1050,12 @@ int read_file(const char * file,string &output)
 	return 0;
 }
 int run_command(string command0,char * &output,int flag) {
+if(is_udp2raw_mp)
+{
+    mylog(log_fatal,"run_command not supported in this version\n");
+    myexit(-1);
+}
+#ifdef UDP2RAW_LINUX
     FILE *in;
 
 
@@ -980,6 +1109,7 @@ int run_command(string command0,char * &output,int flag) {
     	return -4;
     }
 
+#endif
     return 0;
 
 }
@@ -1100,6 +1230,7 @@ vector<string> parse_conf_line(const string& s0)
 
 int create_fifo(char * file)
 {
+#ifdef  UDP2RAW_LINUX
 	if(mkfifo (file, 0666)!=0)
 	{
 		if(errno==EEXIST)
@@ -1133,6 +1264,11 @@ int create_fifo(char * file)
 
 	setnonblocking(fifo_fd);
 	return fifo_fd;
+#else
+        mylog(log_fatal,"--fifo not supported in this version\n");
+        myexit(-1);
+	return 0;
+#endif
 }
 
 /*

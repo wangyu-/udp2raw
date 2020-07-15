@@ -30,6 +30,32 @@ extern int ifindex;
 extern char g_packet_buf[huge_buf_len];
 extern int g_packet_buf_len;
 extern int g_packet_buf_cnt;
+#ifdef UDP2RAW_MP
+extern queue_t my_queue;
+
+extern ev_async async_watcher;
+extern struct ev_loop* g_default_loop;
+
+extern pthread_mutex_t queue_mutex;
+extern int use_pcap_mutex;
+
+extern int pcap_cnt;
+
+extern int pcap_link_header_len;
+
+extern int send_with_pcap;
+extern int pcap_header_captured;
+extern int pcap_header_buf[buf_len];
+
+struct icmphdr
+{
+	uint8_t type;
+	uint8_t code;
+	uint16_t check_sum;
+	uint16_t id;
+	uint16_t seq;
+};
+#endif
 
 struct my_iphdr
   {
@@ -212,7 +238,9 @@ struct packet_info_t  //todo change this to union
 
 	bool has_ts;
 
+#ifdef UDP2RAW_LINUX
 	sockaddr_ll addr_ll;
+#endif
 
 	i32_t data_len;
 
@@ -241,7 +269,13 @@ void init_filter(int port);
 
 void remove_filter();
 
+#ifdef UDP2RAW_LINUX
 int init_ifindex(const char * if_name,int fd,int &index);
+#endif
+
+#ifdef UDP2RAW_MP
+int init_ifindex(const char * if_name,int &index);
+#endif
 
 int find_lower_level_info(u32_t ip,u32_t &dest_ip,string &if_name,string &hw);
 
