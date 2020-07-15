@@ -306,7 +306,7 @@ void my_packet_handler(
 	assert(packet_header->caplen <= packet_header->len);
 	assert(packet_header->caplen <= max_data_len);
 	//if(packet_header->caplen > max_data_len) return ;
-	if(packet_header->caplen<packet_header->len) return;
+	if(g_fix_gro==0&&packet_header->caplen<packet_header->len) return;
 
 	if((int)packet_header->caplen<pcap_link_header_len) return;
 	//mylog(log_debug,"and its vaild!\n");
