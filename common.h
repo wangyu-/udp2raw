@@ -27,6 +27,10 @@
 #include <assert.h>
 #include <pthread.h>
 
+#ifndef USE_LIBNET
+#define NO_LIBNET
+#endif
+
 #if defined(UDP2RAW_MP)
 const int is_udp2raw_mp=1;
 #if !defined(__CYGWIN__) && !defined(__MINGW32__)
