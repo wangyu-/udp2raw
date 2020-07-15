@@ -572,7 +572,7 @@ void process_arg(int argc, char *argv[])  //process all options
 				}
 				for(i=0;i<cipher_end;i++)
 				{
-					if(strcmp(optarg,cipher_mode_tostring[i])==0)
+					if(strcmp(s.c_str(),cipher_mode_tostring[i])==0)
 					{
 						cipher_mode=(cipher_mode_t)i;
 						break;
