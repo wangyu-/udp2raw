@@ -12,6 +12,7 @@
 //extern char key[16];
 
 const int aes_key_optimize=1; //if enabled,once you used a key for aes,you cant change it anymore
+extern int aes128cfb_old;
 
 int my_init_keys(const char *,int);
 
