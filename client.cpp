@@ -485,6 +485,11 @@ int client_on_raw_recv(conn_info_t &conn_info) //called when raw fd received a p
 		{
 			return -1;
 		}
+		if(data_len>=max_data_len+1)
+		{
+			mylog(log_debug,"data_len=%d >= max_data_len+1,ignored",data_len);
+			return -1;
+		}
 		if(!recv_info.new_src_ip.equal(send_info.new_dst_ip)||recv_info.src_port!=send_info.dst_port)
 		{
 			mylog(log_debug,"unexpected adress %s %s %d %d\n",recv_info.new_src_ip.get_str1(),send_info.new_dst_ip.get_str2(),recv_info.src_port,send_info.dst_port);

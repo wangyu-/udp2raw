@@ -9,12 +9,12 @@
 
 struct bpf_program
 {
- char a[2000];
+ char a[4096];
 };
 
 struct pcap_t
 {
- char a[2000];
+ char a[4096];
 };
 
 typedef unsigned int bpf_u_int32;

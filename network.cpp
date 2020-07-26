@@ -1441,7 +1441,7 @@ int pre_recv_raw_packet()
 		}
 	}
 
-    if(g_packet_buf_len> max_data_len+1)
+    if(g_packet_buf_len>= max_data_len+1)
     {
         if(g_fix_gro==0)
         {

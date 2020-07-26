@@ -19,7 +19,6 @@ PCAP="-lpcap"
 MP="-DUDP2RAW_MP"
 
 
-
 NAME=udp2raw
 
 TARGETS=amd64 arm amd64_hw_aes arm_asm_aes mips24kc_be mips24kc_be_asm_aes x86 x86_asm_aes mips24kc_le mips24kc_le_asm_aes
@@ -59,7 +58,7 @@ debug: git_version
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -D MY_DEBUG 
 debug2: git_version
 	rm -f ${NAME}
-	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -ggdb
+	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS} -lrt -Wformat-nonliteral -ggdb -fsanitize=address
 
 #targets only for 'make release'
 

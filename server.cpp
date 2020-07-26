@@ -460,6 +460,11 @@ int server_on_raw_recv_multi() //called when server received an raw packet
 			{
 				return 0;
 			}
+			if(data_len>=max_data_len+1)
+			{
+				mylog(log_debug,"data_len=%d >= max_data_len+1,ignored",data_len);
+				return -1;
+			}
 			if(use_tcp_dummy_socket!=0)
 				return 0;
 			raw_info_t &raw_info=tmp_raw_info;

@@ -416,6 +416,13 @@ int recv_bare(raw_info_t &raw_info,char* & data,int & len)//recv function with e
 		//printf("recv_raw_fail in recv bare\n");
 		return -1;
 	}
+
+	if(len>=max_data_len+1)
+	{
+		mylog(log_debug,"data_len=%d >= max_data_len+1,ignored",len);
+		return -1;
+	}
+
 	mylog(log_trace,"data len=%d\n",len);
 	if ((raw_mode == mode_faketcp && (recv_info.syn == 1 || recv_info.ack != 1)))
 	{
@@ -615,7 +622,7 @@ int reserved_parse_safer(conn_info_t &conn_info,const char * input,int input_len
 	}
 
 
-	if(after_recv_raw0(conn_info.raw_info)!=0) return -1;
+	if(after_recv_raw0(conn_info.raw_info)!=0) return -1;  //TODO might need to move this function to somewhere else after --fix-gro is introduced
 
 	return 0;
 }
