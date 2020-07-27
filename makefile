@@ -119,7 +119,7 @@ mac_cross:git_version
 
 release_mp:${TARGETS_MP}
 	cp git_version.h version.txt
-	tar -zcvf ${NAME}_mp_binaries.tar.gz ${NAME}_mp.exe ${NAME}_mp_wepoll.exe ${NAME}_mp_mac
+	tar -zcvf ${NAME}_mp_binaries.tar.gz ${NAME}_mp.exe ${NAME}_mp_wepoll.exe ${NAME}_mp_mac version.txt
 
 
 clean:	
