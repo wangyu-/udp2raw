@@ -35,30 +35,10 @@ Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译bi
 可以把udp2raw运行在局域网的其他机器/虚拟机上。最好的办法是买个能刷OpenWrt/LEDE/梅林的路由器，把udp2raw运行在路由器上。
 
 # 功能特性
-### 把udp流量伪装成tcp /icmp
-用raw socket给udp包加上tcp/icmp包头，可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
-
-### 模拟TCP3次握手
-模拟TCP3次握手，模拟seq ack过程。另外还模拟了一些tcp option：MSS,sackOk,TS,TS_ack,wscale，用来使流量看起来更像是由普通的linux tcp协议栈发送的。
-
-### 心跳保活、自动重连，连接恢复
-心跳保活、自动重连，udp2raw重连可以恢复上次的连接，重连后上层连接继续有效，底层掉线上层不掉线。有效解决上层连接断开的问题。 （功能借鉴自[kcptun-raw](https://github.com/Chion82/kcptun-raw)）（**就算你拔掉网线重插，或者重新拨号获得新ip，上层应用也不会断线**）
-
-### 加密 防重放攻击
-用aes128cbc加密(或更弱的xor)，hmac-sha1(或更弱的md5/crc32/simple)做数据完整校验。用类似ipsec/openvpn的replay window机制来防止重放攻击。
-
-设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。
-
-### 其他特性
-信道复用，client的udp端支持多个连接。
-
-server支持多个client，也能正确处理多个连接的重连和连接恢复。
-
-NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
-
-支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed
-
-支持Openwrt，没有编译依赖，容易编译到任何平台上。
+* 把udp流量伪装成tcp /icmp
+* 模拟TCP3次握手
+* 心跳保活、自动重连，连接恢复
+* 加密 防重放攻击
 
 ### 关键词
 突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
@@ -264,25 +244,6 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 [udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
 ### 中转 finalspeed
 [udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
-# 如何自己编译
-[编译教程](build_guide.zh-cn.md)
-# 相关repo
-### kcptun-raw
-udp2raw was inspired by kcptun-raw,which modified kcptun to support tcp mode.
-
-https://github.com/Chion82/kcptun-raw
-### relayRawSocket
-kcptun-raw was inspired by relayRawSocket. A simple  udp to raw tunnel,wrote in python
-
-https://github.com/linhua55/some_kcptun_tools/tree/master/relayRawSocket
-### kcpraw
-another project of kcptun with tcp mode
-
-https://github.com/ccsexyz/kcpraw
-### icmptunnel
-Transparently tunnel your IP traffic through ICMP echo and reply packets.
-
-https://github.com/DhavalKapil/icmptunnel
 
 # wiki
 
