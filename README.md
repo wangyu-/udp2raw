@@ -36,6 +36,8 @@ In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a co
 * Protect data integrity by HMAC-SHA1 (or weaker MD5/CRC32).
 * Defense replay attack with anti-replay window.
 
+[Notes on encryption](https://github.com/wangyu-/udp2raw-tunnel/wiki/Notes-on-encryption)
+
 ### Failure Dectection & Stablization (Connection Recovery)
 Conection failures are detected by heartbeats. If timed-out, client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild.
 
