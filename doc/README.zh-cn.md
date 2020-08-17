@@ -38,7 +38,7 @@ Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译bi
 * 把udp流量伪装成tcp /icmp
 * 模拟TCP3次握手
 * 心跳保活、自动重连，连接恢复
-* 加密 防重放攻击
+* 加密, 防重放攻击
 
 ### 关键词
 突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
