@@ -24,34 +24,10 @@ Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspb
 For Windows and MacOS users, use the udp2raw in [this repo](https://github.com/wangyu-/udp2raw-multiplatform).
 
 # Features
-### Send/Receive UDP Packets with ICMP/FakeTCP/UDP headers
-ICMP/FakeTCP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. In ICMP header mode,udp2raw works like an ICMP tunnel.
-
-UDP headers are also supported. In UDP header mode, it behaves just like a normal UDP tunnel, and you can just make use of the other features (such as encryption, anti-replay, or connection stalization).
-
-### Simulated TCP with Real-time/Out-of-Order Delivery
-In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a connection,simulates seq and ack_seq while data transferring. It also simulates following TCP options: `MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`.Firewalls will regard FakeTCP as a TCP connection, but its essentially UDP: it supports real-time/out-of-order delivery(just as normal UDP does), no congestion control or re-transmission. So there wont be any TCP over TCP problem when using OpenVPN.
-
-### Encryption, Anti-Replay
-* Encrypt your traffic with AES-128-CBC.
-* Protect data integrity by HMAC-SHA1 (or weaker MD5/CRC32).
-* Defense replay attack with an anti-replay window, smiliar to IPSec and OpenVPN.
-
-### Failure Dectection & Stablization (Connection Recovery)
-Conection failures are detected by heartbeats. If timed-out, client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild.
-
-For example, if you use udp2raw + OpenVPN, OpenVPN won't lose connection after any reconnect, **even if network cable is re-plugged or WiFi access point is changed**.
-
-### Other Features
-* **Multiplexing** One client can handle multiple UDP connections, all of which share the same raw connection.
-
-* **Multiple Clients** One server can have multiple clients.
-
-* **NAT Support** All of the 3 modes work in NAT environments.
-
-* **OpenVZ Support** Tested on BandwagonHost VPS.
-
-* **Easy to Build** No dependencies.To cross-compile udp2raw,all you need to do is just to download a toolchain,modify makefile to point at the toolchain,run `make cross` then everything is done.(Note:Pre-compiled binaries for Desktop,RaspberryPi,Android,some Openwrt Routers are already included in [Releases](https://github.com/wangyu-/udp2raw-tunnel/releases))
+* Send/Receive UDP Packets with ICMP/FakeTCP/UDP headers
+* Simulated TCP with Real-time/Out-of-Order Delivery
+* Encryption, Anti-Replay
+* Failure Dectection & Stablization (Connection Recovery)
 
 ### Keywords
 `Bypass UDP QoS` `Bypass UDP Blocking` `Bypass OpenVPN TCP over TCP problem` `OpenVPN over ICMP` `UDP to ICMP tunnel` `UDP to TCP tunnel` `UDP over ICMP` `UDP over TCP`
@@ -218,63 +194,6 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 ![image5](images/image5.PNG)
 
 (reverse speed was simliar and not uploaded)
-
-# Application
-## Tunneling any traffic via raw traffic by using udp2raw +openvpn
-![image_vpn](images/udp2rawopenvpn.PNG)
-1. Bypasses UDP block/UDP QOS
-
-2. No TCP over TCP problem (TCP over TCP problem http://sites.inka.de/bigred/devel/tcp-tcp.html ,https://community.openvpn.net/openvpn/ticket/2 )
-
-3. OpenVpn over ICMP also becomes a choice
-
-4. Supports almost any UDP-based VPN
-
-More details at [openvpn+udp2raw_guide](https://github.com/wangyu-/udp2raw-tunnel/wiki/udp2raw-openvpn-config-guide)
-## Speed-up tcp connection via raw traffic by using udp2raw+kcptun
-kcptun is a tcp connection speed-up program,it speeds-up tcp connection by using kcp protocol on-top of udp.by using udp2raw,you can use kcptun while udp is QoSed or blocked.
-(kcptun, https://github.com/xtaci/kcptun)
-
-## Speed-up tcp connection via raw traffic by using udp2raw+finalspeed
-finalspeed is a tcp connection speed-up program similiar to kcptun,it speeds-up tcp connection by using kcp protocol on-top of udp or tcp.but its tcp mode doesnt support openvz,you can bypass this problem if you use udp2raw+finalspeed together,and icmp mode also becomes avaliable.
-
-# How to build
-read [build_guide](/doc/build_guide.md)
-
-# Other
-### Easier installation on ArchLinux
-```
-yaourt -S udp2raw-tunnel # or
-pacaur -S udp2raw-tunnel
-```
-
-# Related work
-### kcptun-raw
-udp2raw was inspired by kcptun-raw,which modified kcptun to support tcp mode.
-
-https://github.com/Chion82/kcptun-raw
-### relayRawSocket
-kcptun-raw was inspired by relayRawSocket. A simple  udp to raw tunnel,wrote in python
-
-https://github.com/linhua55/some_kcptun_tools/tree/master/relayRawSocket
-### kcpraw
-another project of kcptun with tcp mode
-
-https://github.com/ccsexyz/kcpraw
-
-### icmptunnel
-Transparently tunnel your IP traffic through ICMP echo and reply packets.
-
-https://github.com/DhavalKapil/icmptunnel
-
-### Tcp Minion
-Tcp Minion is a project which modifid the code of tcp stack in kernel,and implemented real-time out-order udp packet delivery through this modified tcp stack.I failed to find the implementation,but there are some papers avaliable:
-
-https://arxiv.org/abs/1103.0463
-
-http://korz.cs.yale.edu/2009/tng/papers/pfldnet10.pdf
-
-https://pdfs.semanticscholar.org/9e6f/e2306f4385b4eb5416d1fcab16e9361d6ba3.pdf
 
 # wiki
 
