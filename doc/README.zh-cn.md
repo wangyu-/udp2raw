@@ -14,21 +14,19 @@ udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过
 
 **提示：**
 
-udp2raw不是加速器，只是一个帮助你绕过UDP限制的工具。如果你需要UDP加速器，请看UDPspeeder。
+udp2raw不是加速器，只是一个帮助你绕过UDP限制的工具。如果你需要UDP“加速器” (改善UDP丢包)，请看UDPspeeder。
 
 UDPspeeder的repo:
 
 https://github.com/wangyu-/UDPspeeder
 # 支持的平台
-Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
+Linux主机，有root权限或cap_net_raw capability.。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
 
 Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译binary.
 
 ##### 对于windows和mac用户：
 
-可以用[这个repo](https://github.com/wangyu-/udp2raw-multiplatform)里的udp2raw，原生运行。
-
-<del>可以把udp2raw运行在虚拟机上(网络必须是桥接模式)。可以参考： https://github.com/wangyu-/udp2raw-tunnel/wiki/在windows-mac上运行udp2raw客户端，带图形界面 </del>
+可以用[这个repo](https://github.com/wangyu-/udp2raw-multiplatform)里的udp2raw。
 
 ##### 对于ios和游戏主机用户：
 
@@ -44,10 +42,10 @@ Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译bi
 ### 心跳保活、自动重连，连接恢复
 心跳保活、自动重连，udp2raw重连可以恢复上次的连接，重连后上层连接继续有效，底层掉线上层不掉线。有效解决上层连接断开的问题。 （功能借鉴自[kcptun-raw](https://github.com/Chion82/kcptun-raw)）（**就算你拔掉网线重插，或者重新拨号获得新ip，上层应用也不会断线**）
 
-### 加密 防重放攻击
+### 加密、防重放攻击
 用aes128cbc加密(或更弱的xor)，hmac-sha1(或更弱的md5/crc32/simple)做数据完整校验。用类似ipsec/openvpn的replay window机制来防止重放攻击。
 
-设计目标是，即使攻击者可以监听到tunnel的所有包，可以选择性丢弃tunnel的任意包，可以重放任意包；攻击者也没办法获得tunnel承载的任何数据，也没办法向tunnel的数据流中通过包构造/包重放插入任何数据。
+[Notes on encryption](https://github.com/wangyu-/udp2raw-tunnel/wiki/Notes-on-encryption)
 
 ### 其他特性
 信道复用，client的udp端支持多个连接。
@@ -56,7 +54,7 @@ server支持多个client，也能正确处理多个连接的重连和连接恢�
 
 NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
 
-支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed
+支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed.
 
 支持Openwrt，没有编译依赖，容易编译到任何平台上。
 
@@ -264,25 +262,6 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 [udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
 ### 中转 finalspeed
 [udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
-# 如何自己编译
-[编译教程](build_guide.zh-cn.md)
-# 相关repo
-### kcptun-raw
-udp2raw was inspired by kcptun-raw,which modified kcptun to support tcp mode.
-
-https://github.com/Chion82/kcptun-raw
-### relayRawSocket
-kcptun-raw was inspired by relayRawSocket. A simple  udp to raw tunnel,wrote in python
-
-https://github.com/linhua55/some_kcptun_tools/tree/master/relayRawSocket
-### kcpraw
-another project of kcptun with tcp mode
-
-https://github.com/ccsexyz/kcpraw
-### icmptunnel
-Transparently tunnel your IP traffic through ICMP echo and reply packets.
-
-https://github.com/DhavalKapil/icmptunnel
 
 # wiki
 

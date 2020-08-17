@@ -1,26 +1,26 @@
 # Udp2raw-tunnel
 
 
-A Tunnel which turns UDP Traffic into Encrypted FakeTCP/UDP/ICMP Traffic by using Raw Socket, helps you Bypass UDP FireWalls(or Unstable UDP Environment). It can defend Replay-Attack and supports Multiplexing. It also acts as a Connection Stabilizer.
-
-![image0](images/image0.PNG)
+A Tunnel which turns UDP Traffic into Encrypted FakeTCP/UDP/ICMP Traffic by using Raw Socket, helps you Bypass UDP FireWalls(or Unstable UDP Environment).
 
 When used alone,udp2raw tunnels only UDP traffic. Nevertheless,if you used udp2raw + any UDP-based VPN together,you can tunnel any traffic(include TCP/UDP/ICMP),currently OpenVPN/L2TP/ShadowVPN and [tinyfecVPN](https://github.com/wangyu-/tinyfecVPN) are confirmed to be supported.
 
-![image_vpn](images/udp2rawopenvpn.PNG)
 
-[简体中文](/doc/README.zh-cn.md)(内容更丰富)
+![image0](images/image0.PNG)
+
+or
+
+![image_vpn](images/udp2rawopenvpn.PNG)
 
 [udp2raw wiki](https://github.com/wangyu-/udp2raw-tunnel/wiki)
 
+[简体中文](/doc/README.zh-cn.md)(内容更丰富)
+
+
 # Support Platforms
-Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
+Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root account or cap_net_raw capability.
 
 For Windows and MacOS users, use the udp2raw in [this repo](https://github.com/wangyu-/udp2raw-multiplatform).
-
-<del>For Windows and MacOS You can run udp2raw inside [this](https://github.com/wangyu-/udp2raw-tunnel/releases/download/20171108.0/lede-17.01.2-x86_virtual_machine_image.zip) 7.5mb virtual machine image(make sure network adapter runs at bridged mode).</del>
-
-
 
 # Features
 ### Send/Receive UDP Packets with ICMP/FakeTCP/UDP headers
@@ -29,12 +29,14 @@ ICMP/FakeTCP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT b
 UDP headers are also supported. In UDP header mode, it behaves just like a normal UDP tunnel, and you can just make use of the other features (such as encryption, anti-replay, or connection stalization).
 
 ### Simulated TCP with Real-time/Out-of-Order Delivery
-In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a connection,simulates seq and ack_seq while data transferring. It also simulates following TCP options: `MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`.Firewalls will regard FakeTCP as a TCP connection, but its essentially UDP: it supports real-time/out-of-order delivery(just as normal UDP does), no congestion control or re-transmission. So there wont be any TCP over TCP problem when using OpenVPN.
+In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a connection,simulates seq and ack_seq while data transferring. It also simulates a few TCP options such as: `MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`. Firewalls will regard FakeTCP as a TCP connection, but its essentially UDP: it supports real-time/out-of-order delivery(just as normal UDP does), no congestion control or re-transmission. So there wont be any TCP over TCP problem when using OpenVPN.
 
 ### Encryption, Anti-Replay
 * Encrypt your traffic with AES-128-CBC.
 * Protect data integrity by HMAC-SHA1 (or weaker MD5/CRC32).
-* Defense replay attack with an anti-replay window, smiliar to IPSec and OpenVPN.
+* Defense replay attack with anti-replay window.
+
+[Notes on encryption](https://github.com/wangyu-/udp2raw-tunnel/wiki/Notes-on-encryption)
 
 ### Failure Dectection & Stablization (Connection Recovery)
 Conection failures are detected by heartbeats. If timed-out, client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild.
@@ -217,63 +219,6 @@ raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 ![image5](images/image5.PNG)
 
 (reverse speed was simliar and not uploaded)
-
-# Application
-## Tunneling any traffic via raw traffic by using udp2raw +openvpn
-![image_vpn](images/udp2rawopenvpn.PNG)
-1. Bypasses UDP block/UDP QOS
-
-2. No TCP over TCP problem (TCP over TCP problem http://sites.inka.de/bigred/devel/tcp-tcp.html ,https://community.openvpn.net/openvpn/ticket/2 )
-
-3. OpenVpn over ICMP also becomes a choice
-
-4. Supports almost any UDP-based VPN
-
-More details at [openvpn+udp2raw_guide](https://github.com/wangyu-/udp2raw-tunnel/wiki/udp2raw-openvpn-config-guide)
-## Speed-up tcp connection via raw traffic by using udp2raw+kcptun
-kcptun is a tcp connection speed-up program,it speeds-up tcp connection by using kcp protocol on-top of udp.by using udp2raw,you can use kcptun while udp is QoSed or blocked.
-(kcptun, https://github.com/xtaci/kcptun)
-
-## Speed-up tcp connection via raw traffic by using udp2raw+finalspeed
-finalspeed is a tcp connection speed-up program similiar to kcptun,it speeds-up tcp connection by using kcp protocol on-top of udp or tcp.but its tcp mode doesnt support openvz,you can bypass this problem if you use udp2raw+finalspeed together,and icmp mode also becomes avaliable.
-
-# How to build
-read [build_guide](/doc/build_guide.md)
-
-# Other
-### Easier installation on ArchLinux
-```
-yaourt -S udp2raw-tunnel # or
-pacaur -S udp2raw-tunnel
-```
-
-# Related work
-### kcptun-raw
-udp2raw was inspired by kcptun-raw,which modified kcptun to support tcp mode.
-
-https://github.com/Chion82/kcptun-raw
-### relayRawSocket
-kcptun-raw was inspired by relayRawSocket. A simple  udp to raw tunnel,wrote in python
-
-https://github.com/linhua55/some_kcptun_tools/tree/master/relayRawSocket
-### kcpraw
-another project of kcptun with tcp mode
-
-https://github.com/ccsexyz/kcpraw
-
-### icmptunnel
-Transparently tunnel your IP traffic through ICMP echo and reply packets.
-
-https://github.com/DhavalKapil/icmptunnel
-
-### Tcp Minion
-Tcp Minion is a project which modifid the code of tcp stack in kernel,and implemented real-time out-order udp packet delivery through this modified tcp stack.I failed to find the implementation,but there are some papers avaliable:
-
-https://arxiv.org/abs/1103.0463
-
-http://korz.cs.yale.edu/2009/tng/papers/pfldnet10.pdf
-
-https://pdfs.semanticscholar.org/9e6f/e2306f4385b4eb5416d1fcab16e9361d6ba3.pdf
 
 # wiki
 
