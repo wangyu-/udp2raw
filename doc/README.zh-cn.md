@@ -14,13 +14,13 @@ udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过
 
 **提示：**
 
-udp2raw不是加速器，只是一个帮助你绕过UDP限制的工具。如果你需要UDP加速器，请看UDPspeeder。
+udp2raw不是加速器，只是一个帮助你绕过UDP限制的工具。如果你需要UDP“加速器” (改善UDP丢包)，请看UDPspeeder。
 
 UDPspeeder的repo:
 
 https://github.com/wangyu-/UDPspeeder
 # 支持的平台
-Linux主机，有root权限。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
+Linux主机，有root权限或cap_net_raw capability.。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
 
 Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译binary.
 
