@@ -44,7 +44,7 @@ Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译bi
 ### 心跳保活、自动重连，连接恢复
 心跳保活、自动重连，udp2raw重连可以恢复上次的连接，重连后上层连接继续有效，底层掉线上层不掉线。有效解决上层连接断开的问题。 （功能借鉴自[kcptun-raw](https://github.com/Chion82/kcptun-raw)）（**就算你拔掉网线重插，或者重新拨号获得新ip，上层应用也不会断线**）
 
-### 加密 防重放攻击
+### 加密、防重放攻击
 用aes128cbc加密(或更弱的xor)，hmac-sha1(或更弱的md5/crc32/simple)做数据完整校验。用类似ipsec/openvpn的replay window机制来防止重放攻击。
 
 ### 其他特性
@@ -54,7 +54,7 @@ server支持多个client，也能正确处理多个连接的重连和连接恢�
 
 NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
 
-支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed
+支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed.
 
 支持Openwrt，没有编译依赖，容易编译到任何平台上。
 
