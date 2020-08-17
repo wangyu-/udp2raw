@@ -35,10 +35,28 @@ Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译bi
 可以把udp2raw运行在局域网的其他机器/虚拟机上。最好的办法是买个能刷OpenWrt/LEDE/梅林的路由器，把udp2raw运行在路由器上。
 
 # 功能特性
-* 把udp流量伪装成tcp /icmp
-* 模拟TCP3次握手
-* 心跳保活、自动重连，连接恢复
-* 加密, 防重放攻击
+### 把udp流量伪装成tcp /icmp
+用raw socket给udp包加上tcp/icmp包头，可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
+
+### 模拟TCP3次握手
+模拟TCP3次握手，模拟seq ack过程。另外还模拟了一些tcp option：MSS,sackOk,TS,TS_ack,wscale，用来使流量看起来更像是由普通的linux tcp协议栈发送的。
+
+### 心跳保活、自动重连，连接恢复
+心跳保活、自动重连，udp2raw重连可以恢复上次的连接，重连后上层连接继续有效，底层掉线上层不掉线。有效解决上层连接断开的问题。 （功能借鉴自[kcptun-raw](https://github.com/Chion82/kcptun-raw)）（**就算你拔掉网线重插，或者重新拨号获得新ip，上层应用也不会断线**）
+
+### 加密 防重放攻击
+用aes128cbc加密(或更弱的xor)，hmac-sha1(或更弱的md5/crc32/simple)做数据完整校验。用类似ipsec/openvpn的replay window机制来防止重放攻击。
+
+### 其他特性
+信道复用，client的udp端支持多个连接。
+
+server支持多个client，也能正确处理多个连接的重连和连接恢复。
+
+NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
+
+支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed
+
+支持Openwrt，没有编译依赖，容易编译到任何平台上。
 
 ### 关键词
 突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
