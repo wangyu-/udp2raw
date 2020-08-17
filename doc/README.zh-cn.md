@@ -45,6 +45,8 @@ Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译bi
 ### 加密、防重放攻击
 用aes128cbc加密(或更弱的xor)，hmac-sha1(或更弱的md5/crc32/simple)做数据完整校验。用类似ipsec/openvpn的replay window机制来防止重放攻击。
 
+[Notes on encryption](https://github.com/wangyu-/udp2raw-tunnel/wiki/Notes-on-encryption)
+
 ### 其他特性
 信道复用，client的udp端支持多个连接。
 
