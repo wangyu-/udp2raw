@@ -12,18 +12,16 @@ or
 
 ![image_vpn](images/udp2rawopenvpn.PNG)
 
-[简体中文](/doc/README.zh-cn.md)(内容更丰富)
-
 [udp2raw wiki](https://github.com/wangyu-/udp2raw-tunnel/wiki)
 
+[简体中文](/doc/README.zh-cn.md)(内容更丰富)
+
+
+
 # Support Platforms
-Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access.
+Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root access or `cap_net_raw`.
 
 For Windows and MacOS users, use the udp2raw in [this repo](https://github.com/wangyu-/udp2raw-multiplatform).
-
-<del>For Windows and MacOS You can run udp2raw inside [this](https://github.com/wangyu-/udp2raw-tunnel/releases/download/20171108.0/lede-17.01.2-x86_virtual_machine_image.zip) 7.5mb virtual machine image(make sure network adapter runs at bridged mode).</del>
-
-
 
 # Features
 ### Send/Receive UDP Packets with ICMP/FakeTCP/UDP headers
