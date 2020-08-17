@@ -34,7 +34,7 @@ In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a co
 ### Encryption, Anti-Replay
 * Encrypt your traffic with AES-128-CBC.
 * Protect data integrity by HMAC-SHA1 (or weaker MD5/CRC32).
-* Defense replay attack with an anti-replay window.
+* Defense replay attack with anti-replay window.
 
 ### Failure Dectection & Stablization (Connection Recovery)
 Conection failures are detected by heartbeats. If timed-out, client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild.
