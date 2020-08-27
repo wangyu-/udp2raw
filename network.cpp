@@ -1307,9 +1307,9 @@ int send_raw_packet(raw_info_t &raw_info,const char * packet,int len)
     	int ret=pcap_sendpacket(pcap_handle,(const unsigned char *)buf,len+pcap_link_header_len);
 		if(ret!=0)
 		{
-			mylog(log_fatal,"pcap_sendpcaket failed with vaule %d,%s\n",ret,pcap_geterr(pcap_handle));
+			mylog(log_warn,"pcap_sendpcaket failed with vaule %d,%s, data_len=%d\n",ret,pcap_geterr(pcap_handle),len);
 			//pthread_mutex_unlock(&pcap_mutex);
-			myexit(-1);
+			//myexit(-1);
 		}
     	//pthread_mutex_unlock(&pcap_mutex);
 		/*
