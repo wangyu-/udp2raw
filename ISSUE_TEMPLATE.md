@@ -1,1 +1,1 @@
-English Only.
+English Only (except for bug reporting).
