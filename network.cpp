@@ -312,7 +312,7 @@ void my_packet_handler(
 	printf("\n");*/
 	//mylog(log_debug,"received a packet!\n");
 	assert(packet_header->caplen <= packet_header->len);
-	assert(packet_header->caplen <= max_data_len);
+	assert(packet_header->caplen <= huge_data_len);
 	//if(packet_header->caplen > max_data_len) return ;
 	if(g_fix_gro==0&&packet_header->caplen<packet_header->len) return;
 
