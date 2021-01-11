@@ -724,7 +724,7 @@ void async_cb(struct ev_loop *loop, struct ev_async *watcher, int revents)
 		if(empty) break;
 		if(g_fix_gro==0&&len>max_data_len)
 		{
-		    mylog(log_warn,"huge packet %d > %d, dropped\n",len,max_data_len);
+		    mylog(log_warn,"huge packet %d > %d, dropped. maybe you need to turn down mtu at upper level, or maybe you need the --fix-gro option\n",len,max_data_len);
 		    break;
 		}
 
