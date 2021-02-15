@@ -68,6 +68,8 @@ const int is_udp2raw_mp=0;
 #if defined(__MINGW32__)
 #include <winsock2.h>
 #include <ws2ipdef.h>
+#include <ws2def.h>
+#include <ws2tcpip.h>
 typedef unsigned char u_int8_t;
 typedef unsigned short u_int16_t;
 typedef unsigned int u_int32_t;
@@ -78,6 +80,7 @@ typedef int socklen_t;
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #endif
 
 
@@ -238,7 +241,7 @@ struct address_t  //TODO scope id
 		return 0;
 	}
 
-	int from_str(char * str);
+	int from_str(std::string str);
 
 	int from_str_ip_only(char * str);
 
