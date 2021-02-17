@@ -2444,7 +2444,7 @@ int parse_tcp_option(char * option_begin,char * option_end,packet_info_t &recv_i
     		//printf("<%d %d>!\n",recv_info.ts,recv_info.ts_ack);
 
     		//return 0;//we currently only parse ts, so just return after its found
-    		ptr+=8;
+    		ptr+=10;
     	}
     	else
     	{

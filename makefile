@@ -91,22 +91,22 @@ release: ${TARGETS}
 
 #targets for multi-platform version (native compile)
 cygwin:git_version
-	${cc_local}   -o ${NAME}_$@          -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -lrt -ggdb -static -O2 -D_GNU_SOURCE
+	${cc_local}   -o ${NAME}_$@          -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -lrt -ggdb -static -O2 -D_GNU_SOURCE ${MP}
 
 mingw:git_version
-	${cc_local}   -o ${NAME}_$@         -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -ggdb -static -O2 -lws2_32
+	${cc_local}   -o ${NAME}_$@         -I. ${SOURCES} pcap_wrapper.cpp ${FLAGS} -ggdb -static -O2 -lws2_32 ${MP}
 
 mingw_wepoll:git_version
-	${cc_local}   -o ${NAME}_$@        -I. ${SOURCES0} pcap_wrapper.cpp ${FLAGS} -ggdb -static -O2 -DNO_LIBEV_EMBED -D_WIN32 -lev -lws2_32
+	${cc_local}   -o ${NAME}_$@        -I. ${SOURCES0} pcap_wrapper.cpp ${FLAGS} -ggdb -static -O2 -DNO_LIBEV_EMBED -D_WIN32 -lev -lws2_32 ${MP}
 
 linux:git_version
-	${cc_local}   -o ${NAME}_$@          -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2
+	${cc_local}   -o ${NAME}_$@          -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 ${MP}
 
 freebsd:git_version
-	${cc_local}   -o ${NAME}_$@        -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2
+	${cc_local}   -o ${NAME}_$@        -I. ${SOURCES} ${PCAP} ${FLAGS} -lrt -ggdb -static -O2 ${MP}
 
 mac:git_version
-	${cc_local}   -o ${NAME}_$@        -I. ${SOURCES} ${PCAP} ${FLAGS} -ggdb -O2
+	${cc_local}   -o ${NAME}_$@        -I. ${SOURCES} ${PCAP} ${FLAGS} -ggdb -O2 ${MP}
 
 #targets for multi-platform version (cross compile)
 
