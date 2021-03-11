@@ -1180,7 +1180,7 @@ vector<string> parse_conf_line(const string& s0)
 	int i=int(s.length())-1;
 	int j;
 	vector<string>res;
-	strcpy(buf,(char *)s.c_str());
+	//strcpy(buf,(char *)s.c_str());
 	while(i>=0)
 	{
 		if(buf[i]==' ' || buf[i]== '\t')
