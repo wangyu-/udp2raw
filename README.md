@@ -14,7 +14,7 @@ or
 
 [udp2raw wiki](https://github.com/wangyu-/udp2raw-tunnel/wiki)
 
-[简体中文](/doc/README.zh-cn.md)(内容更丰富)
+[简体中文](/doc/README.zh-cn.md)
 
 
 # Support Platforms
