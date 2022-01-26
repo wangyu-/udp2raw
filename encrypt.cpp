@@ -1,4 +1,5 @@
 #include "lib/aes-common.h"
+#include "lib/chacha20.h"
 #include "lib/md5.h"
 #include "lib/pbkdf2-sha1.h"
 #include "lib/pbkdf2-sha256.h"
@@ -30,7 +31,7 @@ char gro_xor[256+100];//dirty fix for gro
 
 unordered_map<int, const char *> auth_mode_tostring = {{auth_none, "none"}, {auth_md5, "md5"}, {auth_crc32, "crc32"},{auth_simple,"simple"},{auth_hmac_sha1,"hmac_sha1"},};
 
-unordered_map<int, const char *> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cfb,"aes128cfb"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"},};
+unordered_map<int, const char *> cipher_mode_tostring={{cipher_none,"none"},{cipher_aes128cfb,"aes128cfb"},{cipher_aes128cbc,"aes128cbc"},{cipher_xor,"xor"},{cipher_chacha12,"chacha12"},{cipher_chacha20,"chacha20"},};
 //TODO aes-gcm
 
 auth_mode_t auth_mode=auth_md5;
@@ -371,6 +372,20 @@ int cipher_aes128cfb_encrypt(const char *data,char *output,int &len,char * key)
 	AES_CFB_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
 	return 0;
 }
+int cipher_chacha12_encrypt(const char *data,char *output,int &len,char * key)
+{	
+	ChaCha12XOR((uint8_t *) key, 1, (uint8_t *) zero_iv,
+                (uint8_t *) data, (uint8_t *) output, len);
+	//AES_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	return 0;
+}
+int cipher_chacha20_encrypt(const char *data,char *output,int &len,char * key)
+{	
+	ChaCha20XOR((uint8_t *) key, 1, (uint8_t *) zero_iv,
+                (uint8_t *) data, (uint8_t *) output, len);
+	//AES_CBC_encrypt_buffer((unsigned char *)output,(unsigned char *)buf,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	return 0;
+}
 int auth_crc32_verify(const char *data,int &len)
 {
 	if(len<int(sizeof(unsigned int)))
@@ -426,7 +441,19 @@ int cipher_aes128cfb_decrypt(const char *data,char *output,int &len,char * key)
 	//if(de_padding(output,len,16)<0) return -1;
 	return 0;
 }
-
+int cipher_chacha12_decrypt(const char *data,char *output,int &len,char * key)
+{
+	ChaCha12XOR((uint8_t *) key, 1, (uint8_t *) zero_iv,
+                (uint8_t *) data, (uint8_t *) output, len);
+	return 0;
+}
+int cipher_chacha20_decrypt(const char *data,char *output,int &len,char * key)
+{
+	ChaCha20XOR((uint8_t *) key, 1, (uint8_t *) zero_iv,
+                (uint8_t *) data, (uint8_t *) output, len);
+	//AES_CBC_decrypt_buffer((unsigned char *)output,(unsigned char *)data,len,(unsigned char *)key,(unsigned char *)zero_iv);
+	return 0;
+}
 int cipher_none_decrypt(const char *data,char *output,int &len,char * key)
 {
 	memcpy(output,data,len);
@@ -471,6 +498,8 @@ int cipher_encrypt(const char *data,char *output,int &len,char * key)
 	switch(cipher_mode)
 	{
 	case cipher_aes128cbc:return cipher_aes128cbc_encrypt(data,output,len, key);
+	case cipher_chacha12:return cipher_chacha12_encrypt(data,output,len, key);
+	case cipher_chacha20:return cipher_chacha20_encrypt(data,output,len, key);
 	case cipher_aes128cfb:return cipher_aes128cfb_encrypt(data,output,len, key);
 	case cipher_xor:return cipher_xor_encrypt(data,output,len, key);
 	case cipher_none:return cipher_none_encrypt(data,output,len, key);
@@ -485,6 +514,8 @@ int cipher_decrypt(const char *data,char *output,int &len,char * key)
 	switch(cipher_mode)
 	{
 		case cipher_aes128cbc:return cipher_aes128cbc_decrypt(data,output,len, key);
+		case cipher_chacha12:return cipher_chacha12_decrypt(data,output,len, key);
+		case cipher_chacha20:return cipher_chacha20_decrypt(data,output,len, key);
 		case cipher_aes128cfb:return cipher_aes128cfb_decrypt(data,output,len, key);
 		case cipher_xor:return cipher_xor_decrypt(data,output,len, key);
 		case cipher_none:return cipher_none_decrypt(data,output,len, key);

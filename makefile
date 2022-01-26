@@ -12,7 +12,7 @@ cc_tmp= /home/wangyu/OpenWrt-SDK-15.05-x86-64_gcc-4.8-linaro_uClibc-0.9.33.2.Lin
 
 FLAGS= -std=c++11 -Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers ${OPT}
 
-COMMON=main.cpp lib/md5.cpp lib/pbkdf2-sha1.cpp lib/pbkdf2-sha256.cpp encrypt.cpp log.cpp network.cpp common.cpp  connection.cpp misc.cpp fd_manager.cpp client.cpp server.cpp -lpthread my_ev.cpp -isystem libev
+COMMON=main.cpp lib/chacha20.c lib/md5.cpp lib/pbkdf2-sha1.cpp lib/pbkdf2-sha256.cpp encrypt.cpp log.cpp network.cpp common.cpp  connection.cpp misc.cpp fd_manager.cpp client.cpp server.cpp -lpthread my_ev.cpp -isystem libev
 SOURCES= $(COMMON) lib/aes_faster_c/aes.cpp lib/aes_faster_c/wrapper.cpp
 SOURCES_TINY_AES= $(COMMON) lib/aes.c
 SOURCES_AES_ACC=$(COMMON) $(wildcard lib/aes_acc/aes*.c)
