@@ -161,7 +161,7 @@ other options:
 如果要最大的安全性建议用aes128cbc+hmac_sha1。如果要运行在路由器上，建议用xor+simple，可以节省CPU。但是注意xor+simple只能骗过防火墙的包检测，不能防止真正的攻击者。
 
 ### `--seq-mode`
-facktcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和真正的tcp流量区分开来（虽然大部分ISP不太可能做这种程度的包检测）。seq-mode可以改变一些seq ack的行为。如果遇到了连接问题，可以尝试更改。在我这边的移动线路用3种模式都没问题。
+faketcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和真正的tcp流量区分开来（虽然大部分ISP不太可能做这种程度的包检测）。seq-mode可以改变一些seq ack的行为。如果遇到了连接问题，可以尝试更改。在我这边的移动线路用3种模式都没问题。
 
 ### `--keep-rule`
 定期主动检查iptables，如果udp2raw添加的iptables规则丢了，就重新添加。在一些iptables可能会被其他程序清空的情况下(比如梅林固件和openwrt的路由器)格外有用。
