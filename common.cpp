@@ -9,26 +9,31 @@
 #include "log.h"
 #include "misc.h"
 
+#include <assert.h>
 #include <random>
 #include <cmath>
+#include <string>
+#include <iostream>
 
 //static int random_number_fd=-1;
 int force_socket_buf=0;
 
-int address_t::from_str(char *str)
+int address_t::from_str(std::string str)
 {
 	clear();
 
 	char ip_addr_str[100];u32_t port;
-	mylog(log_info,"parsing address: %s\n",str);
+	mylog(log_info,"parsing address: %s\n",str.c_str());
 	int is_ipv6=0;
-	if(sscanf(str, "[%[^]]]:%u", ip_addr_str,&port)==2)
+
+#if 0
+	if(sscanf(str.c_str(), "[%[^]]]:%u", ip_addr_str,&port)==2)
 	{
 		mylog(log_info,"its an ipv6 adress\n");
 		inner.ipv6.sin6_family=AF_INET6;
 		is_ipv6=1;
 	}
-	else if(sscanf(str, "%[^:]:%u", ip_addr_str,&port)==2)
+	else if(sscanf(str.c_str(), "%[^:]:%u", ip_addr_str,&port)==2)
 	{
 		mylog(log_info,"its an ipv4 adress\n");
 		inner.ipv4.sin_family=AF_INET;
@@ -38,6 +43,50 @@ int address_t::from_str(char *str)
 		mylog(log_error,"failed to parse\n");
 		myexit(-1);
 	}
+
+#else
+	auto found_colon = str.rfind(":");
+	if (found_colon == std::string::npos) {
+		mylog(log_error, "failed to parse\n");
+		myexit(-1);
+	}
+	std::string hostname = str.substr(0, found_colon);
+	std::string portstr = str.substr(found_colon+1);
+	if (hostname.empty() || portstr.empty()) {
+		mylog(log_error, "failed to parse\n");
+		myexit(-1);
+	}
+	assert(sscanf(portstr.c_str(), "%u", &port) == 1);
+	mylog(log_info, "check hostname: %s\n", hostname.c_str());
+	struct addrinfo *addr_ret = nullptr;
+	int h_ret = getaddrinfo(hostname.c_str(), NULL, NULL, &addr_ret); // TODO fill hint
+	if (h_ret != 0) {
+		mylog(log_error, "getaddrinfo failed: %d\n", h_ret);
+		myexit(-1);
+	}
+	if (addr_ret == nullptr) {
+		mylog(log_error, "cannot resolve hostname\n");
+		myexit(-1);
+	}
+	// just use the first host info
+	auto rp = addr_ret;
+	// TODO Maybe I can just assign getaddrinfo results to inner...
+	switch (rp->ai_family) {
+		case AF_INET:
+			inner.ipv4.sin_family=AF_INET;
+			strcpy(ip_addr_str, inet_ntoa(((struct sockaddr_in*)(rp->ai_addr))->sin_addr));
+			break;
+		case AF_INET6:
+			inner.ipv6.sin6_family=AF_INET6;
+			is_ipv6=1;
+			inet_ntop(AF_INET6, &(((struct sockaddr_in6*)(rp->ai_addr))->sin6_addr), ip_addr_str, INET6_ADDRSTRLEN);
+			break;
+		default:
+			mylog(log_error,"failed to parse\n");
+			myexit(-1);
+	}
+
+#endif
 
 	mylog(log_info,"ip_address is {%s}, port is {%u}\n",ip_addr_str,port);
 

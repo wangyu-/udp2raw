@@ -2,10 +2,14 @@ FROM alpine:3.6 as builder
 
 WORKDIR /
 
-RUN apk add --no-cache git  build-base linux-headers && \
- git clone https://github.com/wangyu-/udp2raw-tunnel.git  && \
- cd udp2raw-tunnel && \
- make dynamic
+COPY . udp2raw-tunnel
+
+RUN apk add --no-cache git build-base linux-headers && cd udp2raw-tunnel && make dynamic
+
+#RUN apk add --no-cache git  build-base linux-headers && \
+# git clone https://github.com/wangyu-/udp2raw-tunnel.git  && \
+# cd udp2raw-tunnel && \
+# make dynamic
 
 FROM alpine:3.6
 RUN apk add --no-cache libstdc++ iptables

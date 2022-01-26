@@ -110,7 +110,7 @@ int process_lower_level_arg()//handle --lower-level option
 	lower_level_manual=1;
 	if (strchr(optarg, '#') == 0) {
 		mylog(log_fatal,
-				"lower-level parameter invaild,check help page for format\n");
+				"lower-level parameter invalid,check help page for format\n");
 		myexit(-1);
 	}
 	lower_level = 1;
@@ -359,12 +359,12 @@ void process_arg(int argc, char *argv[])  //process all options
 		}
 		if(len==1&&argv[i][0]=='-' )
 		{
-			mylog(log_fatal,"invaild option '-' in argv\n");
+			mylog(log_fatal,"invalid option '-' in argv\n");
 			myexit(-1);
 		}
 		if(len==2&&argv[i][0]=='-'&&argv[i][1]=='-' )
 		{
-			mylog(log_fatal,"invaild option '--' in argv\n");
+			mylog(log_fatal,"invalid option '--' in argv\n");
 			myexit(-1);
 		}
 	}
@@ -386,7 +386,7 @@ void process_arg(int argc, char *argv[])  //process all options
 
 	   if(all_options.find(a.c_str())==all_options.end())
 	   {
-			mylog(log_fatal,"invaild option %s\n",a.c_str());
+			mylog(log_fatal,"invalid option %s\n",a.c_str());
 			myexit(-1);
 	   }
 	   for(j=i+1;j<argc;j++)
