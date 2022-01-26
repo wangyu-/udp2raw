@@ -8,7 +8,7 @@ the guide on how to build udp2raw
 such as PC,raspberry pi
 
 ##### install git
-run on debian/ubuntun：
+run on debian/ubuntu:
 ```
 sudo apt-get install git
 ```
@@ -18,7 +18,7 @@ sudo yum install git
 ```
 ##### clone git code
 
-run in any dir：
+run in any dir:
 
 ```
 git clone https://github.com/wangyu-/udp2raw-tunnel.git
@@ -26,7 +26,7 @@ cd udp2raw-tunnel
 ```
 
 ##### install compile tool
-run on debian/ubuntun：
+run on debian/ubuntu:
 ```
 sudo apt-get install build-essential
 ```
@@ -42,7 +42,7 @@ run 'make'，compilation done. the udp2raw file is the just compiled binary
 such as openwrt router,run following instructions on your PC
 
 ##### install git
-run on debian/ubuntun：
+run on debian/ubuntu:
 ```
 sudo apt-get install git
 ```
