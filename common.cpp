@@ -12,6 +12,12 @@
 #include <random>
 #include <cmath>
 
+#ifdef UDP2RAW_LINUX
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
+
 //static int random_number_fd=-1;
 int force_socket_buf=0;
 
@@ -21,6 +27,38 @@ int address_t::from_str(char *str)
 
 	char ip_addr_str[100];u32_t port;
 	mylog(log_info,"parsing address: %s\n",str);
+#ifdef UDP2RAW_LINUX
+	char *pos = strrchr(str, ':');
+	memset(ip_addr_str, 0, sizeof(ip_addr_str));
+	strncpy(ip_addr_str, str, pos - str);
+	sscanf(pos + 1, "%u", &port);
+	struct addrinfo *res;
+	int ret = getaddrinfo(ip_addr_str, NULL, NULL, &res);
+	if (ret < 0)
+	{
+		mylog(log_error, "invalid addr: %s, %s\n",
+			  ip_addr_str, gai_strerror(ret));
+		myexit(-1);
+	}
+	memcpy(&inner, res->ai_addr, sizeof(*(res->ai_addr)));
+
+	if (port > 65535)
+	{
+		mylog(log_error, "invalid port: %d\n", port);
+		myexit(-1);
+	}
+
+	switch (res->ai_family)
+	{
+	case AF_INET:
+		inner.ipv4.sin_port = htons(port);
+		break;
+	case AF_INET6:
+		inner.ipv6.sin6_port = htons(port);
+		break;
+	}
+	freeaddrinfo(res);
+#else
 	int is_ipv6=0;
 	if(sscanf(str, "[%[^]]]:%u", ip_addr_str,&port)==2)
 	{
@@ -87,6 +125,7 @@ int address_t::from_str(char *str)
 			myexit(-1);
 		}
 	}
+#endif
 
 	return 0;
 }
@@ -95,6 +134,17 @@ int address_t::from_str_ip_only(char * str)
 {
 	clear();
 
+#ifdef UDP2RAW_LINUX
+	struct addrinfo *res;
+	int ret = getaddrinfo(str, NULL, NULL, &res);
+	if (ret < 0)
+	{
+		mylog(log_error, "invalid addr: %s, %s\n",
+			  str, gai_strerror(ret));
+		myexit(-1);
+	}
+	memcpy(&inner, res->ai_addr, sizeof(*(res->ai_addr)));
+#else
 	u32_t type;
 
 	if(strchr(str,':')==NULL)
@@ -128,6 +178,7 @@ int address_t::from_str_ip_only(char * str)
 		mylog(log_error,"ip_addr %s is invalid, %d\n",str,ret);
 		myexit(-1);
 	}
+#endif
 	return 0;
 }
 
