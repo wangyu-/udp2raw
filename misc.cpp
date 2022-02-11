@@ -696,10 +696,6 @@ if(is_udp2raw_mp)
 }
 				force_socket_buf=1;
 			}
-			else if(strcmp(long_options[option_index].name,"retry-on-error")==0)
-			{
-				retry_on_error=1;
-			}
 			else if(strcmp(long_options[option_index].name,"wait-lock")==0)
 			{
 				wait_xtables_lock=1;
@@ -974,8 +970,12 @@ void pre_process_arg(int argc, char *argv[])//mainly for load conf file
 			mylog(log_fatal,"cant have --conf-file in a config file\n");
 			myexit(-1);
 		}
-		new_argv_char[new_argc++]=(char *)new_argv[i].c_str();
+		else if(strcmp(new_argv[i].c_str(),"--retry-on-error")==0)
+			retry_on_error = 1;
+		else
+			new_argv_char[new_argc++]=(char *)new_argv[i].c_str();
 	}
+
 	process_arg(new_argc,new_argv_char);
 
 }

@@ -18,116 +18,57 @@ int force_socket_buf=0;
 int address_t::from_str(char *str)
 {
 	clear();
+	char addr_str[256], port_str[6], drop[2];
+	bool is_ipv6, is_ipv4_or_domain, is_domain = false;
+	mylog(log_info, "parsing address: %s\n", str);
+	is_ipv6 = sscanf(str, "[%45[^]]]:%5[0-9]%1s", addr_str, port_str, drop) == 2;
+	is_ipv4_or_domain = !is_ipv6 &&
+						sscanf(str, "%255[^:]:%5[0-9]%1s", addr_str, port_str, drop) == 2;
 
-	char ip_addr_str[100];u32_t port;
-	mylog(log_info,"parsing address: %s\n",str);
-	int is_ipv6=0;
-	if(sscanf(str, "[%[^]]]:%u", ip_addr_str,&port)==2)
+	if ((!is_ipv6 && !is_ipv4_or_domain) || strtoul(port_str, NULL, 10) > 65535)
 	{
-		mylog(log_info,"its an ipv6 adress\n");
-		inner.ipv6.sin6_family=AF_INET6;
-		is_ipv6=1;
-	}
-	else if(sscanf(str, "%[^:]:%u", ip_addr_str,&port)==2)
-	{
-		mylog(log_info,"its an ipv4 adress\n");
-		inner.ipv4.sin_family=AF_INET;
-	}
-	else
-	{
-		mylog(log_error,"failed to parse\n");
+		mylog(log_error, "invalid address: %s\n", str);
 		myexit(-1);
 	}
 
-	mylog(log_info,"ip_address is {%s}, port is {%u}\n",ip_addr_str,port);
-
-	if(port>65535)
+	if (is_ipv4_or_domain)
 	{
-		mylog(log_error,"invalid port: %d\n",port);
-		myexit(-1);
-	}
-
-	int ret=-100;
-	if(is_ipv6)
-	{
-		ret=inet_pton(AF_INET6, ip_addr_str,&(inner.ipv6.sin6_addr));
-		inner.ipv6.sin6_port=htons(port);
-		if(ret==0)  // 0 if address type doesnt match
+		char *p;
+		for (p = addr_str; *p != '\0'; p++)
 		{
-			mylog(log_error,"ip_addr %s is not an ipv6 address, %d\n",ip_addr_str,ret);
-			myexit(-1);
-		}
-		else if(ret==1) // inet_pton returns 1 on success
-		{
-			//okay
-		}
-		else
-		{
-			mylog(log_error,"ip_addr %s is invalid, %d\n",ip_addr_str,ret);
-			myexit(-1);
-		}
-	}
-	else
-	{
-		ret=inet_pton(AF_INET, ip_addr_str,&(inner.ipv4.sin_addr));
-		inner.ipv4.sin_port=htons(port);
-
-		if(ret==0)
-		{
-			mylog(log_error,"ip_addr %s is not an ipv4 address, %d\n",ip_addr_str,ret);
-			myexit(-1);
-		}
-		else if(ret==1)
-		{
-			//okay
-		}
-		else
-		{
-			mylog(log_error,"ip_addr %s is invalid, %d\n",ip_addr_str,ret);
-			myexit(-1);
+			if (!isdigit(*p) && *p != '.')
+			{
+				is_domain = true;
+				break;
+			}
 		}
 	}
 
+	struct addrinfo *res;
+	int ret;
+	while ((ret = getaddrinfo(addr_str, port_str, NULL, &res)) != 0)
+	{
+		mylog(log_error, "failed to parse: %s, %d\n", str, ret);
+		if (!is_domain || !retry_on_error || ret == EAI_MEMORY)
+			myexit(-1);
+		sleep(retry_on_error_interval);
+	}
+	memcpy(&inner, res->ai_addr, res->ai_addrlen);
+	freeaddrinfo(res);
 	return 0;
 }
 
-int address_t::from_str_ip_only(char * str)
+int address_t::from_str_ip_only(char *str)
 {
 	clear();
-
-	u32_t type;
-
-	if(strchr(str,':')==NULL)
-		type=AF_INET;
-	else
-		type=AF_INET6;
-
-	((sockaddr*)&inner)->sa_family=type;
-
-	int ret;
-	if(type==AF_INET)
+	struct addrinfo hints = {AI_NUMERICHOST}, *res;
+	if (getaddrinfo(str, NULL, &hints, &res))
 	{
-		ret=inet_pton(type, str,&inner.ipv4.sin_addr);
-	}
-	else
-	{
-		ret=inet_pton(type, str,&inner.ipv6.sin6_addr);
-	}
-
-	if(ret==0)  // 0 if address type doesnt match
-	{
-		mylog(log_error,"confusion in parsing %s, %d\n",str,ret);
+		mylog(log_error, "invalid address: %s\n", str);
 		myexit(-1);
 	}
-	else if(ret==1) // inet_pton returns 1 on success
-	{
-		//okay
-	}
-	else
-	{
-		mylog(log_error,"ip_addr %s is invalid, %d\n",str,ret);
-		myexit(-1);
-	}
+	memcpy(&inner, res->ai_addr, res->ai_addrlen);
+	freeaddrinfo(res);
 	return 0;
 }
 
