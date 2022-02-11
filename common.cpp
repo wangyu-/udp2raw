@@ -12,11 +12,39 @@
 #include <random>
 #include <cmath>
 
+#ifdef UDP2RAW_LINUX
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
+
 //static int random_number_fd=-1;
 int force_socket_buf=0;
 
 int address_t::from_str(char *str)
 {
+#ifdef UDP2RAW_LINUX
+	char ip_addr_str[100];
+	mylog(log_info, "parsing address: %s\n", str);
+	char *pos = strrchr(str, ':');
+	if (!pos)
+	{
+		mylog(log_error, "invalid addr: %s\n", ip_addr_str);
+		myexit(-1);
+	}
+	memset(ip_addr_str, 0, sizeof(ip_addr_str));
+	strncpy(ip_addr_str, str, pos - str);
+	struct addrinfo *res;
+	int ret = getaddrinfo(ip_addr_str, pos + 1, NULL, &res);
+	if (ret < 0)
+	{
+		mylog(log_error, "invalid addr: %s, %s\n",
+			  ip_addr_str, gai_strerror(ret));
+		myexit(-1);
+	}
+	memcpy(&inner, res->ai_addr, sizeof(*(res->ai_addr)));
+	freeaddrinfo(res);
+#else
 	clear();
 
 	char ip_addr_str[100];u32_t port;
@@ -87,6 +115,7 @@ int address_t::from_str(char *str)
 			myexit(-1);
 		}
 	}
+#endif
 
 	return 0;
 }
@@ -95,6 +124,17 @@ int address_t::from_str_ip_only(char * str)
 {
 	clear();
 
+#ifdef UDP2RAW_LINUX
+	struct addrinfo *res;
+	int ret = getaddrinfo(str, NULL, NULL, &res);
+	if (ret < 0)
+	{
+		mylog(log_error, "invalid addr: %s, %s\n",
+			  str, gai_strerror(ret));
+		myexit(-1);
+	}
+	memcpy(&inner, res->ai_addr, sizeof(*(res->ai_addr)));
+#else
 	u32_t type;
 
 	if(strchr(str,':')==NULL)
@@ -128,6 +168,7 @@ int address_t::from_str_ip_only(char * str)
 		mylog(log_error,"ip_addr %s is invalid, %d\n",str,ret);
 		myexit(-1);
 	}
+#endif
 	return 0;
 }
 
