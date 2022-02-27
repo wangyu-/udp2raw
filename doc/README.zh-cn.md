@@ -1,106 +1,126 @@
-# Udp2raw-tunnel 
-![image2](/images/image0.PNG)
-udp2raw tunnel，通过raw socket给UDP包加上TCP或ICMP header，进而绕过UDP屏蔽或QoS，或在UDP不稳定的环境下提升稳定性。可以有效防止在使用kcptun或者finalspeed的情况下udp端口被运营商限速。
+# Udp2raw-tunnel
 
-支持心跳保活、自动重连，重连后会恢复上次连接，在底层掉线的情况下可以保持上层不掉线。同时有加密、防重放攻击、信道复用的功能。
 
-[English](/README.md)
+A Tunnel which turns UDP Traffic into Encrypted FakeTCP/UDP/ICMP Traffic by using Raw Socket, helps you Bypass UDP FireWalls(or Unstable UDP Environment).
 
-[udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
+通过 Raw Socket 将 UDP 流量转换为加密的 假TCP/UDP/ICMP 流量的隧道，可帮助你绕过 UDP 防火墙/规避不稳定的 UDP 网络环境。
 
-[udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
+When used alone,udp2raw tunnels only UDP traffic. Nevertheless,if you used udp2raw + any UDP-based VPN together,you can tunnel any traffic(include TCP/UDP/ICMP),currently OpenVPN/L2TP/ShadowVPN and [tinyfecVPN](https://github.com/wangyu-/tinyfecVPN) are confirmed to be supported.
+
+单独使用时，udp2raw隧道仅处理UDP流量。尽管如此，将基于 UDP 使用的 VPN 与 udp2raw 一起使用时，你可以代理任何流量（包括 TCP/UDP/ICMP），目前已确定支持的有 OpenVPN/L2TP/ShadowVPN 与 [tinyfecVPN](https://github.com/wangyu-/tinyfecVPN)
+
+![image0](images/image0.PNG)
+
+or
+
+![image_vpn](images/udp2rawopenvpn.PNG)
 
 [udp2raw wiki](https://github.com/wangyu-/udp2raw-tunnel/wiki)
 
-**提示：**
+[简体中文](/doc/README.zh-cn.md)
 
-udp2raw不是加速器，只是一个帮助你绕过UDP限制的工具。如果你需要UDP“加速器” (改善UDP丢包)，请看UDPspeeder。
 
-UDPspeeder的repo:
+# Support Platforms
 
-https://github.com/wangyu-/UDPspeeder
 # 支持的平台
-Linux主机，有root权限或cap_net_raw capability.。可以是PC、android手机/平板、openwrt路由器、树莓派。主机上最好安装了iptables命令(apt/yum很容易安装)。
 
-Release中提供了`amd64`、`x86`、`arm`、`mips_be`、`mips_le`的预编译binary.
+Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root account or cap_net_raw capability.
 
-##### 对于windows和mac用户：
+有 root 权限的，或者 cap_net_raw 支持的 Linux 设备（包括桌面电脑， Android 手机/平板， OpenWRT 路由器和树莓派）。
 
-可以用[这个repo](https://github.com/wangyu-/udp2raw-multiplatform)里的udp2raw。
+For Windows and MacOS users, use the udp2raw in [this repo](https://github.com/wangyu-/udp2raw-multiplatform).
 
-##### 对于ios和游戏主机用户：
+对于 Windows 和 macOS 用户，使用[这个 Repo](https://github.com/wangyu-/udp2raw-multiplatform) 当中的udp2raw。
 
-可以把udp2raw运行在局域网的其他机器/虚拟机上。最好的办法是买个能刷OpenWrt/LEDE/梅林的路由器，把udp2raw运行在路由器上。
+# Features
 
-# 功能特性
-### 把udp流量伪装成tcp /icmp
-用raw socket给udp包加上tcp/icmp包头，可以突破udp流量限制或Udp QOS。或者在udp nat有问题的环境下，提升稳定性。  另外也支持用raw 发udp包，这样流量不会被伪装，只会被加密。
+# 功能
 
-### 模拟TCP3次握手
-模拟TCP3次握手，模拟seq ack过程。另外还模拟了一些tcp option：MSS,sackOk,TS,TS_ack,wscale，用来使流量看起来更像是由普通的linux tcp协议栈发送的。
+### Send/Receive UDP Packets with ICMP/FakeTCP/UDP headers
 
-### 心跳保活、自动重连，连接恢复
-心跳保活、自动重连，udp2raw重连可以恢复上次的连接，重连后上层连接继续有效，底层掉线上层不掉线。有效解决上层连接断开的问题。 （功能借鉴自[kcptun-raw](https://github.com/Chion82/kcptun-raw)）（**就算你拔掉网线重插，或者重新拨号获得新ip，上层应用也不会断线**）
+### 收发有 ICMP/假TCP/UDP 标头的 UDP 数据包。
 
-### 加密、防重放攻击
-用aes128cbc加密(或更弱的xor)，hmac-sha1(或更弱的md5/crc32/simple)做数据完整校验。用类似ipsec/openvpn的replay window机制来防止重放攻击。
+ICMP/FakeTCP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. In ICMP header mode,udp2raw works like an ICMP tunnel.
+
+ICMP/假TCP 标头帮助你绕过UDP封锁，UDP QoS 或者纠正由于部分 IPS 的 NAT 导致的 UDP 错误。。ICMP标头模式下， udp2raw 会像 ICMP 隧道一样工作。
+
+UDP headers are also supported. In UDP header mode, it behaves just like a normal UDP tunnel, and you can just make use of the other features (such as encryption, anti-replay, or connection stabilization).
+
+也支持UDP标头模式。在这个模式下，udp2raw 表现就像一个普通的 UDP 隧道，这时你可以使用其他udp2raw的功能，如加密，防重放，或者稳定性提升。
+
+### Simulated TCP with Real-time/Out-of-Order Delivery
+
+### 模拟实时/乱序 TCP 连接
+
+In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a connection,simulates seq and ack_seq while data transferring. It also simulates a few TCP options such as: `MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`. Firewalls will regard FakeTCP as a TCP connection, but its essentially UDP: it supports real-time/out-of-order delivery(just as normal UDP does), no congestion control or re-transmission. So there wont be any TCP over TCP problem when using OpenVPN.
+
+在假TCP标头模式，udp2raw 会在建立连接时模拟TCP的三次握手，在数据传输时模拟 seq 和 ack_seq。udp2raw同样会模拟一些TCP Options如：`MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`。防火墙会把这些假TCP流量认作TCP流量，但实际上它们是UDP：因为虽然它同样支持普通TCP的实时/乱序传输，但不支持重传或者堵塞控制。所以不必担心在使用 OpenVPN 时遇到 TCP over TCP 问题。
+
+### Encryption, Anti-Replay
+
+# 加密与防重放
+
+* Encrypt your traffic with AES-128-CBC.
+* 使用 AES-128-CBC 加密流量
+* Protect data integrity by HMAC-SHA1 (or weaker MD5/CRC32).
+* 使用 HMAC-SHA1 或者查错能力较差的 MD5/CRC32 保证数据完整性
+* Defense replay attack with anti-replay window.
+* 使用“滑动窗口”防止重放攻击。
 
 [Notes on encryption](https://github.com/wangyu-/udp2raw-tunnel/wiki/Notes-on-encryption)
 
-### 其他特性
-信道复用，client的udp端支持多个连接。
+[有关加密的内容](https://github.com/wangyu-/udp2raw-tunnel/wiki/Notes-on-encryption)
 
-server支持多个client，也能正确处理多个连接的重连和连接恢复。
+### Failure Dectection & Stabilization (Connection Recovery)
+Conection failures are detected by heartbeats. If timed-out, client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild.
 
-NAT 穿透 ，tcp icmp udp模式都支持nat穿透。
+For example, if you use udp2raw + OpenVPN, OpenVPN won't lose connection after any reconnect, **even if network cable is re-plugged or WiFi access point is changed**.
 
-支持Openvz，配合finalspeed使用，可以在openvz上用tcp模式的finalspeed.
+### Other Features
+* **Multiplexing** One client can handle multiple UDP connections, all of which share the same raw connection.
 
-支持Openwrt，没有编译依赖，容易编译到任何平台上。
+* **Multiple Clients** One server can have multiple clients.
 
-### 关键词
-突破udp qos,突破udp屏蔽，openvpn tcp over tcp problem,openvpn over icmp,udp to icmp tunnel,udp to tcp tunnel,udp via icmp,udp via tcp
+* **NAT Support** All of the 3 modes work in NAT environments.
 
-# 简明操作说明
+* **OpenVZ Support** Tested on BandwagonHost VPS.
 
-### 安装
-下载编译好的二进制文件，解压到任意目录。
+* **Easy to Build** No dependencies.To cross-compile udp2raw,all you need to do is just to download a toolchain,modify makefile to point at the toolchain,run `make cross` then everything is done.(Note:Pre-compiled binaries for Desktop,RaspberryPi,Android,some Openwrt Routers are already included in [Releases](https://github.com/wangyu-/udp2raw-tunnel/releases))
 
-https://github.com/wangyu-/udp2raw-tunnel/releases
+### Keywords
+`Bypass UDP QoS` `Bypass UDP Blocking` `Bypass OpenVPN TCP over TCP problem` `OpenVPN over ICMP` `UDP to ICMP tunnel` `UDP to TCP tunnel` `UDP over ICMP` `UDP over TCP`
 
-### 运行
-假设你有一个server，ip为44.55.66.77，有一个服务监听在udp 7777端口。 假设你本地的主机到44.55.66.77的UDP流量被屏蔽了，或者被qos了
+# Getting Started
+### Installing
+Download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
 
+### Running
+Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your server ip is 44.55.66.77, you have a service listening on udp port 7777.
+
+```bash
+# Run at server side:
+./udp2raw_amd64 -s -l0.0.0.0:4096 -r 127.0.0.1:7777    -k "passwd" --raw-mode faketcp -a
+
+# Run at client side
+./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096  -k "passwd" --raw-mode faketcp -a
 ```
-在server端运行:
-./udp2raw_amd64 -s -l0.0.0.0:4096  -r127.0.0.1:7777   -k "passwd" --raw-mode faketcp   --cipher-mode xor  -a
+(The above commands need to be run as root. For better security, with some extra steps, you can run udp2raw as non-root. Check [this link](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-as-non-root) for more info  )
 
-在client端运行:
-./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096 -k "passwd" --raw-mode faketcp   --cipher-mode xor  -a
-```
-(以上例子需要用root账号运行。 用非root运行udp2raw需要一些额外的步骤，具体方法请看 [这个](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-as-non-root) 链接。用非root运行更安全)
+###### Server Output:
+![](images/output_server.PNG)
+###### Client Output:
+![](images/output_client.PNG)
 
-###### Server端输出:
-![](/images/output_server.PNG)
-###### Client端输出:
-![](/images/output_client.PNG)
+Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
 
-现在client和server之间建立起了，tunnel。想要在本地连接44.55.66.77:7777，只需要连接 127.0.0.1:3333。来回的所有的udp流量会被经过tunneling发送。在外界看起来是tcp流量，不会有udp流量暴露到公网。
+### Note
+To run on Android, check [Android_Guide](/doc/android_guide.md)
 
-### MTU设置(重要)
+`-a` option automatically adds an iptables rule (or a few iptables rules) for you, udp2raw relies on this iptables rule to work stably. Be aware you dont forget `-a` (its a common mistake). If you dont want udp2raw to add iptables rule automatically, you can add it manually(take a look at `-g` option) and omit `-a`.
 
-不论你用udp2raw来加速kcptun还是vpn,为了稳定使用,都需要设置合理的MTU（在kcptun/vpn里设置，而不是在udp2raw里），建议把MTU设置成1200。client和server端都要设置。
 
-### 提醒
-`--cipher-mode xor`表示仅使用简单的XOR加密，这样可以节省CPU占用，以免CPU成为速度瓶颈。如果你需要更强的加密，可以去掉此选项，使用默认的AES加密。加密相关的选项见后文的`--cipher-mode`和`--auth-mode`。
-
-如果要在anroid上运行，请看[Android简明教程](/doc/android_guide.md)
-
-`-a`选项会自动添加一条/几条iptables规则，udp2raw必须和相应的iptables规则配合才能稳定工作，一定要注意不要忘了`-a`(这是个常见错误)。 如果你不想让udp2raw自动添加iptables规则，可以自己手动添加相应的iptables规则(看一下`-g`选项)，然后以不带`-a`的方式运行udp2raw。
-
-# 进阶操作说明
-
-### 命令选项
+# Advanced Topic
+### Usage
 ```
 udp2raw-tunnel
 git version:6e1df4b39f    build date:Oct 24 2017 09:21:15
@@ -111,10 +131,10 @@ usage:
     run as server : ./this_program -s -l server_listen_ip:server_port -r remote_address:remote_port  [options]
 
 common options,these options must be same on both side:
-    --raw-mode            <string>        available values:faketcp(default),udp,icmp
+    --raw-mode            <string>        avaliable values:faketcp(default),udp,icmp
     -k,--key              <string>        password to gen symetric key,default:"secret key"
-    --cipher-mode         <string>        available values:aes128cbc(default),xor,none
-    --auth-mode           <string>        available values:hmac_sha1,md5(default),crc32,simple,none
+    --cipher-mode         <string>        avaliable values:aes128cbc(default),xor,none
+    --auth-mode           <string>        avaliable values:hmac_sha1,md5(default),crc32,simple,none
     -a,--auto-rule                        auto add (and delete) iptables rule
     -g,--gen-rule                         generate iptables rule then exit,so that you can copy and
                                           add it manually.overrides -a
@@ -153,119 +173,88 @@ other options:
 
 ```
 
-### iptables 规则,`-a`和`-g`
-用raw收发tcp包本质上绕过了linux内核的tcp协议栈。linux碰到raw socket发来的包会不认识，如果一直收到不认识的包，会回复大量RST，造成不稳定或性能问题。所以强烈建议添加iptables规则屏蔽Linux内核的对指定端口的处理。用-a选项，udp2raw会在启动的时候自动帮你加上Iptables规则，退出的时候再自动删掉。如果长期使用，可以用-g选项来生成相应的Iptables规则再自己手动添加，这样规则不会在udp2raw退出时被删掉，可以避免停掉udp2raw后内核向对端回复RST。
+### Iptables rules,`-a` and `-g`
+This program sends packets via raw socket. In FakeTCP mode, Linux kernel TCP packet processing has to be blocked by a iptables rule on both sides, otherwise the kernel will automatically send RST for an unrecongized TCP packet and you will sustain from stability / peformance problems. You can use `-a` option to let the program automatically add / delete iptables rule on start / exit. You can also use the `-g` option to generate iptables rule and add it manually.
 
-用raw收发udp包也类似，只是内核回复的是icmp unreachable。而用raw 收发icmp，内核会自动回复icmp echo。都需要相应的iptables规则。
-### `--cipher-mode` 和 `--auth-mode` 
-如果要最大的安全性建议用aes128cbc+hmac_sha1。如果要运行在路由器上，建议用xor+simple，可以节省CPU。但是注意xor+simple只能骗过防火墙的包检测，不能防止真正的攻击者。
+### `--cipher-mode` and `--auth-mode`
+It is suggested to use `aes128cbc` + `hmac_sha1` to obtain maximum security. If you want to run the program on a router, you can try `xor` + `simple`, which can fool packet inspection by firewalls the most of time, but it cannot protect you from serious attacks. Mode none is only for debugging purpose. It is not recommended to set the cipher-mode or auth-mode to none.
 
 ### `--seq-mode`
-faketcp模式并没有模拟tcp的全部。所以理论上有办法把faketcp和真正的tcp流量区分开来（虽然大部分ISP不太可能做这种程度的包检测）。seq-mode可以改变一些seq ack的行为。如果遇到了连接问题，可以尝试更改。在我这边的移动线路用3种模式都没问题。
-
-### `--keep-rule`
-定期主动检查iptables，如果udp2raw添加的iptables规则丢了，就重新添加。在一些iptables可能会被其他程序清空的情况下(比如梅林固件和openwrt的路由器)格外有用。
-
-### `--fifo`
-指定一个fifo(named pipe)来向运行中的程序发送命令，例如`--fifo fifo.file`：
-
-在client端,可以用`echo reconnect >fifo.file`来强制client换端口重连（上层不断线）.对Server，目前没有效果。
+The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value.
 
 ### `--lower-level`
-大部分udp2raw不能连通的情况都是设置了不兼容的iptables造成的。--lower-level选项允许绕过本地iptables。在一些iptables不好改动的情况下尤其有效（比如你用的是梅林固件，iptables全是固件自己生成的）。
+`--lower-level` allows you to send packet at OSI level 2(link level),so that you can bypass any local iptables rules. If you have a complicated iptables rules which conflicts with udp2raw and you cant(or too lazy to) edit the iptables rules,`--lower-level` can be very useful. Try `--lower-level auto` to auto detect the parameters,you can specify it manually if `auto` fails.
 
-##### 格式
-`if_name#dest_mac_adress`,例如 `eth0#00:23:45:67:89:b9` 。`eth0`换成你的出口网卡名。`00:23:45:67:89:b9`换成网关的mac地址（如果client和server在同一个局域网内，可能不需要网关，这时候直接用对方主机的mac地址，这个属于罕见的应用场景，可以忽略）。
+Manual format `if_name#dest_mac_adress`,ie:`eth0#00:23:45:67:89:b9`.
 
-可以用`--lower-level auto`自动获取参数，如果获取参数失败，再手动填写。
-
-##### client端获得--lower-level参数的办法
-在client 端，运行`traceroute <server_ip>`，记下第一跳的地址，这个就是`网关ip`。再运行`arp -s <网关ip>`，可以同时查到出口网卡名和mac。
-
-![](/images/lower_level.PNG)
-
-如果traceroute第一跳结果是`* * *`，说明网关屏蔽了对traceroute的应答。需要用`ip route`或`route`查询网关：
-
-![](/images/route.PNG)
-##### server端获得--lower-level参数的办法
-如果client有公网ip，就`traceroute <client_ip>`。下一步和client端的方法一样。
-
-如果client没有公网ip，就`traceroute google.com` 或`traceroute baidu.com`。下一步和client端的方法一样。
-
-server端也可以用`--lower-level auto` 来尝试自动获得参数，如果无法连接再手动填写。
-
-##### 注意
-如果用了`--lower-level`选项。server虽然还可以bind在0.0.0.0，但是因为你显式指定了网络接口，就只能工作在这一个网络接口了。
-
-如果`arps -s`命令查询不到，首先再试几次。如果还是查询不到，那么可能是因为你用的是pppoe方式的拨号宽带，查询不到是正常的。这种情况下`if_name`填pppoe产生的虚拟interface，通常名字叫`pppXXXX`，从`ifconfig`命令的输出里找一下；`des_mac_adress`填`00:00:00:00:00:00`,例如`ppp0#00:00:00:00:00:00`
+### `--keep-rule`
+Monitor iptables and auto re-add iptables rules(for blocking kernel tcp processing) if necessary.Especially useful when iptables rules may be cleared by other programs(for example,if you are using openwrt,everytime you changed and commited a setting,iptables rule may be cleared and re-constructed).
 
 ### `--conf-file`
 
-为了避免将密码等私密信息暴露给`ps`命令，你也可以使用 `配置文件` 来存储参数。
+You can also load options from a configuration file in order to keep secrets away from `ps` command.
 
-比如，将以上服务端参数改写成配置文件
+For example, rewrite the options for the above `server` example (in Getting Started section) into configuration file:
 
-`server.conf`:
+`server.conf`
 
 ```
 -s
-# 你可以像这样添加注释
-# 注意，只有整行注释才能在配置文件里使用
-# 注释必须独占一行
+# You can add comments like this
+# Comments MUST occupy an entire line
+# Or they will not work as expected
+# Listen address
 -l 0.0.0.0:4096
+# Remote address
 -r 127.0.0.1:7777
 -a
 -k passwd
 --raw-mode faketcp
 ```
 
-注意，当写入配置文件的时候，密码等参数两边的引号必须去除。
+Pay attention to the `-k` parameter: In command line mode the quotes around the password will be removed by shell. In configuration files we do not remove quotes.
 
-然后就可以使用下面的方式启动服务端
+Then start the server with
 
 ```bash
 ./udp2raw_amd64 --conf-file server.conf
 ```
 
-# 性能测试
-iperf3 的UDP模式有BUG，所以，这里用iperf3的tcp模式，配合Openvpn，测试udp2raw的性能。（iperf3 udp issue ,https://github.com/esnet/iperf/issues/296 ）
+### `--fifo`
+Use a fifo(named pipe) for sending commands to the running program. For example `--fifo fifo.file`.
 
-openvpn关掉了自带的加密。
-#### iperf3 命令: 
+At client side,you can use `echo reconnect >fifo.file` to force client to reconnect.Currently no command has been implemented for server.
+
+# Peformance Test
+#### Test method:
+iperf3 TCP via OpenVPN + udp2raw
+(iperf3 UDP mode is not used because of a bug mentioned in this issue: https://github.com/esnet/iperf/issues/296 . Instead, we package the TCP traffic into UDP by OpenVPN to test the performance. Read [Application](https://github.com/wangyu-/udp2raw-tunnel#application) for details.
+
+#### iperf3 command:
 ```
-iperf3 -c 10.222.2.1 -P40 
+iperf3 -c 10.222.2.1 -P40
 iperf3 -c 10.222.2.1 -P40 -R
 ```
-#### client主机
-vultr 2.5美元每月套餐(single core 2.4ghz cpu,512m ram,日本东京机房),
-#### server主机
-bandwagonhost 3.99美元每年套餐(single core 2.0ghz cpu,128m ram,美国洛杉矶机房)
-### 测试1
+#### Environments
+* **Client** Vultr $2.5/monthly plan (single core 2.4GHz cpu, 512MB RAM, Tokyo, Japan)
+* **Server** BandwagonHost $3.99/annually plan (single core 2.0GHz cpu, 128MB RAM, Los Angeles, USA)
+
+### Test1
 raw_mode: faketcp  cipher_mode: xor  auth_mode: simple
 
-![image4](/images/image4.PNG)
+![image4](images/image4.PNG)
 
-（反向的速度几乎一样，所以只发正向测试的图)
+(reverse speed was simliar and not uploaded)
 
-测试中cpu被打满。其中有30%的cpu是被openvpn占的。 如果不用Openvpn中转，实际达到100+Mb/S 应该没问题。
-
-### 测试2
+### Test2
 raw_mode: faketcp  cipher_mode: aes128cbc  auth_mode: md5
 
-![image5](/images/image5.PNG)
+![image5](images/image5.PNG)
 
-（反向的速度几乎一样，所以只发正向测试的图)
-
-测试中cpu被打满。绝大多数cpu都是被udp2raw占用的（主要消耗在aes加密）。即使不用Openvpn，速度也不会快很多了。
-# 应用
-### 中转 kcptun
-[udp2raw+kcptun step_by_step教程](kcptun_step_by_step.md)
-### 中转 finalspeed
-[udp2raw+finalspeed step_by_step教程](finalspeed_step_by_step.md)
+(reverse speed was simliar and not uploaded)
 
 # wiki
 
-更多内容请看 wiki:
+Check wiki for more info:
 
 https://github.com/wangyu-/udp2raw-tunnel/wiki
-
