@@ -65,59 +65,108 @@ In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a co
 * Protect data integrity by HMAC-SHA1 (or weaker MD5/CRC32).
 * 使用 HMAC-SHA1 或者查错能力较差的 MD5/CRC32 保证数据完整性
 * Defense replay attack with anti-replay window.
-* 使用“滑动窗口”防止重放攻击。
+* 使用“滑动窗口”防止重放攻击
 
 [Notes on encryption](https://github.com/wangyu-/udp2raw-tunnel/wiki/Notes-on-encryption)
 
 [有关加密的内容](https://github.com/wangyu-/udp2raw-tunnel/wiki/Notes-on-encryption)
 
 ### Failure Dectection & Stabilization (Connection Recovery)
+
+### 断线检测与稳定性提升（连接恢复）
+
 Conection failures are detected by heartbeats. If timed-out, client will automatically change port number and reconnect. If reconnection is successful, the previous connection will be recovered, and all existing UDP conversations will stay vaild.
+
+心跳包会检测连接是否断开。如果连接超时，客户端将会自动切换端口号并重新连接。如果重连成功，原连接将会恢复，现有所有的 UDP 封包仍保持有效。
 
 For example, if you use udp2raw + OpenVPN, OpenVPN won't lose connection after any reconnect, **even if network cable is re-plugged or WiFi access point is changed**.
 
+例如，如果将 udp2raw 和 OpenVPN 配合使用，**就算是重插网线或者更换 Wi-Fi** 之类的重连， OpenVPN 也不会丢失连接。
+
 ### Other Features
+
+### 其他特性
+
 * **Multiplexing** One client can handle multiple UDP connections, all of which share the same raw connection.
+
+* **单线复用** 一个客户端可承载多路 UDP 连接，同时使用一个 Raw 连接。
 
 * **Multiple Clients** One server can have multiple clients.
 
+* **多客户端** 一个服务器可以被多个客户端连接。
+
 * **NAT Support** All of the 3 modes work in NAT environments.
+
+* **NAT 支持** 三种模式都支持 NAT 环境。
 
 * **OpenVZ Support** Tested on BandwagonHost VPS.
 
+* **OpenVZ 虚拟化支持** 已经在 BandwagonHost VPS上测试。
+
 * **Easy to Build** No dependencies.To cross-compile udp2raw,all you need to do is just to download a toolchain,modify makefile to point at the toolchain,run `make cross` then everything is done.(Note:Pre-compiled binaries for Desktop,RaspberryPi,Android,some Openwrt Routers are already included in [Releases](https://github.com/wangyu-/udp2raw-tunnel/releases))
 
+* **轻松构建** 没有依赖。跨平台编译 udp2raw 时，你只需要下载交叉编译链，修改 MAKEFILE 指向交叉编译链，运行 `make cross` 即可。（注：对于桌面端，树莓派，安卓与一部分 OpenWRT 路由器，预编译的可执行文件已经包含在  [Releases](https://github.com/wangyu-/udp2raw-tunnel/releases)。）
+
 ### Keywords
+
+### 关键字
+
 `Bypass UDP QoS` `Bypass UDP Blocking` `Bypass OpenVPN TCP over TCP problem` `OpenVPN over ICMP` `UDP to ICMP tunnel` `UDP to TCP tunnel` `UDP over ICMP` `UDP over TCP`
 
 # Getting Started
+
+# 快速开始
+
 ### Installing
+
+### 安装
+
 Download binary release from https://github.com/wangyu-/udp2raw-tunnel/releases
 
+在 https://github.com/wangyu-/udp2raw-tunnel/releases 下载可执行文件。
+
 ### Running
+
+### 运行
+
 Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your server ip is 44.55.66.77, you have a service listening on udp port 7777.
 
+假设你的 UDP 被封禁，被 QoS ，亦或只是支持较差。你有一台 IP 为 44.55.66.77 的服务器，上面有一个监听 UDP 端口 7777 的服务。
+
 ```bash
-# Run at server side:
+# 服务器
 ./udp2raw_amd64 -s -l0.0.0.0:4096 -r 127.0.0.1:7777    -k "passwd" --raw-mode faketcp -a
 
-# Run at client side
+# 客户端
 ./udp2raw_amd64 -c -l0.0.0.0:3333  -r44.55.66.77:4096  -k "passwd" --raw-mode faketcp -a
 ```
 (The above commands need to be run as root. For better security, with some extra steps, you can run udp2raw as non-root. Check [this link](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-as-non-root) for more info  )
 
+（上面的指令运行需要 root 。可以通过几个步骤，以非 root 运行 udp2raw 获得更好的安全性。 可点击 [这个链接](https://github.com/wangyu-/udp2raw-tunnel/wiki/run-udp2raw-as-non-root) 了解更多。）
+
 ###### Server Output:
+
+###### 服务器输出
 ![](images/output_server.PNG)
 ###### Client Output:
+
+###### 客户端输出
 ![](images/output_client.PNG)
 
 Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
 
+现在，在 TCP 端口 4096 上就建立起一个 raw 隧道。客户端对本地 UDP 端口 3333 的请求将会等同于请求服务器 UDP 端口 7777。没有任何暴露的 UDP 连接。
+
 ### Note
+
+### 注
 To run on Android, check [Android_Guide](/doc/android_guide.md)
+
+在安卓上运行请参考[Android_Guide](/doc/android_guide.md)。
 
 `-a` option automatically adds an iptables rule (or a few iptables rules) for you, udp2raw relies on this iptables rule to work stably. Be aware you dont forget `-a` (its a common mistake). If you dont want udp2raw to add iptables rule automatically, you can add it manually(take a look at `-g` option) and omit `-a`.
 
+`-a` 参数会自动加入保证 udp2raw 稳定运行的一条或几条 iptables 规则。这是一个常见问题，所以注意运行时有没有 `-a` 参数。如果你不希望 udp2raw 自动添加 iptables 规则，你可以手动添加规则并不加入 `-a` 选项。（请参考参数 `-g` 的用法。）
 
 # Advanced Topic
 ### Usage
