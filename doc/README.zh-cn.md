@@ -223,13 +223,24 @@ other options:
 ```
 
 ### Iptables rules,`-a` and `-g`
+### IPTables 规则，选项 `-a` 和 `-g`
 This program sends packets via raw socket. In FakeTCP mode, Linux kernel TCP packet processing has to be blocked by a iptables rule on both sides, otherwise the kernel will automatically send RST for an unrecongized TCP packet and you will sustain from stability / peformance problems. You can use `-a` option to let the program automatically add / delete iptables rule on start / exit. You can also use the `-g` option to generate iptables rule and add it manually.
 
+udp2raw 用 raw socket 发送数据包。在 假TCP 封包模式，Linux 内核的 TCP 封包处理必须在双向 IPTables 启用的情况下进行，否则 Linux 内核将会自动重置未识别的 TCP 封包，此时就会遇到稳定性/性能问题。可以使用 `-a` 选项让 udp2raw 在启动或停止时自动添加或删除 iptables 规则。你也可以使用 `-g` 选项来生成 iptables 规则并手动添加。
+
 ### `--cipher-mode` and `--auth-mode`
+### 选项 `--cipher-mode` 和`--auth-mode`
 It is suggested to use `aes128cbc` + `hmac_sha1` to obtain maximum security. If you want to run the program on a router, you can try `xor` + `simple`, which can fool packet inspection by firewalls the most of time, but it cannot protect you from serious attacks. Mode none is only for debugging purpose. It is not recommended to set the cipher-mode or auth-mode to none.
 
+建议使用 `aes128cbc` + `hmac_sha1` 以获得最佳安全性。如果你想在你的路由器上使用 udp2raw ，你可以尝试大多数情况下可以骗过防火墙的封包检查，但无法防止严重攻击的 `xor` + `simple` 。仅在调试模式下将这两个选项设为 `none` ，这是不建议的。
+
 ### `--seq-mode`
+
+### 选项 `--seq-mode`
+
 The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value.
+
+假TCP 封包模式并不 100% 表现得像真 TCP 连接。ISP可能有能力将 假TCP 与 真TCP 连接区分开，尽管开销很大。 `seq-mode` 可以给 seq 增加行为做略微修改。如果你遇到了问题，尝试修改这个选项。
 
 ### `--lower-level`
 `--lower-level` allows you to send packet at OSI level 2(link level),so that you can bypass any local iptables rules. If you have a complicated iptables rules which conflicts with udp2raw and you cant(or too lazy to) edit the iptables rules,`--lower-level` can be very useful. Try `--lower-level auto` to auto detect the parameters,you can specify it manually if `auto` fails.
