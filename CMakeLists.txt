@@ -5,6 +5,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 11)
 
+execute_process(COMMAND git rev-parse HEAD
+                OUTPUT_VARIABLE GIT_VER
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET)
+if (GIT_VER STREQUAL "")
+  set(GIT_VER "unknown")
+endif()
+file(WRITE git_version.h "const char *gitversion = \"${GIT_VER}\";")
+
+file(REMOVE makefile)
+
 set(SOURCE_FILES
         main.cpp 
         lib/md5.cpp
