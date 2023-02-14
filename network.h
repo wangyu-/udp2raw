@@ -56,6 +56,8 @@ struct icmphdr {
 };
 #endif
 
+extern int g_should_fragment;
+
 struct my_iphdr {
 #ifdef UDP2RAW_LITTLE_ENDIAN
     unsigned char ihl : 4;

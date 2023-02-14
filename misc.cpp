@@ -296,6 +296,9 @@ void process_arg(int argc, char *argv[])  // process all options
             {"no-pcap-mutex", no_argument, 0, 1},
 #endif
             {"fix-gro", no_argument, 0, 1},
+            {"do-fragment", no_argument, 0, 1},
+            {"rand-addr", no_argument, 0, 1},
+            {"wireguard", no_argument, 0, 1},
             {NULL, 0, 0, 0}};
 
     process_log_level(argc, argv);
@@ -677,6 +680,16 @@ void process_arg(int argc, char *argv[])  // process all options
                 } else if (strcmp(long_options[option_index].name, "fix-gro") == 0) {
                     mylog(log_info, "--fix-gro enabled\n");
                     g_fix_gro = 1;
+                } else if (strcmp(long_options[option_index].name, "do-fragment") == 0) {
+                    mylog(log_info, "--do-fragment enabled\n");
+                    g_should_fragment = 1;
+                } else if (strcmp(long_options[option_index].name, "rand-addr") == 0) {
+                    mylog(log_info, "--rand-addr enabled\n");
+                    g_randomize_local_addr = 1;
+                } else if (strcmp(long_options[option_index].name, "wireguard") == 0) {
+                    mylog(log_info, "--wireguard mode enabled, turning on --do-fragment and --rand-addr\n");
+                    g_should_fragment = 1;
+                    g_randomize_local_addr = 1;
                 } else {
                     mylog(log_warn, "ignored unknown long option ,option_index:%d code:<%x>\n", option_index, optopt);
                 }
