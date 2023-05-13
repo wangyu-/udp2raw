@@ -30,3 +30,5 @@ target_link_libraries(udp2raw rt)
 target_link_libraries(udp2raw pthread)
 include_directories(SYSTEM "libev")
 include_directories(".")
+
+install(TARGETS udp2raw)
