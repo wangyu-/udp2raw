@@ -1,4 +1,7 @@
 #note: experimental
+#      currently only used for generating `compile_commands.json` for clangd
+#      to build this project, it's suggested to use `makefile` instead
+
 cmake_minimum_required(VERSION 3.7)
 project(udp2raw)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
