@@ -40,19 +40,19 @@ int main(int argc, char *argv[]) {
 
     pre_process_arg(argc, argv);
 
+    ev_signal signal_watcher_sigpipe;
+    ev_signal signal_watcher_sigterm;
+    ev_signal signal_watcher_sigint;
+
     if (program_mode == client_mode) {
         struct ev_loop *loop = ev_default_loop(0);
 #if !defined(__MINGW32__)
-        ev_signal signal_watcher_sigpipe;
         ev_signal_init(&signal_watcher_sigpipe, sigpipe_cb, SIGPIPE);
         ev_signal_start(loop, &signal_watcher_sigpipe);
 #endif
-
-        ev_signal signal_watcher_sigterm;
         ev_signal_init(&signal_watcher_sigterm, sigterm_cb, SIGTERM);
         ev_signal_start(loop, &signal_watcher_sigterm);
 
-        ev_signal signal_watcher_sigint;
         ev_signal_init(&signal_watcher_sigint, sigint_cb, SIGINT);
         ev_signal_start(loop, &signal_watcher_sigint);
     } else {
