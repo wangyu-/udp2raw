@@ -226,11 +226,11 @@ struct packet_info_t  // todo change this to union
 
     bool has_ts;
 
+    i32_t data_len;
+
 #ifdef UDP2RAW_LINUX
     sockaddr_ll addr_ll;
 #endif
-
-    i32_t data_len;
 
     packet_info_t();
 };
