@@ -1714,7 +1714,8 @@ int send_raw_tcp(raw_info_t &raw_info, const char *payload, int payloadlen) {  /
 
     char *tcp_data = send_raw_tcp_buf + +tcph->doff * 4;
 
-    memcpy(tcp_data, payload, payloadlen);
+    if (payload)
+        memcpy(tcp_data, payload, payloadlen);
     int tcp_totlen = tcph->doff * 4 + payloadlen;
 
     if (raw_ip_version == AF_INET) {
