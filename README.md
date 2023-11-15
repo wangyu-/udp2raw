@@ -81,7 +81,7 @@ Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your
 Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
 
 ### Note
-To run on Android, check [Android_Guide](/doc/android_guide.md)
+To run on Android, check [Android_Guide](https://github.com/wangyu-/udp2raw/wiki/Android-Guide)
 
 `-a` option automatically adds an iptables rule (or a few iptables rules) for you, udp2raw relies on this iptables rule to work stably. Be aware you dont forget `-a` (its a common mistake). If you dont want udp2raw to add iptables rule automatically, you can add it manually(take a look at `-g` option) and omit `-a`.
 
