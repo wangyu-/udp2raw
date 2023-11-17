@@ -1159,6 +1159,7 @@ printf("pcap send!\n");*/
 }
 #endif
 
+int g_should_fragment = 0;
 int send_raw_ip(raw_info_t &raw_info, const char *payload, int payloadlen) {
     const packet_info_t &send_info = raw_info.send_info;
     const packet_info_t &recv_info = raw_info.recv_info;
@@ -1188,8 +1189,11 @@ int send_raw_ip(raw_info_t &raw_info, const char *payload, int payloadlen) {
             // iph->id = 0; //Id of this packet  ,kernel will auto fill this if id is zero  ,or really?????// todo //seems like there is a problem
         }
 
-        iph->frag_off = htons(0x4000);  // DF set,others are zero
-        // iph->frag_off = htons(0x0000); //DF set,others are zero
+        if (g_should_fragment) {
+            iph->frag_off = htons(0x0000);  //DF cleared,others are zero
+        } else {
+            iph->frag_off = htons(0x4000);  // DF set,others are zero
+        }
         iph->ttl = (unsigned char)ttl_value;
         iph->protocol = send_info.protocol;
         iph->check = 0;                        // Set to 0 before calculating checksum

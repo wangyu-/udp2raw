@@ -163,6 +163,8 @@ extern int force_socket_buf;
 
 extern int g_fix_gro;
 
+extern int g_randomize_local_addr;
+
 /*
 struct ip_port_t
 {
