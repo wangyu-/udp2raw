@@ -148,7 +148,9 @@ void print_help() {
     printf("    --disable-anti-replay                 disable anti-replay,not suggested\n");
     printf("    --fix-gro                             try to fix huge packet caused by GRO. this option is at an early stage.\n");
     printf("                                          make sure client and server are at same version.\n");
-
+    printf("    --tcp-spa                             TCP SPA mode to avoid port scanning.\n");
+    printf("                                          when enable on server mode, will check SYN's option.\n");
+    
     // printf("\n");
     printf("client options:\n");
     printf("    --source-ip           <ip>            force source-ip for raw socket\n");
@@ -296,6 +298,7 @@ void process_arg(int argc, char *argv[])  // process all options
             {"no-pcap-mutex", no_argument, 0, 1},
 #endif
             {"fix-gro", no_argument, 0, 1},
+            {"tcp-spa", no_argument, 0, 1},
             {NULL, 0, 0, 0}};
 
     process_log_level(argc, argv);
@@ -677,6 +680,9 @@ void process_arg(int argc, char *argv[])  // process all options
                 } else if (strcmp(long_options[option_index].name, "fix-gro") == 0) {
                     mylog(log_info, "--fix-gro enabled\n");
                     g_fix_gro = 1;
+                } else if (strcmp(long_options[option_index].name, "tcp-spa") == 0) {
+                    mylog(log_info, "--tcp-spa enabled\n");
+                    g_tcp_spa = 1;
                 } else {
                     mylog(log_warn, "ignored unknown long option ,option_index:%d code:<%x>\n", option_index, optopt);
                 }

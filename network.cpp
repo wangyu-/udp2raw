@@ -259,6 +259,40 @@ tcpdump -i eth1  ip and icmp -dd
  */
 #endif
 
+//tcp option for SPA
+int g_tcp_spa = 0;
+typedef struct tcpopt_data {
+    __u8 opcode;
+    __u8 opsize;
+    __u16 reserve;
+    __u32 csum;
+}tcpopt_data_t;
+
+#define TCPOPT_SPA      233  
+
+#define HASH_PRIME 16777619
+#define HASH_OFFSET 2166136261U
+
+//FNV-1a from GPT
+uint32_t checksum(uint32_t timestamp, const char* key) {
+    uint32_t hash = HASH_OFFSET;
+    const char* ptr = key;
+    size_t key_len = strlen(key);
+    
+    for (size_t i = 0; i < key_len; i++) {
+        hash ^= (uint32_t)ptr[i];
+        hash *= HASH_PRIME;
+    }
+
+    for (uint32_t i = 0; i < sizeof(uint32_t); i++) {
+        hash ^= (uint32_t)(timestamp & 0xFF);
+        hash *= HASH_PRIME;
+        timestamp >>= 8;
+    }
+    return hash;
+}
+//--------------
+
 packet_info_t::packet_info_t() {
     src_port = 0;
     dst_port = 0;
@@ -1679,6 +1713,16 @@ int send_raw_tcp(raw_info_t &raw_info, const char *payload, int payloadlen) {  /
         send_raw_tcp_buf[i++] = 0x03;
         send_raw_tcp_buf[i++] = 0x03;
         send_raw_tcp_buf[i++] = wscale;
+
+        if(g_tcp_spa && tcph->ack == 0) {
+            tcph->doff = 12;
+            tcpopt_data_t opt = {TCPOPT_SPA, sizeof(tcpopt_data_t), 0, 0};
+            uint32_t csum = checksum(ts, key_string);
+            opt.csum = htonl(csum);
+            memcpy(&send_raw_tcp_buf[i], &opt, opt.opsize);
+            i += opt.opsize;
+        }
+
     } else {
         tcph->doff = 8;
         int i = sizeof(my_tcphdr);
@@ -2113,6 +2157,8 @@ int parse_tcp_option(char *option_begin, char *option_end, packet_info_t &recv_i
     recv_info.has_ts = 0;
     recv_info.ts = 0;
 
+    tcpopt_data_t *opt = NULL;
+
     char *ptr = option_begin;
     // char *option_end=tcp_begin+tcp_hdr_len;
     while (ptr < option_end) {
@@ -2143,6 +2189,14 @@ int parse_tcp_option(char *option_begin, char *option_end, packet_info_t &recv_i
 
             // return 0;//we currently only parse ts, so just return after its found
             ptr += 10;
+        } else if (recv_info.syn == 1 && recv_info.ack == 0
+                && g_tcp_spa && (unsigned char)*ptr == TCPOPT_SPA) {
+            if (ptr + sizeof(tcpopt_data_t) > option_end) {
+                mylog(log_trace, "ptr+8>option_end for TCPOPT_SPA\n");
+                return -2;
+            }
+            opt = (tcpopt_data_t*)ptr;
+            ptr += sizeof(tcpopt_data_t);
         } else {
             if (ptr + 1 >= option_end) {
                 mylog(log_trace, "invaild option ptr+1==option_end\n");
@@ -2160,7 +2214,18 @@ int parse_tcp_option(char *option_begin, char *option_end, packet_info_t &recv_i
         // printf("!");
     }
     // printf("\n");
+    if(recv_info.syn == 1 && recv_info.ack == 0 && g_tcp_spa) {
+        if(opt == NULL) {
+            mylog(log_trace, "No found spa opt, pkt drop\n");
+            return -2;
+        }
 
+        uint32_t csum = checksum(htonl(recv_info.ts), key_string);
+        if(opt->csum != htonl(csum)){
+            mylog(log_trace, "SPA csum match failed\n");
+            return -2;
+        }
+    }
     return 0;
 }
 int recv_raw_tcp(raw_info_t &raw_info, char *&payload, int &payloadlen) {
@@ -2294,7 +2359,8 @@ int recv_raw_tcp(raw_info_t &raw_info, char *&payload, int &payloadlen) {
     }
     printf("<%d %d>\n",recv_info.ts,recv_info.ts_ack);
     */
-    parse_tcp_option(tcp_option, option_end, recv_info);
+
+    //parse_tcp_option(tcp_option, option_end, recv_info);
 
     recv_info.ack = tcph->ack;
     recv_info.syn = tcph->syn;
@@ -2303,6 +2369,9 @@ int recv_raw_tcp(raw_info_t &raw_info, char *&payload, int &payloadlen) {
     recv_info.dst_port = ntohs(tcph->dest);
 
     recv_info.seq = ntohl(tcph->seq);
+
+    if(-2 == parse_tcp_option(tcp_option, option_end, recv_info))
+        return -1;
 
     // recv_info.last_last_ack_seq=recv_info.last_ack_seq;
     // recv_info.last_ack_seq=recv_info.ack_seq;
