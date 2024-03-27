@@ -2157,7 +2157,7 @@ int parse_tcp_option(char *option_begin, char *option_end, packet_info_t &recv_i
     recv_info.has_ts = 0;
     recv_info.ts = 0;
 
-    bool no_found_spa_opt = true;
+    tcpopt_data_t *opt = NULL;
 
     char *ptr = option_begin;
     // char *option_end=tcp_begin+tcp_hdr_len;
@@ -2193,17 +2193,9 @@ int parse_tcp_option(char *option_begin, char *option_end, packet_info_t &recv_i
                 && g_tcp_spa && (unsigned char)*ptr == TCPOPT_SPA) {
             if (ptr + sizeof(tcpopt_data_t) > option_end) {
                 mylog(log_trace, "ptr+8>option_end for TCPOPT_SPA\n");
-                return -1;
-            }
-            tcpopt_data_t *opt = (tcpopt_data_t*)ptr;
-            uint32_t csum = checksum(htonl(recv_info.ts), key_string);
-            if(opt->csum == htonl(csum)){
-                //mylog(log_info, "SPA csum match succeed\n");
-                no_found_spa_opt = false;
-            } else {
-                mylog(log_info, "SPA csum match failed\n");
                 return -2;
             }
+            opt = (tcpopt_data_t*)ptr;
             ptr += sizeof(tcpopt_data_t);
         } else {
             if (ptr + 1 >= option_end) {
@@ -2222,9 +2214,17 @@ int parse_tcp_option(char *option_begin, char *option_end, packet_info_t &recv_i
         // printf("!");
     }
     // printf("\n");
-    if(recv_info.syn == 1 && recv_info.ack == 0 && g_tcp_spa && no_found_spa_opt) {
-        mylog(log_info, "No found spa opt, pkt drop\n");
-        return -2;
+    if(recv_info.syn == 1 && recv_info.ack == 0 && g_tcp_spa) {
+        if(opt == NULL) {
+            mylog(log_trace, "No found spa opt, pkt drop\n");
+            return -2;
+        }
+
+        uint32_t csum = checksum(htonl(recv_info.ts), key_string);
+        if(opt->csum != htonl(csum)){
+            mylog(log_trace, "SPA csum match failed\n");
+            return -2;
+        }
     }
     return 0;
 }
