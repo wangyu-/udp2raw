@@ -11,6 +11,7 @@
 
 #include <random>
 #include <cmath>
+#include <stdint.h>
 
 // static int random_number_fd=-1;
 int force_socket_buf = 0;
@@ -190,6 +191,8 @@ int address_t::from_sockaddr(sockaddr *addr, socklen_t slen) {
     return 0;
 }
 
+int g_randomize_local_addr = 0;
+static uint32_t g_lo_ip = 0x7f010001u;
 int address_t::new_connected_udp_fd() {
     int new_udp_fd;
     new_udp_fd = socket(get_type(), SOCK_DGRAM, IPPROTO_UDP);
@@ -200,6 +203,20 @@ int address_t::new_connected_udp_fd() {
     setnonblocking(new_udp_fd);
     set_buf_size(new_udp_fd, socket_buf_size);
 
+    struct sockaddr_in *paddr_inet = (struct sockaddr_in *)&inner;
+    if (paddr_inet->sin_family == AF_INET && g_randomize_local_addr && 
+    (ntohl(paddr_inet->sin_addr.s_addr) & 0xff000000u) == 0x7f000000u) {
+        // wireguard allows only one port number per address, so change source address on reconnection
+        struct sockaddr_in addr_bound;
+        memset(&addr_bound, 0, sizeof(addr_bound));
+        addr_bound.sin_family = AF_INET;
+        addr_bound.sin_addr.s_addr = htonl(g_lo_ip);
+        g_lo_ip += 0x2u;
+        mylog(log_debug, "randomizing local address when connecting to localhost, binding local ip %s\n", my_ntoa(g_lo_ip));
+        if (bind(new_udp_fd, (struct sockaddr *)&addr_bound, sizeof(addr_bound)) != 0) {
+            mylog(log_warn, "lo addr: bind failed\n");
+        }
+    }
     mylog(log_debug, "created new udp_fd %d\n", new_udp_fd);
     int ret = connect(new_udp_fd, (struct sockaddr *)&inner, get_len());
     if (ret != 0) {
