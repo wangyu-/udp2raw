@@ -3,7 +3,7 @@
 
 A Tunnel which turns UDP Traffic into Encrypted FakeTCP/UDP/ICMP Traffic by using Raw Socket, helps you Bypass UDP FireWalls(or Unstable UDP Environment).
 
-When used alone,udp2raw tunnels only UDP traffic. Nevertheless,if you used udp2raw + any UDP-based VPN together,you can tunnel any traffic(include TCP/UDP/ICMP),currently OpenVPN/L2TP/ShadowVPN and [tinyfecVPN](https://github.com/wangyu-/tinyfecVPN) are confirmed to be supported.
+When used alone, udp2raw tunnels only UDP traffic. Nevertheless, if you used udp2raw + any UDP-based VPN together, you can tunnel any traffic(include TCP/UDP/ICMP), currently OpenVPN/L2TP/ShadowVPN and [tinyfecVPN](https://github.com/wangyu-/tinyfecVPN) are confirmed to be supported.
 
 
 ![image0](images/image0.PNG)
@@ -18,18 +18,18 @@ or
 
 
 # Support Platforms
-Linux host (including desktop Linux,Android phone/tablet,OpenWRT router,or Raspberry PI) with root account or cap_net_raw capability.
+Linux host (including desktop Linux, Android phone/tablet, OpenWRT router, or Raspberry PI) with root account or cap_net_raw capability.
 
 For Windows and MacOS users, use the udp2raw in [this repo](https://github.com/wangyu-/udp2raw-multiplatform).
 
 # Features
 ### Send/Receive UDP Packets with ICMP/FakeTCP/UDP headers
-ICMP/FakeTCP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. In ICMP header mode,udp2raw works like an ICMP tunnel.
+ICMP/FakeTCP headers help you bypass UDP blocking, UDP QOS or improper UDP NAT behavior on some ISPs. In ICMP header mode, udp2raw works like an ICMP tunnel.
 
 UDP headers are also supported. In UDP header mode, it behaves just like a normal UDP tunnel, and you can just make use of the other features (such as encryption, anti-replay, or connection stabilization).
 
 ### Simulated TCP with Real-time/Out-of-Order Delivery
-In FakeTCP header mode,udp2raw simulates 3-way handshake while establishing a connection,simulates seq and ack_seq while data transferring. It also simulates a few TCP options such as: `MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`. Firewalls will regard FakeTCP as a TCP connection, but its essentially UDP: it supports real-time/out-of-order delivery(just as normal UDP does), no congestion control or re-transmission. So there wont be any TCP over TCP problem when using OpenVPN.
+In FakeTCP header mode, udp2raw simulates 3-way handshake while establishing a connection, simulates seq and ack_seq while data transferring. It also simulates a few TCP options such as: `MSS`, `sackOk`, `TS`, `TS_ack`, `wscale`. Firewalls will regard FakeTCP as a TCP connection, but its essentially UDP: it supports real-time/out-of-order delivery(just as normal UDP does), no congestion control or re-transmission. So there wont be any TCP over TCP problem when using OpenVPN.
 
 ### Encryption, Anti-Replay
 * Encrypt your traffic with AES-128-CBC.
@@ -52,7 +52,7 @@ For example, if you use udp2raw + OpenVPN, OpenVPN won't lose connection after a
 
 * **OpenVZ Support** Tested on BandwagonHost VPS.
 
-* **Easy to Build** No dependencies.To cross-compile udp2raw,all you need to do is just to download a toolchain,modify makefile to point at the toolchain,run `make cross` then everything is done.(Note:Pre-compiled binaries for Desktop,RaspberryPi,Android,some Openwrt Routers are already included in [Releases](https://github.com/wangyu-/udp2raw-tunnel/releases))
+* **Easy to Build** No dependencies.To cross-compile udp2raw, all you need to do is just to download a toolchain, modify makefile to point at the toolchain, run `make cross` then everything is done.(Note:Pre-compiled binaries for Desktop, RaspberryPi, Android, some Openwrt Routers are already included in [Releases](https://github.com/wangyu-/udp2raw-tunnel/releases))
 
 ### Keywords
 `Bypass UDP QoS` `Bypass UDP Blocking` `Bypass OpenVPN TCP over TCP problem` `OpenVPN over ICMP` `UDP to ICMP tunnel` `UDP to TCP tunnel` `UDP over ICMP` `UDP over TCP`
@@ -78,7 +78,7 @@ Assume your UDP is blocked or being QOS-ed or just poorly supported. Assume your
 ###### Client Output:
 ![](images/output_client.PNG)
 
-Now,an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
+Now, an encrypted raw tunnel has been established between client and server through TCP port 4096. Connecting to UDP port 3333 at the client side is equivalent to connecting to port 7777 at the server side. No UDP traffic will be exposed.
 
 ### Note
 To run on Android, check [Android_Guide](https://github.com/wangyu-/udp2raw/wiki/Android-Guide)
@@ -146,7 +146,7 @@ other options:
     -h,--help                             print this help message
 ```
 
-### Iptables rules,`-a` and `-g`
+### Iptables rules, `-a` and `-g`
 This program sends packets via raw socket. In FakeTCP mode, Linux kernel TCP packet processing has to be blocked by a iptables rule on both sides, otherwise the kernel will automatically send RST for an unrecongized TCP packet and you will sustain from stability / peformance problems. You can use `-a` option to let the program automatically add / delete iptables rule on start / exit. You can also use the `-g` option to generate iptables rule and add it manually.
 
 ### `--cipher-mode` and `--auth-mode`
@@ -156,12 +156,12 @@ It is suggested to use `aes128cbc` + `hmac_sha1` to obtain maximum security. If 
 The FakeTCP mode does not behave 100% like a real tcp connection. ISPs may be able to distinguish the simulated tcp traffic from the real TCP traffic (though it's costly). seq-mode can help you change the seq increase behavior slightly. If you experience connection problems, try to change the value.
 
 ### `--lower-level`
-`--lower-level` allows you to send packet at OSI level 2(link level),so that you can bypass any local iptables rules. If you have a complicated iptables rules which conflicts with udp2raw and you cant(or too lazy to) edit the iptables rules,`--lower-level` can be very useful. Try `--lower-level auto` to auto detect the parameters,you can specify it manually if `auto` fails.
+`--lower-level` allows you to send packet at OSI level 2(link level), so that you can bypass any local iptables rules. If you have a complicated iptables rules which conflicts with udp2raw and you cant(or too lazy to) edit the iptables rules, `--lower-level` can be very useful. Try `--lower-level auto` to auto detect the parameters, you can specify it manually if `auto` fails.
 
-Manual format `if_name#dest_mac_adress`,ie:`eth0#00:23:45:67:89:b9`.
+Manual format `if_name#dest_mac_adress`, ie:`eth0#00:23:45:67:89:b9`.
 
 ### `--keep-rule`
-Monitor iptables and auto re-add iptables rules(for blocking kernel tcp processing) if necessary.Especially useful when iptables rules may be cleared by other programs(for example,if you are using openwrt,everytime you changed and commited a setting,iptables rule may be cleared and re-constructed).
+Monitor iptables and auto re-add iptables rules(for blocking kernel tcp processing) if necessary.Especially useful when iptables rules may be cleared by other programs(for example, if you are using openwrt, everytime you changed and commited a setting, iptables rule may be cleared and re-constructed).
 
 ### `--conf-file`
 
@@ -196,7 +196,7 @@ Then start the server with
 ### `--fifo`
 Use a fifo(named pipe) for sending commands to the running program. For example `--fifo fifo.file`.
 
-At client side,you can use `echo reconnect >fifo.file` to force client to reconnect.Currently no command has been implemented for server.
+At client side, you can use `echo reconnect >fifo.file` to force client to reconnect.Currently no command has been implemented for server.
 
 # Peformance Test
 #### Test method:
