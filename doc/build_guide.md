@@ -89,4 +89,4 @@ run `make cross`，the just generated `udp2raw_cross` is the binary,compile done
 
 4. download https://github.com/wangyu-/files/releases/download/files/toolchains.tar.gz , and extract it to the right position (according to the makefile)
 
-5. run `make release` inside udp2raw's directory
+5. run `make CC=/usr/bin/c++ release` inside udp2raw's directory
