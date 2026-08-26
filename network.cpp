@@ -401,6 +401,13 @@ int init_raw_socket() {
         // init_ifindex(if_name);
     }
 
+    if (strlen(dev) != 0 && lower_level == 0) {
+        if (setsockopt(raw_send_fd, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen(dev) + 1) < 0) {
+            mylog(log_fatal, "bind raw send socket to dev [%s] failed, errno=%s\n", dev, strerror(errno));
+            myexit(1);
+        }
+    }
+
     int opt = 0;
     assert(setsockopt(raw_send_fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt)) == 0);  // raw_send_fd is for send only, set its recv buffer to zero
 
