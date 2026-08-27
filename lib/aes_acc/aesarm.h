@@ -38,6 +38,7 @@
 #endif
 
 #if defined(__GNUC__) && \
+    !defined(HAVE_ARM64) && \
     __ARM_ARCH >= 8 && \
     __ARM_ARCH_PROFILE == 'A' && \
     defined(__aarch64__) &&  \
@@ -54,9 +55,9 @@ extern "C" {
 #endif
 
 /**
- * \brief          ARMv8-A features detection routine
+ * \brief          ARMv8-A Cryptography Extension feature detection routine
  *
- * \return         1 if the CPU has support for the feature, 0 otherwise
+ * \return         1 if Linux reports HWCAP_AES, 0 otherwise
  */
 int aesarm_supported( void );
 

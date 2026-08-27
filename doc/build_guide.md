@@ -38,6 +38,71 @@ sudo yum groupinstall 'Development Tools'
 
 run 'make'，compilation done. the udp2raw file is the just compiled binary
 
+### 64-bit ARM Linux
+
+Two static ARM64 binaries are available:
+
+- `udp2raw_arm64` uses the portable C AES implementation.
+- `udp2raw_arm64_hw_aes` uses the ARMv8 Cryptography Extension when Linux
+  reports `HWCAP_AES`, and otherwise uses the same portable C implementation as
+  `udp2raw_arm64`.
+
+The hybrid binary is safe on baseline ARMv8-A CPUs. The daemon, runtime feature
+check, key schedules, cipher modes, and portable fallback are compiled with
+`-march=armv8-a`. Only the guarded AES block primitive is compiled with
+`-march=armv8-a+crypto`, and LTO is disabled across that object boundary. The
+backend is selected once per process with `getauxval(AT_HWCAP) & HWCAP_AES`.
+
+To build on an ARM64 Linux host:
+
+```sh
+make cc_arm64=g++ arm64 arm64_hw_aes
+```
+
+To cross-compile on Debian or Ubuntu, install the ARM64 cross compiler and run:
+
+```sh
+sudo apt-get install g++-aarch64-linux-gnu
+make arm64 arm64_hw_aes
+```
+
+The Raspberry Pi 4's Cortex-A72 does not implement the ARMv8 AES extension.
+`udp2raw_arm64_hw_aes` therefore reports `backend=portable-c` in the AES test
+and never calls the separately compiled crypto primitive there. The bundled
+ARM64 VPAES/NEON assembly is not linked into this target and is not used as its
+fallback. AES-capable ARM64 systems report `backend=armv8-crypto`.
+
+The AES tests must execute on an ARM64 Linux host. Set `AES_EXPECT_HW=1` on a
+CPU with the AES extension, or `AES_EXPECT_HW=0` on a baseline CPU such as a
+Raspberry Pi 4:
+
+```sh
+make cc_arm64=g++ AES_EXPECT_HW=1 test_arm64_aes
+make cc_arm64=g++ AES_EXPECT_HW=1 test_arm64_aes_all_key_sizes
+```
+
+The test compares portable and hybrid AES-128 ciphertext over a deterministic
+corpus and requires `corpus_digest=bc77f007f1106656`. It also covers NIST ECB,
+CBC, and CFB vectors; separate and in-place buffers; cached `key == NULL`
+calls; backend initialization; and AES-192/256 conditional builds.
+
+Run the cached-key throughput benchmark on an ARM64 host with:
+
+```sh
+make cc_arm64=g++ AES_EXPECT_HW=1 benchmark_arm64_aes
+```
+
+The binary audit checks ELF architecture and static linkage, unique public AES
+symbols, absence of VPAES, and confinement of `AESE`, `AESMC`, `AESD`, and
+`AESIMC` to the guarded crypto function:
+
+```sh
+make cc_arm64=g++ audit_arm64_aes
+```
+
+For a cross-built audit, set `OBJDUMP`, `NM`, and `READELF` to the matching
+ARM64 binutils tools when invoking `tests/audit_arm64_aes.sh`.
+
 ### platform which needs cross-compile
 such as openwrt router,run following instructions on your PC
 
