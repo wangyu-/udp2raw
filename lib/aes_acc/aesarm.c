@@ -27,30 +27,14 @@
 
 #if defined(HAVE_ARM64)
 
-#include <sys/auxv.h>
-#include <asm/hwcap.h>
 #include <arm_neon.h>
-
-/*
- * ARMv8a Crypto Extension support detection routine
- */
-int aesarm_supported( void )
-{
-    static int done = 0;
-    static unsigned int c = 0;
-
-    if ( ! done )
-    {
-        c = getauxval(AT_HWCAP);
-        done = 1;
-    }
-
-    return ( c & HWCAP_AES ) != 0;
-}
 
 /*
  * ARMv8a AES-ECB block en(de)cryption
  */
+#if defined(__GNUC__)
+__attribute__((noinline))
+#endif
 void aesarm_crypt_ecb( int nr,
                        unsigned char *rk,
                        int mode,

@@ -1,0 +1,46 @@
+name: ARM64 AES
+
+on:
+  pull_request:
+    branches: [unified]
+    paths:
+      - ".github/workflows/arm64-aes.yml"
+      - "lib/aes-common.h"
+      - "lib/aes-keysize.h"
+      - "lib/aes_acc/**"
+      - "lib/aes_faster_c/**"
+      - "tests/aes_backend_test.cpp"
+      - "tests/audit_arm64_aes.sh"
+      - "makefile"
+  push:
+    branches: [unified]
+    paths:
+      - ".github/workflows/arm64-aes.yml"
+      - "lib/aes-common.h"
+      - "lib/aes-keysize.h"
+      - "lib/aes_acc/**"
+      - "lib/aes_faster_c/**"
+      - "tests/aes_backend_test.cpp"
+      - "tests/audit_arm64_aes.sh"
+      - "makefile"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build static ARM64 binaries
+        run: make cc_arm64=g++ arm64 arm64_hw_aes
+      - name: Test portable and runtime-selected backends
+        run: |
+          expected_hw=0
+          if grep -qiw aes /proc/cpuinfo; then
+            expected_hw=1
+          fi
+          make cc_arm64=g++ AES_EXPECT_HW="$expected_hw" test_arm64_aes_all_key_sizes
+      - name: Audit ELF files, symbols, and AES opcodes
+        run: make cc_arm64=g++ audit_arm64_aes

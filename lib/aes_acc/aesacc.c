@@ -4,6 +4,7 @@
 
 #include "aesni.h"
 #include "aesarm.h"
+#include "lib/aes-common.h"
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
@@ -338,10 +339,19 @@ int AES_support_hwaccel(void)
 #endif
 }
 
+const char *AES_backend_name(void)
+{
+#ifdef HAVE_HARDAES
+  return aeshw_supported() ? "hardware-aes" : "assembly";
+#else
+  return "assembly";
+#endif
+}
+
 void AES_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
   uint8_t iv_tmp[16];
-  static uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE] __attribute__((aligned(16)));
 
   assert(iv!=NULL);
   aeshw_init();
@@ -354,7 +364,7 @@ void AES_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
 void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
   uint8_t iv_tmp[16];
-  static uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE] __attribute__((aligned(16)));
 
   assert(iv!=NULL);
   aeshw_init();
@@ -368,7 +378,7 @@ void AES_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
 
 void AES_ECB_encrypt_buffer(const uint8_t* input, const uint8_t* key, uint8_t* output)
 {
-  static uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE] __attribute__((aligned(16)));
 
   aeshw_init();
   if(key!=NULL)
@@ -378,7 +388,7 @@ void AES_ECB_encrypt_buffer(const uint8_t* input, const uint8_t* key, uint8_t* o
 
 void AES_ECB_decrypt_buffer(const uint8_t* input, const uint8_t* key, uint8_t *output)
 {
-  static uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE] __attribute__((aligned(16)));
 
   aeshw_init();
   if(key!=NULL)
@@ -433,7 +443,7 @@ static void decrypt_cfb( uint8_t* rk,
 void AES_CFB_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
   uint8_t iv_tmp[16];
-  static uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE] __attribute__((aligned(16)));
 
   assert(iv!=NULL);
   aeshw_init();
@@ -447,7 +457,7 @@ void AES_CFB_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
 void AES_CFB_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
   uint8_t iv_tmp[16];
-  static uint8_t rk[AES_RKSIZE];
+  static uint8_t rk[AES_RKSIZE] __attribute__((aligned(16)));
 
   assert(iv!=NULL);
   aeshw_init();
@@ -459,4 +469,3 @@ void AES_CFB_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, co
   size_t offset=0;
   decrypt_cfb(rk, length,&offset, iv_tmp, input, output);
 }
-
